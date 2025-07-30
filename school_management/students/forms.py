@@ -15,7 +15,6 @@ class StudentForm(forms.ModelForm):
 
     class Meta:
         model = Student
-        # fields 中不再包含 'current_class'，而是 'grade_level' 和 'class_name'
         fields = [
             'student_id', 'name', 'gender', 'date_of_birth',
             'status', 'id_card_number', 'student_enrollment_number',
@@ -39,9 +38,22 @@ class StudentForm(forms.ModelForm):
     # 重寫 __init__ 方法，以便在編輯時初始化 grade_level 和 class_name
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        if self.instance and self.instance.current_class:
-            self.fields['grade_level'].initial = self.instance.current_class.grade_level
-            self.fields['class_name'].initial = self.instance.current_class.class_name
+        # 如果是编辑现有学生
+        if self.instance and self.instance.pk:
+            # 初始化年級和班級
+            if self.instance.current_class:
+                self.fields['grade_level'].initial = self.instance.current_class.grade_level
+                self.fields['class_name'].initial = self.instance.current_class.class_name
+        
+        date_fields = ['date_of_birth', 'entry_date', 'graduation_date']
+        for field_name in date_fields:
+            field_value = getattr(self.instance, field_name)
+            if field_value:
+                # 如果字段有值，将其格式化为 'YYYY-MM-DD' 字符串
+                self.initial[field_name] = field_value.strftime('%Y-%m-%d')
+            else:
+                # 如果字段没有值，确保初始值是 None 或空字符串，避免显示 'None'
+                self.initial[field_name] = ''
 
     # 重寫 save 方法，以便處理 current_class 的關聯邏輯
     def save(self, commit=True):

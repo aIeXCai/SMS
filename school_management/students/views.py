@@ -6,6 +6,8 @@ from django.utils import timezone
 import openpyxl # 導入 openpyxl 庫
 from datetime import datetime
 from django.db.models import Q
+from django.http import HttpResponse
+import io
 
 from .models import Student, Class, GRADE_LEVEL_CHOICES, CLASS_NAME_CHOICES, STATUS_CHOICES
 from .forms import StudentForm, ExcelUploadForm, BatchUpdateStatusForm, BatchPromoteGradeForm
@@ -43,9 +45,6 @@ def student_list(request):
         students = students.filter(status=status)
     # --- 篩選邏輯結束 ---
 
-    # 獲取所有班級，用於班級篩選下拉選單
-    classes = Class.objects.all().order_by('grade_level', 'class_name')
-
     return render(request, 'students/student_list.html', {
         'students': students,
         'status_choices': STATUS_CHOICES,        
@@ -56,17 +55,6 @@ def student_list(request):
         'selected_grade': grade_level if grade_level else '', 
         'selected_status': status if status else '',  
     })
-
-
-    student = get_object_or_404(Student, pk=pk) # 根據 ID 獲取學生，如果找不到則返回 404
-    if request.method == 'POST':
-        form = StudentForm(request.POST, instance=student) # instance=student 表示修改現有對象
-        if form.is_valid():
-            form.save()
-            return redirect('student_list') # 修改成功後跳轉回列表頁
-    else:
-        form = StudentForm(instance=student) # 初始化表單時預填現有資料
-    return render(request, 'students/student_form.html', {'form': form, 'form_title': '编辑学生'})
 
 # 新增學生頁面 (PRD 3.1.3)
 @require_http_methods(["GET", "POST"])
@@ -151,152 +139,124 @@ def student_batch_import(request):
         form = ExcelUploadForm(request.POST, request.FILES)
         if form.is_valid():
             excel_file = request.FILES['excel_file']
-            
-            # 檢查文件類型，確保是 Excel 文件
-            if not excel_file.name.endswith(('.xlsx', '.xls')):
-                messages.error(request, "文件格式不正确，请上传 .xlsx 或 .xls 文件。")
-                return render(request, 'students/batch_operation_form.html', {'form': form, 'title': '批量导入学生'})
-
             try:
                 workbook = openpyxl.load_workbook(excel_file)
                 sheet = workbook.active
                 
-                header = [cell.value for cell in sheet[1]] # 獲取第一行的標題
+                # 假設第一行是標題，從第二行開始讀取數據
+                headers = [cell.value for cell in sheet[1]]
                 
-                # 預期 Excel 欄位名稱 (與 Model 字段名對應)
-                # 注意：这里需要与你的 Excel 模板的列名精确对应
-                # 例如：学号, 姓名, 性别, 出生日期, 班级名称, 年级, 在校状态, 身份证号码, 学籍号, 家庭地址, 监护人姓名, 监护人联系电话, 入学日期, 毕业日期
-                
-                # 简化处理，假设 Excel 列顺序固定且名称一致
-                # 你需要根據實際 Excel 模板的列順序和名稱來調整這裡的索引或映射
-                # 這裡僅為範例，實際開發需要更健壯的錯誤處理和列名映射
-                
-                # 定义 Excel 列名到模型字段名的映射
-                column_mapping = {
-                    '学号': 'student_id',
-                    '姓名': 'name',
-                    '性别': 'gender',
-                    '出生日期': 'date_of_birth',
-                    '班级名称': 'class_name', # 這是班級名稱，需要找到對應的 Class 對象
-                    '年级': 'grade_level', # 這是年級，需要和班級名稱一起找到 Class 對象
-                    '在校状态': 'status',
-                    '身份证号码': 'id_card_number',
-                    '学籍号': 'student_enrollment_number',
-                    '家庭地址': 'home_address',
-                    '监护人姓名': 'guardian_name',
-                    '监护人联系电话': 'guardian_contact_phone',
-                    '入学日期': 'entry_date',
-                    '毕业日期': 'graduation_date',
+                imported_count = 0
+                failed_rows = []
+
+                # 定义一个映射，将Excel中的列名映射到Student模型的字段名
+                # 这有助于即使Excel列顺序有变，也能正确导入
+                header_mapping = {
+                    "学号 (必填)": "student_id",
+                    "姓名 (必填)": "name",
+                    "性别 (男/女/未知)": "gender",
+                    "出生日期 (YYYY-MM-DD)": "date_of_birth",
+                    "年级 (初一/初二/初三/高一/高二/高三)": "grade_level", # 表单字段
+                    "班级名称 (1班-20班)": "class_name", # 表单字段
+                    "在校状态 (在读/转学/休学/复学/毕业)": "status",
+                    "身份证号码": "id_card_number",
+                    "学籍号": "student_enrollment_number",
+                    "家庭地址": "home_address",
+                    "监护人姓名": "guardian_name",
+                    "监护人联系电话": "guardian_contact_phone",
+                    "入学日期 (YYYY-MM-DD)": "entry_date",
+                    "毕业日期 (YYYY-MM-DD, 毕业状态必填)": "graduation_date",
                 }
-                
-                # 驗證 Excel 標頭是否包含所有必要字段
-                missing_columns = [col for col_label, col in column_mapping.items() if col_label not in header and col_label not in ['班级名称', '年级']] # 班级年级是组合查找
-                if missing_columns:
-                    messages.error(request, f"Excel 文件缺少以下必需的列：{', '.join(missing_columns)}")
-                    return render(request, 'students/batch_operation_form.html', {'form': form, 'title': '批量导入学生'})
 
-
-                students_to_create = []
-                students_to_update = []
-                errors = []
-                
-                with transaction.atomic(): # 使用事務，確保導入過程的原子性
-                    for row_idx, row_cells in enumerate(sheet.iter_rows(min_row=2, values_only=True)): # 從第二行開始讀取數據
-                        row_data = dict(zip(header, row_cells)) # 將行數據映射到標題
+                with transaction.atomic():
+                    for row_idx, row in enumerate(sheet.iter_rows(min_row=2, values_only=True), start=2):
+                        row_data = dict(zip(headers, row))
                         
-                        student_id = row_data.get('学号')
-                        if not student_id:
-                            errors.append(f"第 {row_idx + 2} 行：学号为空，跳过此行。")
-                            continue
+                        student_data = {}
+                        for excel_header, model_field in header_mapping.items():
+                            if excel_header in row_data:
+                                student_data[model_field] = row_data[excel_header]
 
-                        try:
-                            # 處理班級和年級
-                            class_name_val = row_data.get('班级名称')
-                            grade_level_val = row_data.get('年级')
-                            current_class_obj = None
-                            if class_name_val and grade_level_val:
-                                # 嘗試獲取或創建班級
+                        # 处理日期字段的格式转换
+                        for date_field in ['date_of_birth', 'entry_date', 'graduation_date']:
+                            if date_field in student_data and student_data[date_field]:
+                                try:
+                                    if isinstance(student_data[date_field], datetime):
+                                        # openpyxl 可能会直接读取为 datetime 对象
+                                        student_data[date_field] = student_data[date_field].date()
+                                    else:
+                                        # 尝试从字符串解析日期
+                                        student_data[date_field] = datetime.strptime(str(student_data[date_field]), '%Y-%m-%d').date()
+                                except ValueError:
+                                    student_data[date_field] = None # 或标记错误
+                                    messages.warning(request, f"第 {row_idx} 行的 '{date_field}' 日期格式不正确，已跳过或设置为None。")
+
+                        # 从 student_data 中提取 grade_level 和 class_name，用于查找或创建 Class 对象
+                        grade_level = student_data.pop('grade_level', None)
+                        class_name = student_data.pop('class_name', None)
+                        current_class_obj = None
+
+                        if grade_level and class_name:
+                            try:
                                 current_class_obj, created = Class.objects.get_or_create(
-                                    class_name=class_name_val,
-                                    grade_level=grade_level_val
+                                    grade_level=grade_level,
+                                    class_name=class_name
                                 )
                                 if created:
-                                    messages.info(request, f"班级 {grade_level_val}{class_name_val} 不存在，已自动创建。")
-                            
-                            # 格式化日期字段
-                            date_of_birth_val = row_data.get('出生日期')
-                            if isinstance(date_of_birth_val, datetime):
-                                date_of_birth_val = date_of_birth_val.date()
-                            elif date_of_birth_val:
-                                date_of_birth_val = datetime.strptime(str(date_of_birth_val).split(' ')[0], '%Y-%m-%d').date() # 處理可能的日期時間格式
+                                    messages.info(request, f"自动创建班级：{grade_level}{class_name}")
+                            except Exception as e:
+                                messages.error(request, f"第 {row_idx} 行班级数据处理失败: {e}")
+                                failed_rows.append((row_idx, row_data, f"班级创建/查找失败: {e}"))
+                                continue # 跳过当前行
 
-                            entry_date_val = row_data.get('入学日期')
-                            if isinstance(entry_date_val, datetime):
-                                entry_date_val = entry_date_val.date()
-                            elif entry_date_val:
-                                entry_date_val = datetime.strptime(str(entry_date_val).split(' ')[0], '%Y-%m-%d').date()
+                        student_data['current_class'] = current_class_obj # 設置學生關聯的班級
 
-                            graduation_date_val = row_data.get('毕业日期')
-                            if isinstance(graduation_date_val, datetime):
-                                graduation_date_val = graduation_date_val.date()
-                            elif graduation_date_val:
-                                graduation_date_val = datetime.strptime(str(graduation_date_val).split(' ')[0], '%Y-%m-%d').date()
-                            
-                            student_data = {
-                                'student_id': student_id,
-                                'name': row_data.get('姓名'),
-                                'gender': row_data.get('性别'),
-                                'date_of_birth': date_of_birth_val,
-                                'current_class': current_class_obj,
-                                'status': row_data.get('在校状态', '在讀'), # 默認在讀
-                                'id_card_number': row_data.get('身份证号码'),
-                                'student_enrollment_number': row_data.get('学籍号'),
-                                'home_address': row_data.get('家庭地址'),
-                                'guardian_name': row_data.get('监护人姓名'),
-                                'guardian_contact_phone': row_data.get('监护人联系电话'),
-                                'entry_date': entry_date_val,
-                                'graduation_date': graduation_date_val,
-                            }
-                            
-                            # 根據學號判斷是新增還是更新
-                            existing_student = Student.objects.filter(student_id=student_id).first()
-                            if existing_student:
-                                # 更新现有学生信息 (如果需要)
-                                for key, value in student_data.items():
-                                    if key != 'student_id' and value is not None: # 不更新学号，None值不覆盖
-                                        setattr(existing_student, key, value)
-                                students_to_update.append(existing_student)
+                        try:
+                            # 尝试获取现有学生，如果学号重复，则更新
+                            student_id = student_data.get('student_id')
+                            if not student_id:
+                                raise ValueError("学号不能为空")
+
+                            student_obj, created = Student.objects.update_or_create(
+                                student_id=student_id,
+                                defaults=student_data
+                            )
+                            if created:
+                                messages.info(request, f"成功新增学生：{student_obj.name} ({student_obj.student_id})")
                             else:
-                                students_to_create.append(Student(**student_data))
-
+                                messages.info(request, f"成功更新学生：{student_obj.name} ({student_obj.student_id})")
+                            imported_count += 1
                         except Exception as e:
-                            errors.append(f"第 {row_idx + 2} 行数据处理失败：{e}")
-                            continue
-                
-                if students_to_create:
-                    Student.objects.bulk_create(students_to_create)
-                    messages.success(request, f"成功新增 {len(students_to_create)} 名学生。")
-                
-                if students_to_update:
-                    # 使用 bulk_update 可以批量更新字段，但需要指定更新的字段
-                    # 或者循环保存 (如果字段较多或逻辑复杂)
-                    for student in students_to_update:
-                        student.save() # 这里会触发每个对象的 save 方法
-                    messages.success(request, f"成功更新 {len(students_to_update)} 名学生信息。")
+                            failed_rows.append((row_idx, row_data, str(e)))
+                            messages.error(request, f"第 {row_idx} 行学生导入失败: {e}")
 
-                if errors:
-                    for err in errors:
-                        messages.warning(request, err)
-                    messages.error(request, "部分学生数据导入失败，请检查警告信息。")
+                if imported_count > 0:
+                    messages.success(request, f"成功导入 {imported_count} 条学生数据。")
+                if failed_rows:
+                    messages.warning(request, f"有 {len(failed_rows)} 行数据导入失败，请查看下方详情。")
+                else:
+                    messages.info(request, "所有数据均已成功处理。")
                 
-                return redirect('student_list')
+                # 你可能希望在這裡將失敗的數據和原因傳遞到模板，以便顯示給用戶
+                # return render(request, 'students/student_batch_import.html', {'form': form, 'title': '批量导入学生', 'failed_rows': failed_rows})
+                return redirect('student_list') # 导入后返回列表页
 
             except Exception as e:
-                messages.error(request, f"文件读取或处理过程中发生错误：{e}")
-                return render(request, 'students/batch_operation_form.html', {'form': form, 'title': '批量导入学生'})
+                messages.error(request, f"文件处理失败或格式不正确: {e}")
+        else:
+            messages.error(request, "请选择正确的 Excel 文件。")
+            
     else:
         form = ExcelUploadForm()
-    return render(request, 'students/batch_operation_form.html', {'form': form, 'title': '批量导入学生'})
+    
+    # 將下載模板的 URL 傳遞給模板
+    download_template_url = request.build_absolute_uri(redirect('download_student_import_template').url)
+
+    return render(request, 'students/student_batch_import.html', {
+        'form': form,
+        'title': '批量导入学生',
+        'download_template_url': download_template_url, # <-- 將 URL 傳遞給模板
+    })
 
 # 批量刪除學生
 @require_POST
@@ -472,3 +432,78 @@ def student_batch_graduate(request):
         messages.error(request, f"批量畢業操作失敗：{e}")
     
     return redirect('student_list') # 操作完成後導回學生列表頁面
+
+# 下載學生導入模板函數
+def download_student_import_template(request):
+    # 創建一個新的工作簿
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    sheet.title = "学生导入模板"
+
+    # 定義 Excel 表頭 (對應 Student 模型的關鍵字段)
+    # 這裡的順序和名稱可以根據實際導入邏輯調整
+    headers = [
+        "学号 (必填)", "姓名 (必填)", "性别 (男/女)", "出生日期 (YYYY-MM-DD)",
+        "年级 (初一/初二/初三/高一/高二/高三)", "班级名称 (1班-20班)", "在校状态 (在读/转学/休学/复学/毕业)",
+        "身份证号码", "学籍号", "家庭地址", "监护人姓名", "监护人联系电话",
+        "入学日期 (YYYY-MM-DD)", "毕业日期 (YYYY-MM-DD, 毕业状态必填)"
+    ]
+    sheet.append(headers)
+
+    # 針對有選項的欄位，添加提示信息或數據驗證 (更友好的提示)
+    # 性別提示
+    gender_validation_text = "请填写 '男'或'女'"
+    sheet.cell(row=2, column=headers.index("性别 (男/女)") + 1).comment = openpyxl.comments.Comment(gender_validation_text, "System")
+
+    # 年級提示
+    grade_level_options = ', '.join([choice[0] for choice in GRADE_LEVEL_CHOICES])
+    grade_validation_text = f"请填写以下任一年级: {grade_level_options}"
+    sheet.cell(row=2, column=headers.index("年级 (初一/初二/初三/高一/高二/高三)") + 1).comment = openpyxl.comments.Comment(grade_validation_text, "System")
+
+    # 班級名稱提示
+    class_name_options = ', '.join([choice[0] for choice in CLASS_NAME_CHOICES])
+    class_validation_text = f"请填写以下任一班级: {class_name_options}"
+    sheet.cell(row=2, column=headers.index("班级名称 (1班-20班)") + 1).comment = openpyxl.comments.Comment(class_validation_text, "System")
+
+    # 在校狀態提示
+    status_options = ', '.join([choice[0] for choice in STATUS_CHOICES])
+    status_validation_text = f"请填写以下任一状态: {status_options}"
+    sheet.cell(row=2, column=headers.index("在校状态 (在读/转学/休学/复学/毕业)") + 1).comment = openpyxl.comments.Comment(status_validation_text, "System")
+
+    # 日期格式提示
+    date_format_text = "日期格式必须是 YYYY-MM-DD，例如 2006-01-23"
+    sheet.cell(row=2, column=headers.index("出生日期 (YYYY-MM-DD)") + 1).comment = openpyxl.comments.Comment(date_format_text, "System")
+    sheet.cell(row=2, column=headers.index("入学日期 (YYYY-MM-DD)") + 1).comment = openpyxl.comments.Comment(date_format_text, "System")
+    sheet.cell(row=2, column=headers.index("毕业日期 (YYYY-MM-DD, 毕业状态必填)") + 1).comment = openpyxl.comments.Comment(date_format_text + " (毕业状态必填此项)", "System")
+
+
+    # 將工作簿內容寫入內存緩衝區
+    excel_file = io.BytesIO()
+    workbook.save(excel_file)
+    excel_file.seek(0) # 將文件指針移到開頭
+
+    # 設置 HTTP 響應頭，觸發下載
+    response = HttpResponse(
+        excel_file.read(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = 'attachment; filename="student_import_template.xlsx"'
+    return response
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -23,4 +23,7 @@ urlpatterns = [
 
     # 批量毕业
     path('students/batch_graduate/', views.student_batch_graduate, name='student_batch_graduate'),
+
+    # 下载导入数据的Excel模板
+    path('students/download_template/', views.download_student_import_template, name='download_student_import_template'),
 ]
