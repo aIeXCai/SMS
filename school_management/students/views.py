@@ -191,6 +191,20 @@ def student_batch_import(request):
                                     student_data[date_field] = None # 或标记错误
                                     messages.warning(request, f"第 {row_idx} 行的 '{date_field}' 日期格式不正确，已跳过或设置为None。")
 
+                        # 处理性别字段的容错解析
+                        if 'gender' in student_data and student_data['gender']:
+                            gender_value = str(student_data['gender']).strip()
+                            gender_mapping = {
+                                '男': '男', 'M': '男', 'Male': '男', 'male': '男', '1': '男',
+                                '女': '女', 'F': '女', 'Female': '女', 'female': '女', '0': '女'
+                            }
+                            student_data['gender'] = gender_mapping.get(gender_value, gender_value)
+                            
+                            # 验证性别值是否有效
+                            if student_data['gender'] not in ['男', '女']:
+                                messages.warning(request, f"第 {row_idx} 行的性别值 '{gender_value}' 无效，已设置为空")
+                                student_data['gender'] = None
+
                         # 从 student_data 中提取 grade_level 和 class_name，用于查找或创建 Class 对象
                         grade_level = student_data.pop('grade_level', None)
                         class_name = student_data.pop('class_name', None)

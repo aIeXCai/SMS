@@ -1,6 +1,7 @@
 from random import choices
 from django.db import models
 from django.contrib.auth.models import User # Django 内建的用户模型
+from django.core.validators import RegexValidator
 # 如果你在 settings.py 中配置了 AUTH_USER_MODEL 为自定义用户模型，则需要导入你自己的用户模型
 
 GRADE_LEVEL_CHOICES = [
@@ -41,6 +42,7 @@ class Class(models.Model):
     def __str__(self):
         return f"{self.grade_level}{self.class_name}" # 例如：高一1班
 
+
 class Student(models.Model):
     """
     學生實體：儲存每個學生的基本資料。
@@ -58,11 +60,34 @@ class Student(models.Model):
     current_class = models.ForeignKey(Class, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="当前班级") # 保持與 Class 的外鍵關係
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='在讀', verbose_name="在校状态")
     
-    id_card_number = models.CharField(max_length=18, unique=True, null=True, blank=True, verbose_name="身份证号码")
+    id_card_number = models.CharField(
+        max_length=18, 
+        unique=True, 
+        null=True, 
+        blank=True, 
+        verbose_name="身份证号码",
+        validators=[
+            RegexValidator(
+                regex=r'^[1-9]\d{5}(18|19|20)\d{2}((0[1-9])|(1[0-2]))(([0-2][1-9])|10|20|30|31)\d{3}[0-9Xx]$',
+                message='身份证号码格式不正确'
+            )
+        ]
+    )
     student_enrollment_number = models.CharField(max_length=30, unique=True, null=True, blank=True, verbose_name="学籍号")
     home_address = models.TextField(null=True, blank=True, verbose_name="家庭地址")
     guardian_name = models.CharField(max_length=50, null=True, blank=True, verbose_name="监护人姓名")
-    guardian_contact_phone = models.CharField(max_length=20, null=True, blank=True, verbose_name="监护人联系电话")
+    guardian_contact_phone = models.CharField(
+        max_length=20, 
+        null=True, 
+        blank=True, 
+        verbose_name="监护人联系电话",
+        validators=[
+            RegexValidator(
+                regex=r'^1[3-9]\d{9}$',
+                message='请输入正确的手机号码格式'
+            )
+        ]
+    )
     entry_date = models.DateField(verbose_name="入学日期")
     graduation_date = models.DateField(null=True, blank=True, verbose_name="毕业日期")
 
