@@ -2,29 +2,172 @@
 <html>
 <head>
     <title>{{ title }}</title>
+    <style>
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 600px;
+            border-radius: 8px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .close:hover {
+            color: black;
+        }
+        .success { color: green; }
+        .error { color: red; }
+        .warning { color: orange; }
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+    </style>
 </head>
 <body>
     <h1>{{ title }}</h1>
 
-    {% if messages %}
-        <ul class="messages">
-            {% for message in messages %}
-                <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
-            {% endfor %}
-        </ul>
-    {% endif %}
-
     <p>请选择一个 Excel 文件进行学生数据批量导入。文件应包含学生学号、姓名等信息。</p>
     <p>
         <strong>重要提示：</strong>请使用提供的模板文件，以确保数据格式正确。
-        <a href="{{ download_template_url }}" target="_blank" style="margin-left: 10px; padding: 5px 10px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 4px;">下载导入模板</a>
+        <a href="{% url 'download_student_import_template' %}" target="_blank" style="margin-left: 10px; padding: 5px 10px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 4px;">下载导入模板</a>
     </p>
 
-    <form method="post" enctype="multipart/form-data">
+    <form id="importForm" method="post" enctype="multipart/form-data">
         {% csrf_token %}
         {{ form.as_p }}
         <button type="submit">导入</button>
         <a href="{% url 'student_list' %}">取消</a>
     </form>
+
+    <div class="loading" id="loading">
+        <p>正在处理文件，请稍候...</p>
+    </div>
+
+    <!-- 弹窗模态框 -->
+    <div id="resultModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h2 id="modalTitle">导入结果</h2>
+            <div id="modalContent"></div>
+            <div style="text-align: center; margin-top: 20px;">
+                <button onclick="closeModal()">关闭</button>
+                <button onclick="goToStudentList()">查看学生列表</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('importForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const loading = document.getElementById('loading');
+            
+            loading.style.display = 'block';
+            
+            fetch('{% url "student_batch_import" %}', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                loading.style.display = 'none';
+                showResultModal(data);
+            })
+            .catch(error => {
+                loading.style.display = 'none';
+                showResultModal({
+                    success: false,
+                    error: '网络错误或服务器异常'
+                });
+            });
+        });
+
+        function showResultModal(data) {
+            const modal = document.getElementById('resultModal');
+            const modalContent = document.getElementById('modalContent');
+            
+            let content = '';
+            
+            if (data.success) {
+                content += `<div class="success"><h3>导入成功！</h3></div>`;
+                content += `<p><strong>成功导入：</strong>${data.imported_count} 条记录</p>`;
+                
+                if (data.failed_count > 0) {
+                    content += `<p><strong>失败记录：</strong>${data.failed_count} 条</p>`;
+                }
+                
+                if (data.success_messages && data.success_messages.length > 0) {
+                    content += '<h4>成功记录：</h4><ul>';
+                    data.success_messages.forEach(msg => {
+                        content += `<li class="success">${msg}</li>`;
+                    });
+                    content += '</ul>';
+                }
+                
+                if (data.error_messages && data.error_messages.length > 0) {
+                    content += '<h4>错误记录：</h4><ul>';
+                    data.error_messages.forEach(msg => {
+                        content += `<li class="error">${msg}</li>`;
+                    });
+                    content += '</ul>';
+                }
+                
+                if (data.warning_messages && data.warning_messages.length > 0) {
+                    content += '<h4>警告信息：</h4><ul>';
+                    data.warning_messages.forEach(msg => {
+                        content += `<li class="warning">${msg}</li>`;
+                    });
+                    content += '</ul>';
+                }
+            } else {
+                content += `<div class="error"><h3>导入失败！</h3></div>`;
+                content += `<p class="error">${data.error}</p>`;
+            }
+            
+            modalContent.innerHTML = content;
+            modal.style.display = 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('resultModal').style.display = 'none';
+        }
+
+        function goToStudentList() {
+            window.location.href = '{% url "student_list" %}';
+        }
+
+        // 点击模态框外部关闭
+        window.onclick = function(event) {
+            const modal = document.getElementById('resultModal');
+            if (event.target == modal) {
+                modal.style.display = 'none';
+            }
+        }
+    </script>
 </body>
 </html>
