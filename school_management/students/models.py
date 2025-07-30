@@ -1,24 +1,34 @@
+from random import choices
 from django.db import models
 from django.contrib.auth.models import User # Django 内建的用户模型
 # 如果你在 settings.py 中配置了 AUTH_USER_MODEL 为自定义用户模型，则需要导入你自己的用户模型
+
+GRADE_LEVEL_CHOICES = [
+    ('高一', '高一'),
+    ('高二', '高二'),
+    ('高三', '高三'),
+    ('初一', '初一'),
+    ('初二', '初二'),
+    ('初三', '初三'),
+    # 可以根據需要添加更多年級，例如 '初一', '初二', '初三'
+]
+
+CLASS_NAME_CHOICES = [(f'{i}班', f'{i}班') for i in range(1, 21)]
+
+STATUS_CHOICES = [
+    ('在讀', '在读'),
+    ('轉學', '转学'),
+    ('休學', '休学'),
+    ('復學', '复学'),
+    ('畢業', '毕业'),
+]
 
 class Class(models.Model):
     """
     班級實體：管理學校的班級資訊，包含年級。
     """
-    # Django 會自動創建一個 id 作為主鍵
-    grade_level_choices = [
-        ('高一', '高一'),
-        ('高二', '高二'),
-        ('高三', '高三'),
-        ('初一', '初一'),
-        ('初二', '初二'),
-        ('初三', '初三'),
-        # 可以根據需要添加更多年級，例如 '初一', '初二', '初三'
-    ]
-
-    grade_level = models.CharField(max_length=10, choices=grade_level_choices, verbose_name="年级")
-    class_name = models.CharField(max_length=20, verbose_name="班级名称") # 例如 '1班', '2班'
+    grade_level = models.CharField(max_length=10, choices=GRADE_LEVEL_CHOICES, verbose_name="年级")
+    class_name = models.CharField(max_length=20, choices=CLASS_NAME_CHOICES, verbose_name="班级名称") # 例如 '1班', '2班'
     # full_class_name 可以在 Model 方法中生成，無需單獨儲存
     homeroom_teacher = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="班主任")
 
@@ -45,18 +55,8 @@ class Student(models.Model):
     gender = models.CharField(max_length=5, choices=gender_choices, verbose_name="性别")
     
     date_of_birth = models.DateField(verbose_name="出生日期")
-    
-    # 外鍵關聯到 Class 實體，表示學生屬於哪個班級
-    current_class = models.ForeignKey(Class, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="当前班级")
-    
-    status_choices = [
-        ('在讀', '在读'),
-        ('轉學', '转学'),
-        ('休學', '休学'),
-        ('復學', '复学'),
-        ('畢業', '毕业'),
-    ]
-    status = models.CharField(max_length=10, choices=status_choices, default='在讀', verbose_name="在校状态")
+    current_class = models.ForeignKey(Class, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="当前班级") # 保持與 Class 的外鍵關係
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='在讀', verbose_name="在校状态")
     
     id_card_number = models.CharField(max_length=18, unique=True, null=True, blank=True, verbose_name="身份证号码")
     student_enrollment_number = models.CharField(max_length=30, unique=True, null=True, blank=True, verbose_name="学籍号")
@@ -72,7 +72,6 @@ class Student(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.student_id})"
-
 
 class Exam(models.Model):
     """

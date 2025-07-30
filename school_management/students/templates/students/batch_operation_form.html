@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ title }}</title>
+</head>
+<body>
+    <h1>{{ title }}</h1>
+
+    {# Django messages will be displayed here #}
+    {% if messages %}
+        <ul class="messages">
+            {% for message in messages %}
+                <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+
+    <form method="post" enctype="multipart/form-data"> {# 注意 enctype="multipart/form-data" #}
+        {% csrf_token %}
+        {{ form.as_p }}
+        <p>
+            **Excel 导入模板要求：**<br>
+            请确保您的 Excel 文件第一行为标题行，且包含以下列（不分顺序，但名称必须精确匹配）：<br>
+            `学号`, `姓名`, `性别`, `出生日期(YYYY-MM-DD)`, `班级名称`, `年级(高一/高二/高三)`, `在校状态(在讀/轉學/休學/復學/畢業)`, `身份证号码`, `学籍号`, `家庭地址`, `监护人姓名`, `监护人联系电话`, `入学日期(YYYY-MM-DD)`, `毕业日期(YYYY-MM-DD)`<br>
+            <br>
+            **[下载示例 Excel 模板](javascript:alert('请手动创建符合要求的Excel文件，此链接仅作提示。'))** {# 這裡可以放一個真的下載連結，如果你的項目中提供了靜態文件 #}
+        </p>
+        <button type="submit">上传并导入</button>
+        <a href="{% url 'student_list' %}">返回学生列表</a>
+    </form>
+</body>
+</html>

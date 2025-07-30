@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ title }}</title>
+</head>
+<body>
+    <h1>{{ title }}</h1>
+
+    {% if messages %}
+        <ul class="messages">
+            {% for message in messages %}
+                <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+
+    <form method="post">
+        {% csrf_token %}
+        <p>您已选择了 <span id="selectedCount">0</span> 名学生进行升年级操作。</p>
+        <div style="color: red; margin-bottom: 10px;">
+            请注意：升年级操作将修改学生所属班级，如果目标班级不存在，可能会自动创建。请谨慎操作。
+        </div>
+        
+        {{ form.as_p }}
+        
+        <button type="submit">确认升年级</button>
+        <a href="{% url 'student_list' %}">取消并返回</a>
+        
+        {# 在表單中隱藏傳遞選中的學生 ID #}
+        <div id="hiddenSelectedStudents"></div> 
+    </form>
+
+    <script>
+        // 從 localStorage 讀取選中的學生 ID 並添加到表單中
+        document.addEventListener('DOMContentLoaded', function() {
+            const selectedIdsJson = localStorage.getItem('selectedStudentIdsForPromote');
+            if (selectedIdsJson) {
+                const selectedIds = JSON.parse(selectedIdsJson);
+                const hiddenDiv = document.getElementById('hiddenSelectedStudents');
+                const selectedCountSpan = document.getElementById('selectedCount');
+
+                selectedIds.forEach(id => {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'selected_students'; // 與 views.py 中 getlist('selected_students') 對應
+                    input.value = id;
+                    hiddenDiv.appendChild(input);
+                });
+                selectedCountSpan.textContent = selectedIds.length;
+                localStorage.removeItem('selectedStudentIdsForPromote'); // 用完後清除
+            } else {
+                // 如果沒有從列表頁跳轉過來，提示用戶並引導回列表頁
+                alert("您尚未选择学生，请先返回学生列表选择需要升年级的学生。");
+                window.location.href = "{% url 'student_list' %}";
+            }
+        });
+    </script>
+</body>
+</html>
