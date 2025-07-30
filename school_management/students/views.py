@@ -154,7 +154,7 @@ def student_batch_import(request):
                 header_mapping = {
                     "学号 (必填)": "student_id",
                     "姓名 (必填)": "name",
-                    "性别 (男/女/未知)": "gender",
+                    "性别 (男/女)": "gender",
                     "出生日期 (YYYY-MM-DD)": "date_of_birth",
                     "年级 (初一/初二/初三/高一/高二/高三)": "grade_level", # 表单字段
                     "班级名称 (1班-20班)": "class_name", # 表单字段
