@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ form_title }}</title>
+</head>
+<body>
+    <h1>{{ form_title }}</h1>
+    <form method="post">
+        {% csrf_token %} {# Django 安全機制，必須包含 #}
+        {{ form.as_p }} {# 將表單渲染成段落 #}
+        <button type="submit">保存</button>
+        <a href="{% url 'student_list' %}">取消</a>
+    </form>
+</body>
+</html>
