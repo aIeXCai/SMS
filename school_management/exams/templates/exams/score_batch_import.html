@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ title }}</title>
+    <style>
+        .messages {
+            list-style: none;
+            padding: 0;
+        }
+        .messages li {
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+        }
+        .messages .success { background-color: #d4edda; color: #155724; border-color: #c3e6cb; }
+        .messages .error { background-color: #f8d7da; color: #721c24; border-color: #f5c6cb; }
+        .messages .info { background-color: #d1ecf1; color: #0c5460; border-color: #bee5eb; }
+        .messages .warning { background-color: #fff3cd; color: #856404; border-color: #ffeeba; }
+
+        .errorlist {
+            color: red;
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+        }
+        .failed-rows-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        .failed-rows-table th, .failed-rows-table td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: left;
+        }
+        .failed-rows-table th {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+    <h1>{{ title }}</h1>
+
+    {% if messages %}
+        <ul class="messages">
+            {% for message in messages %}
+                <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+
+    <p>
+        請下載成績導入模板並填寫數據：
+        <a href="{{ download_template_url }}">下載成績導入模板 (Excel)</a>
+    </p>
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <p>
+            {{ form.exam.label_tag }} {{ form.exam }}
+            {% if form.exam.errors %}
+                <ul class="errorlist">{% for error in form.exam.errors %}<li>{{ error }}</li>{% endfor %}</ul>
+            {% endif %}
+        </p>
+        <p>
+            {{ form.excel_file.label_tag }} {{ form.excel_file }}
+            {% if form.excel_file.help_text %}
+                <small style="color: gray;">{{ form.excel_file.help_text }}</small>
+            {% endif %}
+            {% if form.excel_file.errors %}
+                <ul class="errorlist">{% for error in form.excel_file.errors %}<li>{{ error }}</li>{% endfor %}</ul>
+            {% endif %}
+        </p>
+        <button type="submit">上傳並導入</button>
+        <a href="{% url 'score_list' %}">取消</a>
+    </form>
+
+    {% if failed_rows %}
+        <h2>導入失敗詳情</h2>
+        <table class="failed-rows-table">
+            <thead>
+                <tr>
+                    <th>行號</th>
+                    <th>原始數據 (部分)</th>
+                    <th>失敗原因</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row_idx, row_data, errors_str in failed_rows %}
+                <tr>
+                    <td>{{ row_idx }}</td>
+                    <td>
+                        {% for key, value in row_data.items %}
+                            {{ key }}: {{ value|default_if_none:"空" }}<br>
+                        {% endfor %}
+                    </td>
+                    <td style="color: red;">{{ errors_str }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
+
+    <p><a href="{% url 'score_list' %}">返回成績列表</a></p>
+</body>
+</html>

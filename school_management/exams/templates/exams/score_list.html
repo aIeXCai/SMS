@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>成绩列表</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        h1, h2 { color: #333; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        .button-group { margin-bottom: 20px; }
+        .button-group a, .button-group button {
+            display: inline-block;
+            padding: 10px 15px;
+            margin-right: 10px;
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .button-group a:hover, .button-group button:hover {
+            background-color: #0056b3;
+        }
+        .filter-form {
+            background-color: #f9f9f9;
+            border: 1px solid #eee;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .filter-form label { margin-right: 10px; font-weight: bold; }
+        .filter-form input[type="text"],
+        .filter-form select {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            margin-right: 10px;
+        }
+        .filter-form button {
+            padding: 8px 15px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .filter-form button:hover {
+            background-color: #218838;
+        }
+        .messages {
+            list-style: none;
+            padding: 0;
+            margin-bottom: 20px;
+        }
+        .messages li {
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+        }
+        .messages .success { background-color: #d4edda; color: #155724; border-color: #c3e6cb; }
+        .messages .error { background-color: #f8d7da; color: #721c24; border-color: #f5c6cb; }
+        .messages .info { background-color: #d1ecf1; color: #0c5460; border-color: #bee5eb; }
+        .messages .warning { background-color: #fff3cd; color: #856404; border-color: #ffeeba; }
+    </style>
+</head>
+<body>
+    <h1>学生成绩列表</h1>
+
+    <div class="button-group">
+        <a href="{% url 'score_add' %}">手动新增单条成绩</a>
+        <a href="{% url 'score_batch_import' %}">批量导入成绩 (Excel)</a>
+        <a href="{% url 'exam_list' %}">返回考试列表</a>
+        <a href="{% url 'student_list' %}">返回学生列表</a>
+    </div>
+
+    {% if messages %}
+        <ul class="messages">
+            {% for message in messages %}
+                <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+
+    <div class="filter-form">
+        <h2>筛选成績</h2>
+        <form method="get" action="{% url 'score_list' %}">
+            <label for="student_id_filter">学号:</label>
+            <input type="text" id="student_id_filter" name="student_id_filter" value="{{ selected_student_id_filter|default_if_none:'' }}">
+
+            <label for="student_name_filter">学生姓名:</label>
+            <input type="text" id="student_name_filter" name="student_name_filter" value="{{ selected_student_name_filter|default_if_none:'' }}">
+
+            <label for="exam_filter">考试:</label>
+            <select id="exam_filter" name="exam_filter">
+                <option value="">--- 所有考試 ---</option>
+                {% for exam in exams %}
+                    <option value="{{ exam.pk }}" {% if selected_exam_filter|safe == exam.pk|stringformat:"s" %}selected{% endif %}>
+                        {{ exam.academic_year }} {{ exam.name }} ({{ exam.get_grade_level_display }})
+                    </option>
+                {% endfor %}
+            </select>
+
+            <label for="subject_filter">科目:</label>
+            <select id="subject_filter" name="subject_filter">
+                <option value="">--- 所有科目 ---</option>
+                {% for subject_value, subject_label in subjects %}
+                    <option value="{{ subject_value }}" {% if selected_subject_filter|safe == subject_value|stringformat:"s" %}selected{% endif %}>
+                        {{ subject_label }}
+                    </option>
+                {% endfor %}
+            </select>
+
+            <button type="submit">筛选</button>
+            <button type="button" onclick="resetFilters()">重置篩選</button>
+        </form>
+    </div>
+
+    {% if scores %}
+    <table>
+        <thead>
+            <tr>
+                <th>學生學號</th>
+                <th>學生姓名</th>
+                <th>考試學年</th>
+                <th>考試名稱</th>
+                <th>適用年級</th>
+                <th>科目</th>
+                <th>分數</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for score in scores %}
+            <tr>
+                <td>{{ score.student.student_id }}</td>
+                <td>{{ score.student.name }}</td>
+                <td>{{ score.exam.academic_year }}</td>
+                <td>{{ score.exam.name }}</td>
+                <td>{{ score.exam.get_grade_level_display }}</td>
+                <td>{{ score.get_subject_display }}</td> {# 使用 get_FOO_display 獲取友好名稱 #}
+                <td>{{ score.score_value }}</td>
+                <td>
+                    <a href="{% url 'score_edit' score.pk %}">編輯</a>
+                    <form action="{% url 'score_delete' score.pk %}" method="post" style="display:inline;" onsubmit="return confirm('確定要刪除這條成績嗎？此操作不可逆！');">
+                        {% csrf_token %}
+                        <button type="submit">刪除</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+        <p>目前沒有任何成績記錄符合篩選條件。</p>
+    {% endif %}
+
+    <script>
+         // 重置筛选
+        function resetFilters() {
+        // 重置所有筛选表单字段
+        document.querySelector('form').reset();
+        // 或者直接跳转到清空筛选的页面
+        window.location.href = '{% url "score_list" %}';
+        }
+    </script>
+</body>
+</html>
