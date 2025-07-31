@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>考试列表</title>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid black;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .messages {
+            list-style: none;
+            padding: 0;
+        }
+        .messages li {
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+        }
+        .messages .success { background-color: #d4edda; color: #155724; border-color: #c3e6cb; }
+        .messages .error { background-color: #f8d7da; color: #721c24; border-color: #f5c6cb; }
+        .messages .info { background-color: #d1ecf1; color: #0c5460; border-color: #bee5eb; }
+        .messages .warning { background-color: #fff3cd; color: #856404; border-color: #ffeeba; }
+    </style>
+</head>
+<body>
+    <h1>考试列表</h1>
+    <p><a href="{% url 'exam_add' %}">新增考试</a></p>
+
+    {% if messages %}
+        <ul class="messages">
+            {% for message in messages %}
+                <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+
+    {% if exams %}
+    <table>
+        <thead>
+            <tr>
+                <th>考试名称</th>
+                <th>学年</th>
+                <th>考试日期</th>
+                <th>适用年级</th>
+                <th>考试描述</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for exam in exams %}
+            <tr>
+                <td>{{ exam.name }}</td>
+                <td>{{ exam.academic_year }}</td>
+                <td>{{ exam.date|date:"Y-m-d" }}</td>
+                <td>{{ exam.get_grade_level_display }}</td>
+                <td>{{ exam.description|default:"無描述" }}</td>
+                <td>
+                    <a href="{% url 'exam_edit' exam.pk %}">编辑</a>
+                    <form action="{% url 'exam_delete' exam.pk %}" method="post" style="display:inline;" onsubmit="return confirm('確定要刪除這場考試嗎？此操作不可逆！');">
+                        {% csrf_token %}
+                        <button type="submit">刪除</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+        <p>暂无考试记录。</p>
+    {% endif %}
+    <p><a href="{% url 'student_list' %}">返回学生列表</a></p> {# 方便導航回到學生頁面 #}
+</body>
+</html>
