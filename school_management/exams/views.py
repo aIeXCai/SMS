@@ -1,17 +1,17 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.views.decorators.http import require_http_methods, require_POST
-from django.db import transaction # 用於確保數據一致性
-from django.db.models import Q # 用於複雜查詢篩選
+from django.db import transaction
+from django.db.models import Q
 from django.http import HttpResponse
-
 import openpyxl
 from datetime import datetime
 import io
+from collections import defaultdict
 
 from .models import Exam, Score, SUBJECT_CHOICES
 from .forms import ExamForm, ScoreForm, ScoreBatchUploadForm
-from school_management.students.models import Student
+from school_management.students.models import CLASS_NAME_CHOICES, Student, Class, GRADE_LEVEL_CHOICES
 
 # --- 考试管理 Views ---
 # 考試列表 (Read)
@@ -68,11 +68,12 @@ def score_list(request):
     scores = Score.objects.all()
 
     # --- 篩選功能 ---
-    # 獲取篩選參數
     student_id_filter = request.GET.get('student_id_filter')
     student_name_filter = request.GET.get('student_name_filter')
     exam_filter = request.GET.get('exam_filter')
     subject_filter = request.GET.get('subject_filter')
+    grade_filter = request.GET.get('grade_filter')
+    class_filter = request.GET.get('class_filter')
 
     # 應用篩選
     if student_id_filter:
@@ -80,25 +81,63 @@ def score_list(request):
     if student_name_filter:
         scores = scores.filter(student__name__icontains=student_name_filter)
     if exam_filter:
-        scores = scores.filter(exam__pk=exam_filter) # 根據考試ID篩選
+        scores = scores.filter(exam__pk=exam_filter)
     if subject_filter:
         scores = scores.filter(subject=subject_filter)
+    if grade_filter:
+        scores = scores.filter(student__grade_level=grade_filter)
+    if class_filter:
+        scores = scores.filter(student__current_class__class_name=class_filter)
 
-    # 獲取所有學生和考試，用於篩選下拉選單
+    # --- 数据聚合逻辑 ---
+    aggregated_data = defaultdict(lambda: {
+        'student_obj': None,
+        'class_obj': None,
+        'exam_obj': None,
+        'scores': {}
+    })
+
+    # 获取所有科目用于表头显示
+    all_subjects = [choice[0] for choice in SUBJECT_CHOICES]
+
+    # 聚合成绩数据
+    for score in scores:
+        key = (score.student.pk, score.exam.pk)
+        
+        if aggregated_data[key]['student_obj'] is None:
+            aggregated_data[key]['student_obj'] = score.student
+            aggregated_data[key]['class_obj'] = score.student.current_class
+            aggregated_data[key]['exam_obj'] = score.exam
+        
+        # 将科目成绩添加到scores字典中
+        aggregated_data[key]['scores'][score.subject] = score.score_value
+
+    # 转换为列表格式供模板使用
+    final_display_rows = []
+    for key, data in aggregated_data.items():
+        row_data_obj = type('obj', (object,), data)
+        final_display_rows.append(row_data_obj)
+
+    # 获取筛选选项数据
     students = Student.objects.all().order_by('name', 'student_id')
     exams = Exam.objects.all().order_by('-academic_year', '-date', 'name')
 
     context = {
-        'scores': scores,
-        'students': students, # 用於篩選下拉選單
-        'exams': exams,       # 用於篩選下拉選單
-        'subjects': SUBJECT_CHOICES, # 用於篩選下拉選單
-
-        # 將當前選中的篩選值傳回模板，以便保持選中狀態
+        'aggregated_scores': final_display_rows,  # 模板期望的聚合数据
+        'all_subjects': all_subjects,             # 所有科目列表
+        'students': students,
+        'exams': exams,
+        'subjects': SUBJECT_CHOICES,
+        'grade_levels': GRADE_LEVEL_CHOICES,
+        'class_name_choices' : CLASS_NAME_CHOICES,
+        
+        # 保持筛选状态
         'selected_student_id_filter': student_id_filter,
         'selected_student_name_filter': student_name_filter,
         'selected_exam_filter': exam_filter,
         'selected_subject_filter': subject_filter,
+        'selected_grade_filter': grade_filter,
+        'selected_class_filter': class_filter,
     }
     return render(request, 'exams/score_list.html', context)
 
@@ -140,14 +179,6 @@ def score_edit(request, pk):
         form = ScoreForm(instance=score)
     
     return render(request, 'exams/score_form.html', {'form': form, 'title': '編輯成績'})
-
-# 刪除成績 (Delete)
-@require_POST
-def score_delete(request, pk):
-    score = get_object_or_404(Score, pk=pk)
-    score.delete()
-    messages.success(request, f"学生 {score.student.name} 在 {score.exam.name} 考试 {score.get_subject_display()} 科目的成绩已成功删除。")
-    return redirect('score_list')
 
 # 批量導入成績 (Excel)
 @require_http_methods(["GET", "POST"])
@@ -355,6 +386,389 @@ def download_score_import_template(request):
     )
     response['Content-Disposition'] = 'attachment; filename="score_import_template_pivot.xlsx"' # 更改文件名以區分
     return response
+
+# 批量導出筛选后的成绩
+def score_batch_export(request):
+    # 获取筛选参数（与score_list相同的逻辑）
+    scores = Score.objects.all()
+    
+    student_id_filter = request.GET.get('student_id_filter')
+    student_name_filter = request.GET.get('student_name_filter')
+    exam_filter = request.GET.get('exam_filter')
+    subject_filter = request.GET.get('subject_filter')
+    grade_filter = request.GET.get('grade_filter')
+    class_filter = request.GET.get('class_filter')
+
+    # 应用相同的筛选逻辑
+    if student_id_filter:
+        scores = scores.filter(student__student_id__icontains=student_id_filter)
+    if student_name_filter:
+        scores = scores.filter(student__name__icontains=student_name_filter)
+    if exam_filter:
+        scores = scores.filter(exam__pk=exam_filter)
+    if subject_filter:
+        scores = scores.filter(subject=subject_filter)
+    if grade_filter:
+        scores = scores.filter(student__grade_level=grade_filter)
+    if class_filter:
+        scores = scores.filter(student__current_class__class_name=class_filter)
+    
+    # 聚合数据逻辑（与score_list相同）
+    aggregated_data = defaultdict(lambda: {
+        'student_obj': None,
+        'class_obj': None,
+        'exam_obj': None,
+        'scores': {}
+    })
+    
+    # 获取所有科目用于表头
+    all_subjects = [choice[0] for choice in SUBJECT_CHOICES]
+    subject_names = {choice[0]: choice[1] for choice in SUBJECT_CHOICES}
+    
+    # 聚合成绩数据
+    for score in scores.select_related('student', 'exam', 'student__current_class'):
+        key = (score.student.pk, score.exam.pk)
+        
+        if aggregated_data[key]['student_obj'] is None:
+            aggregated_data[key]['student_obj'] = score.student
+            aggregated_data[key]['class_obj'] = score.student.current_class
+            aggregated_data[key]['exam_obj'] = score.exam
+        
+        # 将科目成绩添加到scores字典中
+        aggregated_data[key]['scores'][score.subject] = score.score_value
+    
+    # 创建Excel文件（与上面相同的逻辑）
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    sheet.title = "筛选成绩导出"
+    
+    # 设置表头
+    headers = [
+        "学号", "学生姓名", "年级", "班级", "考试名称", "学年", "考试日期"
+    ]
+    for subject_code in all_subjects:
+        headers.append(subject_names[subject_code])
+    
+    sheet.append(headers)
+    
+    # 添加聚合数据
+    for key, data in aggregated_data.items():
+        student = data['student_obj']
+        exam = data['exam_obj']
+        class_obj = data['class_obj']
+        scores = data['scores']
+        
+        row = [
+            student.student_id,
+            student.name,
+            student.get_grade_level_display() if student.grade_level else "N/A",
+            class_obj.class_name if class_obj else "N/A",
+            exam.name,
+            exam.academic_year or "N/A",
+            exam.date.strftime('%Y-%m-%d')
+        ]
+        
+        # 添加各科目成绩
+        for subject_code in all_subjects:
+            score_value = scores.get(subject_code)
+            if score_value is not None:
+                row.append(float(score_value))
+            else:
+                row.append("-")
+        
+        sheet.append(row)
+    
+    # 设置样式和列宽（与上面相同）
+    base_widths = [15, 15, 10, 10, 20, 15, 12]
+    subject_widths = [10] * len(all_subjects)
+    column_widths = base_widths + subject_widths
+    
+    for i, width in enumerate(column_widths, 1):
+        sheet.column_dimensions[openpyxl.utils.get_column_letter(i)].width = width
+    
+    # 生成文件名
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    filename = f"筛选成绩导出_{timestamp}.xlsx"
+    
+    # 返回Excel文件
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+    workbook.save(response)
+    return response
+
+# 批量删除筛选后的成绩
+@require_POST
+def score_batch_delete_filtered(request):
+    # 获取筛选参数
+    scores = Score.objects.all()
+    
+    student_id_filter = request.POST.get('student_id_filter')
+    student_name_filter = request.POST.get('student_name_filter')
+    exam_filter = request.POST.get('exam_filter')
+    subject_filter = request.POST.get('subject_filter')
+    grade_filter = request.POST.get('grade_filter')
+    class_filter = request.POST.get('class_filter')
+
+    # 应用相同的筛选逻辑
+    if student_id_filter:
+        scores = scores.filter(student__student_id__icontains=student_id_filter)
+    if student_name_filter:
+        scores = scores.filter(student__name__icontains=student_name_filter)
+    if exam_filter:
+        scores = scores.filter(exam__pk=exam_filter)
+    if subject_filter:
+        scores = scores.filter(subject=subject_filter)
+    if grade_filter:
+        scores = scores.filter(student__grade_level=grade_filter)
+    if class_filter:
+        scores = scores.filter(student__current_class__class_name=class_filter)
+
+    # 执行删除
+    count = scores.count()
+    if count > 0:
+        scores.delete()
+        messages.success(request, f'成功删除 {count} 条成绩记录')
+    else:
+        messages.info(request, '没有找到符合条件的成绩记录')
+    
+    return redirect('score_list')
+
+
+# 导出选中的成绩记录
+@require_POST
+def score_batch_export_selected(request):
+    selected_records = request.POST.getlist('selected_records')
+    
+    if not selected_records:
+        messages.error(request, '没有选择任何记录')
+        return redirect('score_list')
+    
+    # 解析选中的记录并聚合数据
+    aggregated_data = defaultdict(lambda: {
+        'student_obj': None,
+        'class_obj': None,
+        'exam_obj': None,
+        'scores': {}
+    })
+    
+    # 获取所有科目用于表头
+    all_subjects = [choice[0] for choice in SUBJECT_CHOICES]
+    subject_names = {choice[0]: choice[1] for choice in SUBJECT_CHOICES}
+    
+    for record in selected_records:
+        try:
+            student_id, exam_id = record.split('_')
+            scores = Score.objects.filter(
+                student_id=student_id,
+                exam_id=exam_id
+            ).select_related('student', 'exam', 'student__current_class')
+            
+            key = (student_id, exam_id)
+            
+            for score in scores:
+                if aggregated_data[key]['student_obj'] is None:
+                    aggregated_data[key]['student_obj'] = score.student
+                    aggregated_data[key]['class_obj'] = score.student.current_class
+                    aggregated_data[key]['exam_obj'] = score.exam
+                
+                # 将科目成绩添加到scores字典中
+                aggregated_data[key]['scores'][score.subject] = score.score_value
+                
+        except ValueError:
+            continue
+    
+    if not aggregated_data:
+        messages.error(request, '没有找到对应的成绩记录')
+        return redirect('score_list')
+    
+    # 创建Excel文件
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    sheet.title = "聚合成绩导出"
+    
+    # 设置表头 - 与页面显示一致
+    headers = [
+        "学号", "学生姓名", "年级", "班级", "考试名称", "学年", "考试日期"
+    ]
+    # 添加所有科目列
+    for subject_code in all_subjects:
+        headers.append(subject_names[subject_code])
+    
+    sheet.append(headers)
+    
+    # 添加聚合数据
+    for key, data in aggregated_data.items():
+        student = data['student_obj']
+        exam = data['exam_obj']
+        class_obj = data['class_obj']
+        scores = data['scores']
+        
+        row = [
+            student.student_id,
+            student.name,
+            student.get_grade_level_display() if student.grade_level else "N/A",
+            class_obj.class_name if class_obj else "N/A",
+            exam.name,
+            exam.academic_year or "N/A",
+            exam.date.strftime('%Y-%m-%d')
+        ]
+        
+        # 添加各科目成绩
+        for subject_code in all_subjects:
+            score_value = scores.get(subject_code)
+            if score_value is not None:
+                row.append(float(score_value))
+            else:
+                row.append("-")  # 没有成绩的科目显示为 "-"
+        
+        sheet.append(row)
+    
+    # 设置列宽
+    base_widths = [15, 15, 10, 10, 20, 15, 12]  # 基础信息列宽
+    subject_widths = [10] * len(all_subjects)    # 科目列宽
+    column_widths = base_widths + subject_widths
+    
+    for i, width in enumerate(column_widths, 1):
+        sheet.column_dimensions[openpyxl.utils.get_column_letter(i)].width = width
+    
+    # 设置表头样式
+    from openpyxl.styles import Font, PatternFill, Alignment
+    
+    header_font = Font(bold=True, color="FFFFFF")
+    header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+    header_alignment = Alignment(horizontal="center", vertical="center")
+    
+    for col in range(1, len(headers) + 1):
+        cell = sheet.cell(row=1, column=col)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = header_alignment
+    
+    # 生成文件名
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    filename = f"聚合成绩导出_{timestamp}.xlsx"
+    
+    # 返回Excel文件
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+    workbook.save(response)
+    return response
+
+# 删除选中的成绩记录
+@require_POST
+def score_batch_delete_selected(request):
+    selected_records = request.POST.getlist('selected_records')
+    
+    if not selected_records:
+        messages.error(request, '没有选择任何记录')
+        return redirect('score_list')
+    
+    # 解析选中的记录并删除
+    total_deleted = 0
+    for record in selected_records:
+        try:
+            student_id, exam_id = record.split('_')
+            deleted_count = Score.objects.filter(
+                student_id=student_id,
+                exam_id=exam_id
+            ).delete()[0]
+            total_deleted += deleted_count
+        except ValueError:
+            continue
+    
+    if total_deleted > 0:
+        messages.success(request, f'成功删除 {total_deleted} 条成绩记录')
+    else:
+        messages.info(request, '没有找到对应的成绩记录')
+    
+    return redirect('score_list')
+
+# 批量编辑学生在某考试中的所有科目成绩
+@require_http_methods(["GET", "POST"])
+def score_batch_edit(request):
+    student_id = request.GET.get('student')
+    exam_id = request.GET.get('exam')
+    
+    if not student_id or not exam_id:
+        messages.error(request, '缺少必要的参数：学生ID或考试ID')
+        return redirect('score_list')
+    
+    try:
+        student = Student.objects.get(pk=student_id)
+        exam = Exam.objects.get(pk=exam_id)
+    except (Student.DoesNotExist, Exam.DoesNotExist):
+        messages.error(request, '学生或考试不存在')
+        return redirect('score_list')
+    
+    if request.method == 'POST':
+        # 处理表单提交
+        updated_count = 0
+        created_count = 0
+        
+        with transaction.atomic():
+            for subject_code, subject_name in SUBJECT_CHOICES:
+                score_value = request.POST.get(f'score_{subject_code}')
+                
+                if score_value and score_value.strip():  # 如果有输入分数
+                    try:
+                        score_value = float(score_value)
+                        score_obj, created = Score.objects.update_or_create(
+                            student=student,
+                            exam=exam,
+                            subject=subject_code,
+                            defaults={'score_value': score_value}
+                        )
+                        if created:
+                            created_count += 1
+                        else:
+                            updated_count += 1
+                    except ValueError:
+                        messages.error(request, f'{subject_name} 的分数格式不正确')
+                        return render(request, 'exams/score_batch_edit.html', {
+                            'student': student,
+                            'exam': exam,
+                            'existing_scores': get_existing_scores(student, exam),
+                            'subjects': SUBJECT_CHOICES
+                        })
+                else:
+                    # 如果分数为空，删除已存在的成绩记录
+                    Score.objects.filter(
+                        student=student,
+                        exam=exam,
+                        subject=subject_code
+                    ).delete()
+        
+        if created_count > 0 or updated_count > 0:
+            messages.success(request, f'成功保存成绩：新增 {created_count} 条，更新 {updated_count} 条')
+        else:
+            messages.info(request, '没有检测到任何更改')
+        
+        return redirect('score_list')
+    
+    # GET请求：显示编辑表单
+    existing_scores = get_existing_scores(student, exam)
+    
+    context = {
+        'student': student,
+        'exam': exam,
+        'existing_scores': existing_scores,
+        'subjects': SUBJECT_CHOICES
+    }
+    return render(request, 'exams/score_batch_edit.html', context)
+
+# 辅助函数：获取学生在某考试中的现有成绩
+def get_existing_scores(student, exam):
+    scores = Score.objects.filter(student=student, exam=exam)
+    score_dict = {}
+    for score in scores:
+        score_dict[score.subject] = score.score_value
+    return score_dict
 
 
 

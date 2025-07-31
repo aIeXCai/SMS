@@ -13,8 +13,17 @@ urlpatterns = [
     path('scores/add/', views.score_add, name='score_add'),
     path('scores/batch_import/', views.score_batch_import, name='score_batch_import'),
     path('scores/<int:pk>/edit/', views.score_edit, name='score_edit'),
-    path('scores/<int:pk>/delete/', views.score_delete, name='score_delete'),
-
+    
+    # 批量操作URLs
+    path('scores/batch_export/', views.score_batch_export, name='score_batch_export'),
+    path('scores/batch_delete_filtered/', views.score_batch_delete_filtered, name='score_batch_delete_filtered'),
+    
+    # 新增：选中项批量操作
+    path('scores/batch_export_selected/', views.score_batch_export_selected, name='score_batch_export_selected'),
+    path('scores/batch_delete_selected/', views.score_batch_delete_selected, name='score_batch_delete_selected'),
+    # 在现有的URL模式中添加
+    path('scores/batch_edit/', views.score_batch_edit, name='score_batch_edit'),
+    
     # 批量导入模板下载url
     path('scores/download_template/', views.download_score_import_template, name='download_score_import_template'),
 ]

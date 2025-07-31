@@ -1,7 +1,9 @@
+{% load exam_filters %}
+{% load score_filters %}
 <!DOCTYPE html>
 <html>
 <head>
-    <title>成绩列表</title>
+    <title>学生成绩管理</title>
     <style>
         body { font-family: Arial, sans-serif; margin: 20px; }
         h1, h2 { color: #333; }
@@ -66,7 +68,7 @@
     </style>
 </head>
 <body>
-    <h1>学生成绩列表</h1>
+    <h1>学生成绩管理</h1>
 
     <div class="button-group">
         <a href="{% url 'score_add' %}">手动新增单条成绩</a>
@@ -84,7 +86,7 @@
     {% endif %}
 
     <div class="filter-form">
-        <h2>筛选成績</h2>
+        <h2>筛选成绩</h2>
         <form method="get" action="{% url 'score_list' %}">
             <label for="student_id_filter">学号:</label>
             <input type="text" id="student_id_filter" name="student_id_filter" value="{{ selected_student_id_filter|default_if_none:'' }}">
@@ -94,10 +96,30 @@
 
             <label for="exam_filter">考试:</label>
             <select id="exam_filter" name="exam_filter">
-                <option value="">--- 所有考試 ---</option>
+                <option value="">--- 所有考试 ---</option>
                 {% for exam in exams %}
                     <option value="{{ exam.pk }}" {% if selected_exam_filter|safe == exam.pk|stringformat:"s" %}selected{% endif %}>
                         {{ exam.academic_year }} {{ exam.name }} ({{ exam.get_grade_level_display }})
+                    </option>
+                {% endfor %}
+            </select>
+            
+            <label for="grade_filter">年级:</label>
+            <select id="grade_filter" name="grade_filter">
+                <option value="">--- 所有年级 ---</option>
+                {% for grade_value, grade_label in grade_levels %}
+                    <option value="{{ grade_value }}" {% if selected_grade_filter|safe == grade_value|stringformat:"s" %}selected{% endif %}>
+                        {{ grade_label }}
+                    </option>
+                {% endfor %}
+            </select>
+
+            <label for="class_filter">班级:</label>
+            <select id="class_filter" name="class_filter">
+                <option value="">--- 所有班级 ---</option>
+                {% for class_value, class_label in class_name_choices %}
+                    <option value="{{ class_value }}" {% if selected_class_filter|safe == class_value %}selected{% endif %}>
+                        {{ class_label }}
                     </option>
                 {% endfor %}
             </select>
@@ -113,51 +135,223 @@
             </select>
 
             <button type="submit">筛选</button>
-            <button type="button" onclick="resetFilters()">重置篩選</button>
+            <button type="button" onclick="resetFilters()">重置筛选</button>
         </form>
     </div>
 
-    {% if scores %}
-    <table>
-        <thead>
-            <tr>
-                <th>學生學號</th>
-                <th>學生姓名</th>
-                <th>考試學年</th>
-                <th>考試名稱</th>
-                <th>適用年級</th>
-                <th>科目</th>
-                <th>分數</th>
-                <th>操作</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for score in scores %}
-            <tr>
-                <td>{{ score.student.student_id }}</td>
-                <td>{{ score.student.name }}</td>
-                <td>{{ score.exam.academic_year }}</td>
-                <td>{{ score.exam.name }}</td>
-                <td>{{ score.exam.get_grade_level_display }}</td>
-                <td>{{ score.get_subject_display }}</td> {# 使用 get_FOO_display 獲取友好名稱 #}
-                <td>{{ score.score_value }}</td>
-                <td>
-                    <a href="{% url 'score_edit' score.pk %}">編輯</a>
-                    <form action="{% url 'score_delete' score.pk %}" method="post" style="display:inline;" onsubmit="return confirm('確定要刪除這條成績嗎？此操作不可逆！');">
-                        {% csrf_token %}
-                        <button type="submit">刪除</button>
-                    </form>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <!-- 在筛选表单后添加复选框批量操作区域 -->
+    <div class="batch-operations" style="margin: 20px 0; padding: 15px; background-color: #f8f9fa; border-radius: 5px;">
+        <h3>批量操作</h3>
+        
+        <!-- 全选控制 -->
+        <div class="select-controls" style="margin-bottom: 15px;">
+            <label>
+                <input type="checkbox" id="selectAll" onchange="toggleSelectAll()"> 
+                <strong>全选/取消全选</strong>
+            </label>
+            <span id="selectedCount" style="margin-left: 20px; color: #6c757d;">已选择: 0 条记录</span>
+        </div>
+        
+        <!-- 批量操作按钮 -->
+        <div class="batch-buttons">
+            <button type="button" onclick="exportSelected()" class="btn btn-success" 
+                    style="background-color: #28a745; color: white; padding: 8px 16px; border: none; border-radius: 4px; margin-right: 10px;">
+                导出选中项
+            </button>
+            
+            <button type="button" onclick="deleteSelected()" class="btn btn-danger" 
+                    style="background-color: #dc3545; color: white; padding: 8px 16px; border: none; border-radius: 4px;">
+                删除选中项
+            </button>
+        </div>
+    </div>
+    
+    {% if aggregated_scores %}
+    <form id="batchForm" method="post">
+        {% csrf_token %}
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 50px;">
+                        <input type="checkbox" id="headerCheckbox" onchange="toggleSelectAll()">
+                    </th>
+                    <th>学号</th>
+                    <th>学生姓名</th>
+                    <th>年级</th>
+                    <th>班级</th>
+                    <th>考试名称</th>
+                    {# 動態生成科目列頭 #}
+                    {% for subject_name in all_subjects %}
+                        <th>{{ subject_name }}</th>
+                    {% endfor %}
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row_data in aggregated_scores %}
+                <tr>
+                    <td>
+                        <input type="checkbox" name="selected_records" 
+                               value="{{ row_data.student_obj.pk }}_{{ row_data.exam_obj.pk }}" 
+                               class="record-checkbox" onchange="updateSelectedCount()">
+                    </td>
+                    <td>{{ row_data.student_obj.student_id }}</td>
+                    <td>{{ row_data.student_obj.name }}</td>
+                    <td>{{ row_data.student_obj.get_grade_level_display }}</td>
+                    <td>{{ row_data.class_obj.class_name|default:"N/A" }}</td>
+                    <td>{{ row_data.exam_obj.name }}</td>
+                    {# 遍歷所有科目，顯示對應分數 #}
+                    {% for subject_name in all_subjects %}
+                        <td>
+                            {% if row_data.scores|get_item:subject_name is not None %}
+                                {{ row_data.scores|get_item:subject_name }}
+                            {% else %}
+                                - {# 如果沒有該科成績，顯示破折號 #}
+                            {% endif %}
+                        </td>
+                    {% endfor %}
+                    <td>
+                        <a href="{% url 'score_batch_edit' %}?student={{ row_data.student_obj.pk }}&exam={{ row_data.exam_obj.pk }}" 
+                           class="btn btn-sm btn-primary" style="background-color: #007bff; color: white; padding: 4px 8px; text-decoration: none; border-radius: 3px; margin-right: 5px;">
+                            编辑成绩
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </form>
+    
+    <!-- JavaScript功能 -->
+    <script>
+    function toggleSelectAll() {
+        const selectAllCheckbox = document.getElementById('selectAll');
+        const headerCheckbox = document.getElementById('headerCheckbox');
+        const recordCheckboxes = document.querySelectorAll('.record-checkbox');
+        
+        // 同步全选复选框状态
+        if (selectAllCheckbox.checked !== headerCheckbox.checked) {
+            headerCheckbox.checked = selectAllCheckbox.checked;
+        }
+        
+        // 设置所有记录复选框状态
+        recordCheckboxes.forEach(checkbox => {
+            checkbox.checked = selectAllCheckbox.checked || headerCheckbox.checked;
+        });
+        
+        updateSelectedCount();
+    }
+    
+    function updateSelectedCount() {
+        const checkedBoxes = document.querySelectorAll('.record-checkbox:checked');
+        const totalBoxes = document.querySelectorAll('.record-checkbox');
+        const selectAllCheckbox = document.getElementById('selectAll');
+        const headerCheckbox = document.getElementById('headerCheckbox');
+        
+        // 更新选中数量显示
+        document.getElementById('selectedCount').textContent = `已选择: ${checkedBoxes.length} 条记录`;
+        
+        // 更新全选复选框状态
+        if (checkedBoxes.length === 0) {
+            selectAllCheckbox.indeterminate = false;
+            selectAllCheckbox.checked = false;
+            headerCheckbox.indeterminate = false;
+            headerCheckbox.checked = false;
+        } else if (checkedBoxes.length === totalBoxes.length) {
+            selectAllCheckbox.indeterminate = false;
+            selectAllCheckbox.checked = true;
+            headerCheckbox.indeterminate = false;
+            headerCheckbox.checked = true;
+        } else {
+            selectAllCheckbox.indeterminate = true;
+            selectAllCheckbox.checked = false;
+            headerCheckbox.indeterminate = true;
+            headerCheckbox.checked = false;
+        }
+    }
+    
+    function exportSelected() {
+        const checkedBoxes = document.querySelectorAll('.record-checkbox:checked');
+        if (checkedBoxes.length === 0) {
+            alert('请先选择要导出的记录');
+            return;
+        }
+        
+        // 创建表单并提交
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '{% url "score_batch_export_selected" %}';
+        
+        // 添加CSRF token
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfmiddlewaretoken';
+        csrfInput.value = csrfToken;
+        form.appendChild(csrfInput);
+        
+        // 添加选中的记录
+        checkedBoxes.forEach(checkbox => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'selected_records';
+            input.value = checkbox.value;
+            form.appendChild(input);
+        });
+        
+        document.body.appendChild(form);
+        form.submit();
+        document.body.removeChild(form);
+    }
+    
+    function deleteSelected() {
+        const checkedBoxes = document.querySelectorAll('.record-checkbox:checked');
+        if (checkedBoxes.length === 0) {
+            alert('请先选择要删除的记录');
+            return;
+        }
+        
+        if (!confirm(`确定要删除选中的 ${checkedBoxes.length} 条成绩记录吗？此操作不可撤销！`)) {
+            return;
+        }
+        
+        // 创建表单并提交
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '{% url "score_batch_delete_selected" %}';
+        
+        // 添加CSRF token
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfmiddlewaretoken';
+        csrfInput.value = csrfToken;
+        form.appendChild(csrfInput);
+        
+        // 添加选中的记录
+        checkedBoxes.forEach(checkbox => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'selected_records';
+            input.value = checkbox.value;
+            form.appendChild(input);
+        });
+        
+        document.body.appendChild(form);
+        form.submit();
+        document.body.removeChild(form);
+    }
+    
+    // 页面加载时初始化
+    document.addEventListener('DOMContentLoaded', function() {
+        updateSelectedCount();
+    });
+    </script>
+    
     {% else %}
         <p>目前沒有任何成績記錄符合篩選條件。</p>
     {% endif %}
-
     <script>
-         // 重置筛选
         function resetFilters() {
         // 重置所有筛选表单字段
         document.querySelector('form').reset();

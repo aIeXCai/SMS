@@ -85,6 +85,7 @@ DATABASES = {
         'PASSWORD':'12345',
         'HOST':'localhost',
         'PORT':'5432',
+        'CONN_MAX_AGE': 0,  # 禁用持久连接，避免游标问题
     }
 }
 

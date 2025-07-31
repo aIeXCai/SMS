@@ -57,6 +57,13 @@ class Student(models.Model):
     gender = models.CharField(max_length=5, choices=gender_choices, verbose_name="性别")
     
     date_of_birth = models.DateField(verbose_name="出生日期")
+    grade_level = models.CharField(
+        max_length=10,
+        choices=GRADE_LEVEL_CHOICES,
+        verbose_name="年級",
+        null=True,
+        blank=True
+    )
     current_class = models.ForeignKey(Class, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="当前班级") # 保持與 Class 的外鍵關係
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='在讀', verbose_name="在校状态")
     
@@ -94,9 +101,11 @@ class Student(models.Model):
     class Meta:
         verbose_name = "学生"
         verbose_name_plural = "学生"
+        ordering = ['grade_level', 'current_class__class_name', 'name']
 
     def __str__(self):
-        return f"{self.name} ({self.student_id})"
+        class_name = self.current_class.class_name if self.current_class else "未分班"
+        return f"{self.name} ({self.student_id}) - {self.get_grade_level_display()}{class_name}"
 
 class Exam(models.Model):
     """
