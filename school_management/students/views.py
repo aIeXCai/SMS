@@ -197,6 +197,16 @@ def student_batch_import(request):
                             # 验证必填字段
                             if not student_data.get('student_id') or not student_data.get('name'):
                                 raise ValueError("学号和姓名为必填字段")
+                            
+                            # 确保学号为字符串格式
+                            if student_data.get('student_id'):
+                                student_data['student_id'] = str(student_data['student_id']).strip()
+                            
+                            # 确保身份证号码和学籍号为字符串格式
+                            if student_data.get('id_card_number'):
+                                student_data['id_card_number'] = str(student_data['id_card_number']).strip()
+                            if student_data.get('student_enrollment_number'):
+                                student_data['student_enrollment_number'] = str(student_data['student_enrollment_number']).strip()
 
                             # 处理日期字段的格式转换
                             for date_field in ['date_of_birth', 'entry_date', 'graduation_date']:
@@ -243,6 +253,7 @@ def student_batch_import(request):
                                     raise ValueError(f"班级创建/查找失败: {e}")
 
                             student_data['current_class'] = current_class_obj
+                            student_data['grade_level'] = grade_level
 
                             # 尝试获取现有学生，如果学号重复，则更新
                             student_id = student_data.get('student_id')
@@ -510,6 +521,27 @@ def download_student_import_template(request):
     sheet.cell(row=2, column=headers.index("入学日期 (YYYY-MM-DD)") + 1).comment = openpyxl.comments.Comment(date_format_text, "System")
     sheet.cell(row=2, column=headers.index("毕业日期 (YYYY-MM-DD, 毕业状态必填)") + 1).comment = openpyxl.comments.Comment(date_format_text + " (毕业状态必填此项)", "System")
 
+    # 添加示例数据行
+    example_data = [
+        "2024001",  # 学号 (必填) - 字符串格式
+        "张三",     # 姓名 (必填)
+        "男",       # 性别
+        "2006-05-15",  # 出生日期
+        "高一",     # 年级
+        "1班",      # 班级名称
+        "在读",     # 在校状态
+        "110101200605151234",  # 身份证号码
+        "G20240001",  # 学籍号
+        "北京市朝阳区某某街道",  # 家庭地址
+        "张父",     # 监护人姓名
+        "13800138000",  # 监护人联系电话
+        "2024-09-01",  # 入学日期
+        ""          # 毕业日期 (非毕业状态可为空)
+    ]
+    sheet.append(example_data)
+    
+    # 为示例数据行添加注释说明这是示例
+    sheet.cell(row=3, column=1).comment = openpyxl.comments.Comment("这是示例数据，请删除此行后填入真实数据", "System")
 
     # 將工作簿內容寫入內存緩衝區
     excel_file = io.BytesIO()

@@ -1,0 +1,18 @@
+# Django School Management System Dependencies
+
+# Core Framework
+Django>=5.2.4
+
+# Excel Processing
+openpyxl>=3.1.0
+
+# Database (SQLite is included with Django by default)
+# For production PostgreSQL, uncomment the line below:
+# psycopg2-binary>=2.9.0  # PostgreSQL adapter
+# For MySQL, uncomment the line below:
+# mysqlclient>=2.1.0      # MySQL adapter
+
+# Development Dependencies (optional)
+# django-debug-toolbar>=4.0.0
+# pytest-django>=4.5.0          
+# coverage>=7.0.0

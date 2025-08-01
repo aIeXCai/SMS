@@ -1,90 +1,375 @@
 {% load static %}
-{% block title %}{{ page_title }}{% endblock %}
-{% block content %}
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">{{ page_title }}</h3>
-                    <div class="card-tools">
-                        <a href="{% url 'score_analysis' %}" class="btn btn-secondary btn-sm">
-                            <i class="fas fa-arrow-left"></i> 返回
-                        </a>
-                    </div>
-                </div>
-                <div class="card-body">
-                    <!-- 筛选条件显示 -->
-                    {% if selected_exam %}
-                    <div class="alert alert-info">
-                        <strong>分析条件：</strong>
-                        学年：{{ academic_year }} | 
-                        考试：{{ selected_exam.name }} | 
-                        年级：{{ selected_grade }}
-                        {% if selected_class %} | 班级：{{ selected_class }}{% else %} | 范围：所有班级{% endif %}
-                    </div>
-                    
-                    <!-- 这里将来放置图表和分析内容 -->
-                    <div class="row">
-                        <div class="col-12">
-                            <div class="alert alert-warning">
-                                <i class="fas fa-info-circle"></i>
-                                <strong>功能开发中：</strong>班级成绩分析图表功能正在开发中，敬请期待！
-                            </div>
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page_title }}</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin-bottom: 30px;
+        }
+        .stats-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .stats-number {
+            font-size: 2.5rem;
+            font-weight: bold;
+        }
+        .stats-label {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+        .subject-card {
+            border-left: 4px solid #007bff;
+            margin-bottom: 15px;
+        }
+        .ranking-table {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">{{ page_title }}</h3>
+                        <div class="card-tools">
+                            <a href="{% url 'score_analysis' %}" class="btn btn-secondary btn-sm">
+                                <i class="fas fa-arrow-left"></i> 返回
+                            </a>
                         </div>
                     </div>
-                    
-                    {% else %}
-                    <!-- 筛选表单 -->
-                    <form method="get">
+                    <div class="card-body">
+                        <!-- 筛选条件显示 -->
+                        {% if selected_exam %}
+                        <div class="alert alert-info">
+                            <strong>分析条件：</strong>
+                            学年：{{ academic_year }} | 
+                            考试：{{ selected_exam.name }} | 
+                            年级：{{ selected_grade }}
+                            {% if analysis_mode == 'single_class' %} | 班级：{{ target_class.grade_level }}{{ target_class.class_name }}{% endif %}
+                        </div>
+                        
+                        {% if analysis_mode == 'single_class' %}
+                        <!-- 单班级详细分析 -->
+                        <div class="row mb-4">
+                            <div class="col-md-3">
+                                <div class="stats-card text-center">
+                                    <div class="stats-number">{{ total_students }}</div>
+                                    <div class="stats-label">参考学生数</div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="stats-card text-center">
+                                    <div class="stats-number">{{ class_avg_total }}</div>
+                                    <div class="stats-label">班级平均总分</div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="stats-card text-center">
+                                    <div class="stats-number">{{ class_max_total }}</div>
+                                    <div class="stats-label">最高分</div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="stats-card text-center">
+                                    <div class="stats-number">{{ class_min_total }}</div>
+                                    <div class="stats-label">最低分</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 图表区域 -->
                         <div class="row">
-                            <div class="col-md-3">
-                                <div class="form-group">
-                                    <label for="{{ form.academic_year.id_for_label }}">{{ form.academic_year.label }}</label>
-                                    {{ form.academic_year }}
+                            <!-- 各科目平均分雷达图 -->
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5><i class="fas fa-chart-radar"></i> 各科目平均分</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="chart-container">
+                                            <canvas id="subjectRadarChart"></canvas>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                            <div class="col-md-3">
-                                <div class="form-group">
-                                    <label for="{{ form.exam.id_for_label }}">{{ form.exam.label }}</label>
-                                    {{ form.exam }}
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="form-group">
-                                    <label for="{{ form.grade_level.id_for_label }}">{{ form.grade_level.label }}</label>
-                                    {{ form.grade_level }}
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="form-group">
-                                    <label for="{{ form.class_name.id_for_label }}">{{ form.class_name.label }}</label>
-                                    {{ form.class_name }}
+                            
+                            <!-- 成绩分布柱状图 -->
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5><i class="fas fa-chart-bar"></i> 成绩分布情况</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="chart-container">
+                                            <canvas id="scoreDistributionChart"></canvas>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
+                        
+                        <!-- 学生排名和科目统计 -->
+                        <div class="row">
+                            <!-- 学生总分排名 -->
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5><i class="fas fa-trophy"></i> 学生总分排名（前10名）</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="ranking-table">
+                                            <table class="table table-striped">
+                                                <thead>
+                                                    <tr>
+                                                        <th>排名</th>
+                                                        <th>姓名</th>
+                                                        <th>总分</th>
+                                                        <th>科目数</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for student in student_rankings|slice:":10" %}
+                                                    <tr>
+                                                        <td>
+                                                            {% if student.rank <= 3 %}
+                                                                <span class="badge bg-warning">{{ student.rank }}</span>
+                                                            {% else %}
+                                                                {{ student.rank }}
+                                                            {% endif %}
+                                                        </td>
+                                                        <td>{{ student.student_name }}</td>
+                                                        <td><strong>{{ student.total_score }}</strong></td>
+                                                        <td>{{ student.subject_count }}</td>
+                                                    </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 各科目统计 -->
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5><i class="fas fa-chart-line"></i> 各科目统计</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        {% for code, stats in subject_stats.items %}
+                                        <div class="subject-card card">
+                                            <div class="card-body">
+                                                <h6 class="card-title">{{ stats.name }}</h6>
+                                                <div class="row">
+                                                    <div class="col-3">
+                                                        <small class="text-muted">平均分</small><br>
+                                                        <strong>{{ stats.avg_score }}</strong>
+                                                    </div>
+                                                    <div class="col-3">
+                                                        <small class="text-muted">最高分</small><br>
+                                                        <strong>{{ stats.max_score }}</strong>
+                                                    </div>
+                                                    <div class="col-3">
+                                                        <small class="text-muted">最低分</small><br>
+                                                        <strong>{{ stats.min_score }}</strong>
+                                                    </div>
+                                                    <div class="col-3">
+                                                        <small class="text-muted">参考人数</small><br>
+                                                        <strong>{{ stats.count }}</strong>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        {% else %}
+                        <!-- 其他分析模式的占位符 -->
                         <div class="row">
                             <div class="col-12">
-                                <button type="submit" class="btn btn-primary">
-                                    <i class="fas fa-search"></i> 开始分析
-                                </button>
+                                <div class="alert alert-warning">
+                                    <i class="fas fa-info-circle"></i>
+                                    <strong>功能开发中：</strong>{{ analysis_mode }} 分析功能正在开发中，敬请期待！
+                                </div>
                             </div>
                         </div>
-                    </form>
-                    {% endif %}
+                        {% endif %}
+                        
+                        {% elif show_class_selection %}
+                        <!-- 班级选择界面（从分析页面跳转过来） -->
+                        <div class="alert alert-info">
+                            <strong>分析条件：</strong>
+                            学年：{{ request.GET.academic_year }} | 
+                            考试：{% for exam in form.exam.field.queryset %}{% if exam.id|stringformat:"s" == request.GET.exam %}{{ exam.name }}{% endif %}{% endfor %} | 
+                            年级：{% for grade_value, grade_label in form.grade_level.field.choices %}{% if grade_value == request.GET.grade_level %}{{ grade_label }}{% endif %}{% endfor %}
+                        </div>
+                        
+                        {% else %}
+                        <!-- 完整筛选表单（直接访问页面） -->
+                        <form method="get">
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <div class="form-group">
+                                        <label for="{{ form.academic_year.id_for_label }}">{{ form.academic_year.label }}</label>
+                                        {{ form.academic_year }}
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-group">
+                                        <label for="{{ form.exam.id_for_label }}">{{ form.exam.label }}</label>
+                                        {{ form.exam }}
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-group">
+                                        <label for="{{ form.grade_level.id_for_label }}">{{ form.grade_level.label }}</label>
+                                        {{ form.grade_level }}
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-group">
+                                        <label for="{{ form.selected_classes.id_for_label }}">选择班级</label>
+                                        {{ form.selected_classes }}
+                                        <small class="form-text text-muted">选择一个班级进行详细分析</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-12">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-search"></i> 开始分析
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
 
-<script>
-// 为表单字段添加样式
-document.addEventListener('DOMContentLoaded', function() {
-    const selects = document.querySelectorAll('select');
-    selects.forEach(select => {
-        select.classList.add('form-control');
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+    // 为表单字段添加样式
+    document.addEventListener('DOMContentLoaded', function() {
+        const selects = document.querySelectorAll('select');
+        selects.forEach(select => {
+            select.classList.add('form-control');
+        });
+        
+        {% if analysis_mode == 'single_class' and chart_data_json %}
+        // 解析图表数据
+        const chartData = JSON.parse('{{ chart_data_json|escapejs }}');
+        
+        // 各科目平均分雷达图
+        const radarCtx = document.getElementById('subjectRadarChart').getContext('2d');
+        new Chart(radarCtx, {
+            type: 'radar',
+            data: {
+                labels: chartData.subject_avg_scores.labels,
+                datasets: [{
+                    label: '平均分',
+                    data: chartData.subject_avg_scores.data,
+                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 2,
+                    pointBackgroundColor: 'rgba(54, 162, 235, 1)',
+                    pointBorderColor: '#fff',
+                    pointHoverBackgroundColor: '#fff',
+                    pointHoverBorderColor: 'rgba(54, 162, 235, 1)'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    r: {
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: {
+                            stepSize: 20
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                }
+            }
+        });
+        
+        // 成绩分布柱状图
+        const distributionCtx = document.getElementById('scoreDistributionChart').getContext('2d');
+        
+        // 准备分布数据
+        const subjects = Object.keys(chartData.score_distribution);
+        const scoreRanges = ['90-100', '80-89', '70-79', '60-69', '0-59'];
+        const colors = ['#28a745', '#17a2b8', '#ffc107', '#fd7e14', '#dc3545'];
+        
+        const datasets = scoreRanges.map((range, index) => ({
+            label: range + '分',
+            data: subjects.map(subject => chartData.score_distribution[subject][range] || 0),
+            backgroundColor: colors[index],
+            borderColor: colors[index],
+            borderWidth: 1
+        }));
+        
+        new Chart(distributionCtx, {
+            type: 'bar',
+            data: {
+                labels: chartData.subject_avg_scores.labels,
+                datasets: datasets
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        stacked: true
+                    },
+                    y: {
+                        stacked: true,
+                        beginAtZero: true
+                    }
+                },
+                plugins: {
+                    legend: {
+                        position: 'top'
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false
+                    }
+                }
+            }
+        });
+        {% endif %}
     });
-});
-</script>
-{% endblock %}
+    </script>
+</body>
+</html>

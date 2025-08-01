@@ -74,17 +74,15 @@ TEMPLATES = [
 WSGI_APPLICATION = 'school_management.wsgi.application'
 
 
-# Database
-# https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-
+# PostgreSQL配置（生产环境使用）
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'school_db',
-        'USER':'postgres',
-        'PASSWORD':'12345',
-        'HOST':'localhost',
-        'PORT':'5432',
+        'USER': 'postgres',
+        'PASSWORD': '12345',
+        'HOST': 'localhost',
+        'PORT': '5432',
         'CONN_MAX_AGE': 0,  # 禁用持久连接，避免游标问题
     }
 }

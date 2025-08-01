@@ -67,7 +67,7 @@
                                             <div class="multiselect-dropdown" id="gradeDropdown">
                                                 {% for grade_value, grade_label in form.grade_level.field.choices %}
                                                     {% if grade_value %}
-                                                        <div class="multiselect-option" data-value="{{ grade_value }}" onclick="selectSingleOption(this, 'selectedGradeDisplay', 'selectedGrade')">{{ grade_label }}</div>
+                                                        <div class="multiselect-option" data-value="{{ grade_value }}" onclick="selectGradeAndFilterClasses(this, 'selectedGradeDisplay', 'selectedGrade')">{{ grade_label }}</div>
                                                     {% endif %}
                                                 {% endfor %}
                                             </div>
@@ -91,66 +91,11 @@
                                                 <div class="multiselect-option" data-value="all" onclick="selectOption(this)">
                                                     所有班级
                                                 </div>
-                                                <div class="multiselect-option" data-value="1班" onclick="selectOption(this)">
-                                                    1班
+                                                {% for class in all_classes %}
+                                                <div class="multiselect-option" data-value="{{ class.id }}" data-class-name="{{ class.class_name }}" data-grade="{{ class.grade_level }}" onclick="selectOption(this)">
+                                                    {{ class.grade_level }}{{ class.class_name }}
                                                 </div>
-                                                <div class="multiselect-option" data-value="2班" onclick="selectOption(this)">
-                                                    2班
-                                                </div>
-                                                <div class="multiselect-option" data-value="3班" onclick="selectOption(this)">
-                                                    3班
-                                                </div>
-                                                <div class="multiselect-option" data-value="4班" onclick="selectOption(this)">
-                                                    4班
-                                                </div>
-                                                <div class="multiselect-option" data-value="5班" onclick="selectOption(this)">
-                                                    5班
-                                                </div>
-                                                <div class="multiselect-option" data-value="6班" onclick="selectOption(this)">
-                                                    6班
-                                                </div>
-                                                <div class="multiselect-option" data-value="7班" onclick="selectOption(this)">
-                                                    7班
-                                                </div>
-                                                <div class="multiselect-option" data-value="8班" onclick="selectOption(this)">
-                                                    8班
-                                                </div>
-                                                <div class="multiselect-option" data-value="9班" onclick="selectOption(this)">
-                                                    9班
-                                                </div>
-                                                <div class="multiselect-option" data-value="10班" onclick="selectOption(this)">
-                                                    10班
-                                                </div>
-                                                <div class="multiselect-option" data-value="11班" onclick="selectOption(this)">
-                                                    11班
-                                                </div>
-                                                <div class="multiselect-option" data-value="12班" onclick="selectOption(this)">
-                                                    12班
-                                                </div>
-                                                <div class="multiselect-option" data-value="13班" onclick="selectOption(this)">
-                                                    13班
-                                                </div>
-                                                <div class="multiselect-option" data-value="14班" onclick="selectOption(this)">
-                                                    14班
-                                                </div>
-                                                <div class="multiselect-option" data-value="15班" onclick="selectOption(this)">
-                                                    15班
-                                                </div>
-                                                <div class="multiselect-option" data-value="16班" onclick="selectOption(this)">
-                                                    16班
-                                                </div>
-                                                <div class="multiselect-option" data-value="17班" onclick="selectOption(this)">
-                                                    17班
-                                                </div>
-                                                <div class="multiselect-option" data-value="18班" onclick="selectOption(this)">
-                                                    18班
-                                                </div>
-                                                <div class="multiselect-option" data-value="19班" onclick="selectOption(this)">
-                                                    19班
-                                                </div>
-                                                <div class="multiselect-option" data-value="20班" onclick="selectOption(this)">
-                                                    20班
-                                                </div>
+                                                {% endfor %}
                                             </div>
                                         </div>
                                         <div id="selectedTags" class="selected-tags-container"></div>
@@ -173,7 +118,6 @@
                         <div class="col-md-6">
                             <div class="card border-primary">
                                 <div class="card-body text-center">
-                                    <i class="fas fa-chart-line fa-3x text-primary mb-3"></i>
                                     <h5 class="card-title">班级成绩分析</h5>
                                     <p class="card-text">分析班级整体成绩趋势、科目对比、成绩分布等</p>
                                     <button type="button" class="btn btn-primary" onclick="goToClassAnalysis()">进入分析</button>
@@ -183,7 +127,6 @@
                         <div class="col-md-6">
                             <div class="card border-success">
                                 <div class="card-body text-center">
-                                    <i class="fas fa-user-chart fa-3x text-success mb-3"></i>
                                     <h5 class="card-title">学生个人成绩分析</h5>
                                     <p class="card-text">分析个人成绩变化、学科能力、进步情况等</p>
                                     <button type="button" class="btn btn-success" onclick="goToStudentAnalysis()">进入分析</button>
@@ -199,6 +142,21 @@
 
 <script>
 let selectedClasses = [];
+let classIdToNameMap = {}; // 存储班级ID到班级名称的映射
+
+// 初始化班级映射
+document.addEventListener('DOMContentLoaded', function() {
+    const classOptions = document.querySelectorAll('#classDropdown .multiselect-option[data-class-name]');
+    classOptions.forEach(option => {
+        const classId = option.getAttribute('data-value');
+        const className = option.getAttribute('data-class-name');
+        const gradeLevel = option.textContent.trim().replace(className, '');
+        classIdToNameMap[classId] = {
+            name: className,
+            fullName: gradeLevel + className
+        };
+    });
+});
 
 // 通用的下拉菜单切换函数
 function toggleDropdown(dropdownId, displayId) {
@@ -285,6 +243,50 @@ function selectSingleOption(element, displayId, hiddenInputId) {
     display.closest('.multiselect-display').classList.remove('dropdown-open');
 }
 
+// 选择年级并过滤班级的函数
+function selectGradeAndFilterClasses(element, displayId, hiddenInputId) {
+    // 先执行通用的单选逻辑
+    selectSingleOption(element, displayId, hiddenInputId);
+    
+    // 获取选中的年级
+    const selectedGrade = element.getAttribute('data-value');
+    
+    // 过滤班级选项
+    filterClassesByGrade(selectedGrade);
+    
+    // 清空已选择的班级
+    selectedClasses = [];
+    updateClassDisplayAndTags();
+}
+
+// 根据年级过滤班级选项
+function filterClassesByGrade(selectedGrade) {
+    const classOptions = document.querySelectorAll('#classDropdown .multiselect-option[data-grade]');
+    const allOption = document.querySelector('#classDropdown .multiselect-option[data-value="all"]');
+    
+    // 显示"所有班级"选项
+    if (allOption) {
+        allOption.style.display = 'block';
+    }
+    
+    // 根据年级显示/隐藏班级选项
+    classOptions.forEach(option => {
+        const optionGrade = option.getAttribute('data-grade');
+        if (selectedGrade && optionGrade === selectedGrade) {
+            option.style.display = 'block';
+        } else if (selectedGrade) {
+            option.style.display = 'none';
+            // 如果该班级已被选中，从选中列表中移除
+            const optionValue = option.getAttribute('data-value');
+            selectedClasses = selectedClasses.filter(cls => cls !== optionValue);
+            option.classList.remove('selected');
+        } else {
+            // 如果没有选择年级，显示所有班级
+            option.style.display = 'block';
+        }
+    });
+}
+
 // 删除指定班级
 function removeClass(value) {
     selectedClasses = selectedClasses.filter(cls => cls !== value);
@@ -329,10 +331,11 @@ function updateClassDisplayAndTags() {
         return;
     }
     
-    selectedClasses.forEach(className => {
+    selectedClasses.forEach(classId => {
         const tag = document.createElement('span');
         tag.className = 'class-tag';
-        tag.innerHTML = `${className} <button type="button" class="tag-remove" onclick="removeClass('${className}')" title="移除">×</button>`;
+        const displayName = classIdToNameMap[classId] ? classIdToNameMap[classId].fullName : classId;
+        tag.innerHTML = `${displayName} <button type="button" class="tag-remove" onclick="removeClass('${classId}')" title="移除">×</button>`;
         tagsContainer.appendChild(tag);
     });
 }
@@ -372,9 +375,25 @@ function validateForm() {
 
 function goToClassAnalysis() {
     if (validateForm()) {
+        // 验证是否选择了班级
+        if (selectedClasses.length === 0) {
+            alert('请先选择要分析的班级！');
+            return;
+        }
+        
         const form = document.getElementById('analysisForm');
         const formData = new FormData(form);
         const params = new URLSearchParams(formData);
+        
+        // 添加选中的班级信息
+        if (selectedClasses.includes('all')) {
+            params.append('selected_classes', 'all');
+        } else {
+            selectedClasses.forEach(className => {
+                params.append('selected_classes', className);
+            });
+        }
+        
         window.location.href = '{% url "score_analysis_class" %}?' + params.toString();
     }
 }

@@ -2,13 +2,14 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.views.decorators.http import require_http_methods, require_POST
 from django.db import transaction
-from django.db.models import Sum, Count, Q, F, Case, When, IntegerField
+from django.db.models import Sum, Count, Q, F, Case, When, IntegerField, Avg, Max, Min, Count
 from django.db.models.functions import Rank
 from django.core.paginator import Paginator
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 import openpyxl
 from datetime import datetime
 import io
+import json
 from collections import defaultdict
 
 from .models import Exam, Score, SUBJECT_CHOICES
@@ -288,7 +289,7 @@ def score_batch_import(request):
                                     try:
                                         score_value = float(score_value_from_excel)
                                         # 可以添加分數範圍驗證，例如 0-100
-                                        if not (0 <= score_value <= 100):
+                                        if not (0 <= score_value <= 200):
                                             errors_in_row.append(f"学生 '{student_obj.name}' 在 '{current_subject}' 科目的分数 '{score_value_from_excel}' 超出有效范围 (0-100)。")
                                     except ValueError:
                                         errors_in_row.append(f"学生 '{student_obj.name}' 在 '{current_subject}' 科目的分数 '{score_value_from_excel}' 格式不正確。")
@@ -1233,11 +1234,26 @@ def score_analysis(request):
     form = ScoreAnalysisForm()
     
     exams = Exam.objects.all().order_by('-academic_year', '-date', 'name')
+    
+    # 获取所有班级数据，按年级和班级名称排序
+    # 使用自定义排序来正确处理班级编号（避免'10班'排在'2班'前面的问题）
+    all_classes = Class.objects.all().order_by('grade_level')
+    
+    # 对班级进行自定义排序，提取班级编号进行数字排序
+    def extract_class_number(class_obj):
+        class_name = class_obj.class_name
+        # 提取班级编号，例如从'1班'中提取'1'
+        import re
+        match = re.search(r'(\d+)', class_name)
+        return int(match.group(1)) if match else 0
+    
+    all_classes = sorted(all_classes, key=lambda x: (x.grade_level, extract_class_number(x)))
 
     context = {
         'form': form,
         'page_title': '成绩分析',
         'exams' : exams,
+        'all_classes': all_classes,
     }
     
     return render(request, 'exams/score_analysis.html', context)
@@ -1245,6 +1261,11 @@ def score_analysis(request):
 # 班级/年级成绩分析
 def score_analysis_class(request):
     form = ScoreAnalysisForm(request.GET or None)
+    
+    # 检查是否从score_analysis页面传递了参数
+    from_analysis_page = bool(request.GET.get('academic_year') and 
+                             request.GET.get('exam') and 
+                             request.GET.get('grade_level'))
     
     # 获取可选班级列表（根据年级筛选）
     available_classes = []
@@ -1255,11 +1276,98 @@ def score_analysis_class(request):
             student_count=Count('student')
         ).order_by('class_name')
     
+    # 处理从score_analysis页面传递的班级选择
+    url_selected_classes = request.GET.getlist('selected_classes')
+    auto_analysis = False
+    
+    if from_analysis_page and url_selected_classes:
+        # 如果有班级选择，直接进行分析
+        auto_analysis = True
+        
+        # 构造一个临时的form数据用于分析
+        temp_form_data = {
+            'academic_year': request.GET.get('academic_year'),
+            'exam': request.GET.get('exam'),
+            'grade_level': request.GET.get('grade_level'),
+        }
+        temp_form = ScoreAnalysisForm(temp_form_data)
+        
+        if temp_form.is_valid():
+            academic_year = temp_form.cleaned_data['academic_year']
+            exam = temp_form.cleaned_data['exam']
+            grade_level = temp_form.cleaned_data['grade_level']
+            
+            # 根据传递的班级选择确定分析模式
+            if 'all' in url_selected_classes:
+                # 场景3：所有班级 - 年级整体分析
+                analysis_mode = 'grade_overall'
+                scores = Score.objects.filter(
+                    exam=exam,
+                    student__class_obj__grade_level=grade_level
+                )
+                
+                context = {
+                    'form': form,
+                    'available_classes': available_classes,
+                    'page_title': '年级整体成绩分析',
+                    'analysis_type': 'class',
+                    'from_analysis_page': from_analysis_page,
+                    'show_class_selection': False,
+                    'auto_analysis': True,
+                    'analysis_mode': analysis_mode,
+                    'selected_exam': exam,
+                    'selected_grade': grade_level,
+                    'total_students': scores.values('student').distinct().count(),
+                    'total_scores': scores.count(),
+                }
+                return render(request, 'exams/score_analysis_class.html', context)
+                
+            elif len(url_selected_classes) == 1:
+                # 场景1：单个班级分析
+                class_id = url_selected_classes[0]
+                print(f"Debug: 查找班级 - class_id: {class_id}")
+                try:
+                    target_class = Class.objects.get(id=class_id)
+                    print(f"Debug: 找到班级 - {target_class}")
+                    
+                    scores = Score.objects.filter(
+                        exam=exam,
+                        student__class_obj=target_class
+                    )
+                    
+                    analysis_result = _analyze_single_class(scores, target_class, exam)
+                    
+                    context = {
+                        'form': form,
+                        'available_classes': available_classes,
+                        'page_title': f'{target_class.class_name} 成绩分析',
+                        'analysis_type': 'class',
+                        'from_analysis_page': from_analysis_page,
+                        'show_class_selection': False,
+                        'auto_analysis': True,
+                        'analysis_mode': 'single_class',
+                        'selected_exam': exam,
+                        'selected_grade': grade_level,
+                        'target_class': target_class,
+                        **analysis_result
+                    }
+                    return render(request, 'exams/score_analysis_class.html', context)
+                    
+                except Class.DoesNotExist:
+                    messages.error(request, f'班级 {class_name} 不存在')
+                    
+            else:
+                # 场景2：多班级对比分析（暂未实现）
+                messages.info(request, '多班级对比分析功能正在开发中，请选择单个班级或所有班级进行分析。')
+    
     context = {
         'form': form,
         'available_classes': available_classes,
         'page_title': '班级成绩分析',
-        'analysis_type': 'class'
+        'analysis_type': 'class',
+        'from_analysis_page': from_analysis_page,
+        'show_class_selection': from_analysis_page and available_classes,
+        'auto_analysis': auto_analysis
     }
     
     if form.is_valid():
@@ -1269,7 +1377,18 @@ def score_analysis_class(request):
         
         # 判断分析模式
         all_classes_selected = request.GET.get('class_selection') == 'all'
-        selected_classes = form.cleaned_data.get('selected_classes')
+        selected_classes = form.cleaned_data.get('selected_classes', [])
+        
+        # 如果selected_classes为空，尝试从class_name字段获取（向后兼容）
+        if not selected_classes and form.cleaned_data.get('class_name'):
+            try:
+                class_obj = Class.objects.get(
+                    grade_level=grade_level,
+                    class_name=form.cleaned_data['class_name']
+                )
+                selected_classes = [class_obj]
+            except Class.DoesNotExist:
+                selected_classes = []
         
         if all_classes_selected or not selected_classes:
             # 年级整体分析
@@ -1278,6 +1397,15 @@ def score_analysis_class(request):
             filters = {
                 'exam': exam,
                 'student__grade_level': grade_level,
+            }
+        elif len(selected_classes) == 1:
+            # 单班级详细分析
+            analysis_mode = 'single_class'
+            target_class = selected_classes[0]
+            analysis_scope = f"单班级详细分析：{target_class.grade_level}{target_class.class_name}"
+            filters = {
+                'exam': exam,
+                'student__current_class': target_class,
             }
         else:
             # 多班级对比分析
@@ -1294,6 +1422,11 @@ def score_analysis_class(request):
             'student', 'exam', 'student__current_class'
         )
         
+        # 单班级详细分析的数据处理
+        if analysis_mode == 'single_class':
+            analysis_data = _analyze_single_class(scores, target_class, exam)
+            context.update(analysis_data)
+        
         context.update({
             'scores': scores,
             'analysis_mode': analysis_mode,
@@ -1305,6 +1438,127 @@ def score_analysis_class(request):
         })
     
     return render(request, 'exams/score_analysis_class.html', context)
+
+# AJAX接口：根据年级获取班级列表
+def get_classes_by_grade(request):
+    """根据年级获取班级列表的AJAX接口"""
+    from django.http import JsonResponse
+    from students.models import Class
+    
+    grade_level = request.GET.get('grade_level')
+    
+    if not grade_level:
+        return JsonResponse({'error': '年级参数不能为空'}, status=400)
+    
+    try:
+        classes = Class.objects.filter(grade_level=grade_level).order_by('class_name')
+        classes_data = [
+            {
+                'id': cls.id,
+                'class_name': cls.class_name,
+                'grade_level': cls.grade_level
+            }
+            for cls in classes
+        ]
+        
+        return JsonResponse({
+            'classes': classes_data,
+            'count': len(classes_data)
+        })
+    except Exception as e:
+        return JsonResponse({'error': f'获取班级列表失败: {str(e)}'}, status=500)
+
+# 分析单班级详细数据
+def _analyze_single_class(scores, target_class, exam):
+    # 基础统计信息
+    total_students = scores.values('student').distinct().count()
+    
+    # 按科目统计成绩
+    subject_stats = {}
+    score_distribution = {}
+    student_scores = {}
+    
+    for subject_code, subject_name in SUBJECT_CHOICES:
+        subject_scores = scores.filter(subject=subject_code)
+        if subject_scores.exists():
+            stats = subject_scores.aggregate(
+                avg_score=Avg('score_value'),
+                max_score=Max('score_value'),
+                min_score=Min('score_value'),
+                count=Count('score_value')
+            )
+            subject_stats[subject_code] = {
+                'name': subject_name,
+                'avg_score': round(float(stats['avg_score'] or 0), 2),
+                'max_score': float(stats['max_score'] or 0),
+                'min_score': float(stats['min_score'] or 0),
+                'count': stats['count']
+            }
+            
+            # 成绩分布统计（按分数段）
+            score_ranges = {
+                '90-100': subject_scores.filter(score_value__gte=90).count(),
+                '80-89': subject_scores.filter(score_value__gte=80, score_value__lt=90).count(),
+                '70-79': subject_scores.filter(score_value__gte=70, score_value__lt=80).count(),
+                '60-69': subject_scores.filter(score_value__gte=60, score_value__lt=70).count(),
+                '0-59': subject_scores.filter(score_value__lt=60).count(),
+            }
+            score_distribution[subject_code] = score_ranges
+    
+    # 学生总分排名 - 使用Django ORM聚合查询避免重复
+    student_total_scores = []
+    
+    # 使用values和annotate来按学生分组并计算总分
+    student_scores = scores.values('student__id', 'student__name').annotate(
+        total_score=Sum('score_value'),
+        subject_count=Count('subject')
+    ).order_by('-total_score')
+    
+    # 转换为列表格式并添加排名
+    for i, student_data in enumerate(student_scores):
+        student_total_scores.append({
+            'student_id': student_data['student__id'],
+            'student_name': student_data['student__name'],
+            'total_score': float(student_data['total_score']),
+            'subject_count': student_data['subject_count'],
+            'rank': i + 1
+        })
+    
+    # 班级总体统计
+    if student_total_scores:
+        class_avg_total = sum([s['total_score'] for s in student_total_scores]) / len(student_total_scores)
+        class_max_total = max([s['total_score'] for s in student_total_scores])
+        class_min_total = min([s['total_score'] for s in student_total_scores])
+    else:
+        class_avg_total = class_max_total = class_min_total = 0
+    
+    # 准备图表数据
+    chart_data = {
+        'subject_avg_scores': {
+            'labels': [subject_stats[code]['name'] for code in subject_stats.keys()],
+            'data': [float(subject_stats[code]['avg_score']) for code in subject_stats.keys()]
+        },
+        'score_distribution': score_distribution,
+        'student_total_scores': [{
+            'student_id': s['student_id'],
+            'student_name': s['student_name'],
+            'total_score': float(s['total_score']),
+            'subject_count': s['subject_count'],
+            'rank': s['rank']
+        } for s in student_total_scores[:10]]  # 只显示前10名
+    }
+    
+    return {
+        'total_students': total_students,
+        'subject_stats': subject_stats,
+        'score_distribution': score_distribution,
+        'student_rankings': student_total_scores,
+        'class_avg_total': round(class_avg_total, 2),
+        'class_max_total': float(class_max_total) if class_max_total else 0,
+        'class_min_total': float(class_min_total) if class_min_total else 0,
+        'chart_data_json': json.dumps(chart_data, ensure_ascii=False),
+        'target_class': target_class
+    }
 
 # 学生个人成绩分析
 def score_analysis_student(request):

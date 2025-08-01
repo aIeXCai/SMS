@@ -292,7 +292,16 @@ class ScoreAnalysisForm(forms.Form):
         label="年级"
     )
     
-    # 使用隐藏字段存储选择的班级
+    # 班级多选字段
+    selected_classes = forms.ModelMultipleChoiceField(
+        queryset=Class.objects.none(),  # 初始为空，通过JavaScript动态加载
+        required=False,
+        label="选择班级",
+        widget=forms.CheckboxSelectMultiple(),
+        help_text="选择一个班级进行详细分析，选择多个班级进行对比分析"
+    )
+    
+    # 使用隐藏字段存储选择的班级（保持兼容性）
     class_name = forms.CharField(
         required=False,
         widget=forms.HiddenInput(),
@@ -305,6 +314,15 @@ class ScoreAnalysisForm(forms.Form):
         self.fields['exam'].queryset = Exam.objects.filter(
             score__isnull=False
         ).distinct().order_by('-academic_year', '-date', 'name')
+        
+        # 如果有年级参数，动态加载对应的班级
+        grade_level = self.data.get('grade_level') or self.initial.get('grade_level')
+        if grade_level:
+            self.fields['selected_classes'].queryset = Class.objects.filter(
+                grade_level=grade_level
+            ).order_by('class_name')
+        else:
+            self.fields['selected_classes'].queryset = Class.objects.none()
     
     def clean(self):
         cleaned_data = super().clean()
