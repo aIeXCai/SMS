@@ -1,0 +1,250 @@
+{% load exam_filters %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>查询结果 - 成绩查询</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        h1, h2 { color: #333; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+        th { background-color: #f2f2f2; font-weight: bold; }
+        .student-info { text-align: left; }
+        .score-cell { background-color: #f8f9fa; }
+        .total-score { background-color: #e7f3ff; font-weight: bold; }
+        .rank-cell { background-color: #fff3cd; font-weight: bold; }
+        .button-group { margin-bottom: 20px; }
+        .button-group a, .button-group button {
+            display: inline-block;
+            padding: 10px 15px;
+            margin-right: 10px;
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .button-group a:hover, .button-group button:hover {
+            background-color: #0056b3;
+        }
+        .btn-success { background-color: #28a745; }
+        .btn-success:hover { background-color: #218838; }
+        .btn-secondary { background-color: #6c757d; }
+        .btn-secondary:hover { background-color: #545b62; }
+        .query-summary {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .pagination {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        .pagination a, .pagination span {
+            display: inline-block;
+            padding: 8px 12px;
+            margin: 0 4px;
+            border: 1px solid #dee2e6;
+            text-decoration: none;
+            color: #007bff;
+        }
+        .pagination .current {
+            background-color: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+        .pagination a:hover {
+            background-color: #e9ecef;
+        }
+        .messages {
+            list-style: none;
+            padding: 0;
+        }
+        .messages li {
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+        }
+        .messages .success { background-color: #d4edda; color: #155724; }
+        .messages .error { background-color: #f8d7da; color: #721c24; }
+        .messages .info { background-color: #d1ecf1; color: #0c5460; }
+        .student-link {
+            color: #007bff;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .student-link:hover {
+            text-decoration: underline;
+        }
+        /* 排序按钮样式 */
+        .sort-header {
+            position: relative;
+            cursor: pointer;
+            user-select: none;
+        }
+        .sort-btn {
+            display: inline-block;
+            margin-left: 5px;
+            font-size: 12px;
+            color: #6c757d;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+        .sort-btn:hover {
+            color: #007bff;
+        }
+        .sort-btn.active {
+            color: #007bff;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>成绩查询结果</h1>
+    
+    {% if messages %}
+        <ul class="messages">
+            {% for message in messages %}
+                <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+    
+    <div class="button-group">
+        <a href="{% url 'score_query' %}">🔍 重新查询</a>
+        {% if has_results %}
+            <a href="{% url 'score_query_export' %}?{{ request.GET.urlencode }}" class="btn-success">📤 导出Excel</a>
+        {% endif %}
+        <a href="{% url 'score_list' %}" class="btn-secondary">📊 返回成绩管理</a>
+    </div>
+    
+    {% if has_results %}
+        <div class="query-summary">
+            <strong>📈 查询统计：</strong>共找到 {{ total_count }} 条记录
+            {% if results.has_other_pages %}
+                （当前显示第 {{ results.start_index }} - {{ results.end_index }} 条）
+            {% endif %}
+        </div>
+        
+        {% if results %}
+            <table>
+                <thead>
+                    <tr>
+                        <th rowspan="2">学号</th>
+                        <th rowspan="2">学生姓名</th>
+                        <th rowspan="2">年级</th>
+                        <th rowspan="2">班级</th>
+                        <th rowspan="2">考试名称</th>
+                        <th colspan="{{ results.0.all_subjects|length }}">各科成绩</th>
+                        <th rowspan="2" class="sort-header">
+                            总分
+                            {% with current_sort=request.GET.subject_sort current_order=request.GET.sort_order %}
+                                {% if current_sort == 'total_score' %}
+                                    {% if current_order == 'desc' %}
+                                        <a href="?{{ request.GET.urlencode }}&subject_sort=total_score&sort_order=asc" class="sort-btn active">▼</a>
+                                    {% else %}
+                                        <a href="?{{ request.GET.urlencode }}&subject_sort=total_score&sort_order=desc" class="sort-btn active">▲</a>
+                                    {% endif %}
+                                {% else %}
+                                    <a href="?{{ request.GET.urlencode }}&subject_sort=total_score&sort_order=desc" class="sort-btn">▼</a>
+                                {% endif %}
+                            {% endwith %}
+                        </th>
+                        <th rowspan="2" class="sort-header">
+                            年级排名
+                            {% with current_sort=request.GET.subject_sort current_order=request.GET.sort_order %}
+                                {% if current_sort == 'grade_rank' %}
+                                    {% if current_order == 'desc' %}
+                                        <a href="?{{ request.GET.urlencode }}&subject_sort=grade_rank&sort_order=asc" class="sort-btn active">▼</a>
+                                    {% else %}
+                                        <a href="?{{ request.GET.urlencode }}&subject_sort=grade_rank&sort_order=desc" class="sort-btn active">▲</a>
+                                    {% endif %}
+                                {% else %}
+                                    <a href="?{{ request.GET.urlencode }}&subject_sort=grade_rank&sort_order=asc" class="sort-btn">▼</a>
+                                {% endif %}
+                            {% endwith %}
+                        </th>
+                    </tr>
+                    <tr>
+                        {% for subject in results.0.all_subjects %}
+                            <th class="score-cell sort-header">
+                                {{ subject }}
+                                {% with current_sort=request.GET.subject_sort current_order=request.GET.sort_order %}
+                                    {% if current_sort == subject %}
+                                        {% if current_order == 'desc' %}
+                                            <a href="?{{ request.GET.urlencode }}&subject_sort={{ subject }}&sort_order=asc" class="sort-btn active">▼</a>
+                                        {% else %}
+                                            <a href="?{{ request.GET.urlencode }}&subject_sort={{ subject }}&sort_order=desc" class="sort-btn active">▲</a>
+                                        {% endif %}
+                                    {% else %}
+                                        <a href="?{{ request.GET.urlencode }}&subject_sort={{ subject }}&sort_order=desc" class="sort-btn">▼</a>
+                                    {% endif %}
+                                {% endwith %}
+                            </th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for result in results %}
+                        <tr>
+                            <td class="student-info">{{ result.student.student_id }}</td>
+                            <td class="student-info">
+                                <a href="{% url 'student_score_detail' result.student.pk %}" class="student-link">
+                                    {{ result.student.name }}
+                                </a>
+                            </td>
+                            <td>{{ result.student.get_grade_level_display|default:"N/A" }}</td>
+                            <td>{{ result.class_obj.class_name|default:"N/A" }}</td>
+                            <td>{{ result.exam.name }}</td>
+                            {% for subject in result.all_subjects %}
+                                <td class="score-cell">
+                                    {% if result.scores|get_item:subject %}
+                                        {{ result.scores|get_item:subject }}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                            {% endfor %}
+                            <td class="total-score">{{ result.total_score|floatformat:1 }}</td>
+                            <td class="rank-cell">
+                                {% if result.grade_rank %}
+                                    {{ result.grade_rank }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            
+            <!-- 分页导航 -->
+            {% if results.has_other_pages %}
+                <div class="pagination">
+                    {% if results.has_previous %}
+                        <a href="?{{ request.GET.urlencode }}&page=1">首页</a>
+                        <a href="?{{ request.GET.urlencode }}&page={{ results.previous_page_number }}">上一页</a>
+                    {% endif %}
+                    
+                    <span class="current">
+                        第 {{ results.number }} 页，共 {{ results.paginator.num_pages }} 页
+                    </span>
+                    
+                    {% if results.has_next %}
+                        <a href="?{{ request.GET.urlencode }}&page={{ results.next_page_number }}">下一页</a>
+                        <a href="?{{ request.GET.urlencode }}&page={{ results.paginator.num_pages }}">末页</a>
+                    {% endif %}
+                </div>
+            {% endif %}
+        {% endif %}
+    {% else %}
+        <div class="query-summary">
+            <p>📝 请设置查询条件后点击查询按钮</p>
+        </div>
+    {% endif %}
+</body>
+</html>

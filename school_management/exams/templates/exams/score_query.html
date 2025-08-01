@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>成绩查询</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        h1, h2 { color: #333; }
+        .query-form {
+            background-color: #f9f9f9;
+            border: 1px solid #eee;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            max-width: 800px;
+        }
+        .form-row {
+            display: flex;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+            gap: 15px;
+        }
+        .form-group {
+            flex: 1;
+            min-width: 200px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .button-group {
+            margin-top: 20px;
+            text-align: center;
+        }
+        .button-group button,
+        .button-group a {
+            display: inline-block;
+            padding: 12px 20px;
+            margin: 0 10px;
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .button-group button:hover,
+        .button-group a:hover {
+            background-color: #0056b3;
+        }
+        .button-group .btn-secondary {
+            background-color: #6c757d;
+        }
+        .button-group .btn-secondary:hover {
+            background-color: #545b62;
+        }
+        .messages {
+            list-style: none;
+            padding: 0;
+            margin-bottom: 20px;
+        }
+        .messages li {
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+        }
+        .messages .success { background-color: #d4edda; color: #155724; }
+        .messages .error { background-color: #f8d7da; color: #721c24; }
+        .messages .info { background-color: #d1ecf1; color: #0c5460; }
+        .messages .warning { background-color: #fff3cd; color: #856404; }
+    </style>
+</head>
+<body>
+    <h1>成绩查询</h1>
+    
+    {% if messages %}
+        <ul class="messages">
+            {% for message in messages %}
+                <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+    
+    <div class="query-form">
+        <h2>查询条件</h2>
+        <form method="get" action="{% url 'score_query_results' %}">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="{{ form.student_name.id_for_label }}">{{ form.student_name.label }}</label>
+                    {{ form.student_name }}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.student_id.id_for_label }}">{{ form.student_id.label }}</label>
+                    {{ form.student_id }}
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="{{ form.grade_level.id_for_label }}">{{ form.grade_level.label }}</label>
+                    {{ form.grade_level }}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.exam.id_for_label }}">{{ form.exam.label }}</label>
+                    {{ form.exam }}
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="{{ form.academic_year.id_for_label }}">{{ form.academic_year.label }}</label>
+                    {{ form.academic_year }}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.subject.id_for_label }}">{{ form.subject.label }}</label>
+                    {{ form.subject }}
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="{{ form.date_from.id_for_label }}">{{ form.date_from.label }}</label>
+                    {{ form.date_from }}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.date_to.id_for_label }}">{{ form.date_to.label }}</label>
+                    {{ form.date_to }}
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="{{ form.sort_by.id_for_label }}">{{ form.sort_by.label }}</label>
+                    {{ form.sort_by }}
+                </div>
+            </div>
+            
+            <div class="button-group">
+                <button type="submit">🔍 开始查询</button>
+                <button type="reset" class="btn-secondary">🔄 重置条件</button>
+                <a href="{% url 'score_list' %}" class="btn-secondary">📊 返回成绩管理</a>
+            </div>
+        </form>
+    </div>
+    
+    <div style="margin-top: 30px; padding: 15px; background-color: #e9ecef; border-radius: 5px;">
+        <h3>📋 使用说明</h3>
+        <ul>
+            <li><strong>学生信息：</strong>可通过学生姓名或学号进行模糊搜索</li>
+            <li><strong>考试筛选：</strong>可选择特定考试或学年进行查询</li>
+            <li><strong>科目筛选：</strong>可查询特定科目或全部科目成绩</li>
+            <li><strong>日期范围：</strong>可限定考试日期范围</li>
+            <li><strong>排序方式：</strong>支持按总分、姓名、日期等多种排序</li>
+            <li><strong>查询结果：</strong>将显示成绩详情、总分和年级排名</li>
+        </ul>
+    </div>
+</body>
+</html>

@@ -1,0 +1,207 @@
+{% load exam_filters %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ student.name }} - 成绩详情</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        h1, h2 { color: #333; }
+        .student-info {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .student-info h2 {
+            margin-top: 0;
+            color: #007bff;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .info-item {
+            display: flex;
+            flex-direction: column;
+        }
+        .info-label {
+            font-weight: bold;
+            color: #555;
+            margin-bottom: 5px;
+        }
+        .info-value {
+            color: #333;
+        }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: center; }
+        th { background-color: #f2f2f2; font-weight: bold; }
+        .exam-header {
+            background-color: #e7f3ff;
+            font-weight: bold;
+            text-align: left;
+            padding: 15px;
+        }
+        .score-cell { background-color: #f8f9fa; }
+        .total-score { background-color: #e7f3ff; font-weight: bold; }
+        .rank-cell { background-color: #fff3cd; font-weight: bold; }
+        .button-group { margin-bottom: 20px; }
+        .button-group a {
+            display: inline-block;
+            padding: 10px 15px;
+            margin-right: 10px;
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+        }
+        .button-group a:hover {
+            background-color: #0056b3;
+        }
+        .btn-secondary { background-color: #6c757d; }
+        .btn-secondary:hover { background-color: #545b62; }
+        .exam-summary {
+            background-color: #f8f9fa;
+            border-left: 4px solid #007bff;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .no-scores {
+            text-align: center;
+            padding: 40px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            color: #6c757d;
+        }
+        .messages {
+            list-style: none;
+            padding: 0;
+            margin-bottom: 20px;
+        }
+        .messages li {
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+        }
+        .messages .success { background-color: #d4edda; color: #155724; }
+        .messages .error { background-color: #f8d7da; color: #721c24; }
+        .messages .info { background-color: #d1ecf1; color: #0c5460; }
+        .messages .warning { background-color: #fff3cd; color: #856404; }
+    </style>
+</head>
+<body>
+    <h1>{{ page_title }}</h1>
+    
+    {% if messages %}
+        <ul class="messages">
+            {% for message in messages %}
+                <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+    
+    <div class="button-group">
+        <a href="javascript:history.back()">🔙 返回上页</a>
+        <a href="{% url 'score_query' %}" class="btn-secondary">🔍 重新查询</a>
+        <a href="{% url 'score_list' %}" class="btn-secondary">📊 成绩管理</a>
+    </div>
+    
+    <!-- 学生基本信息 -->
+    <div class="student-info">
+        <h2>👤 学生基本信息</h2>
+        <div class="info-grid">
+            <div class="info-item">
+                <span class="info-label">学号</span>
+                <span class="info-value">{{ student.student_id }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">姓名</span>
+                <span class="info-value">{{ student.name }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">性别</span>
+                <span class="info-value">{{ student.get_gender_display }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">年级</span>
+                <span class="info-value">{{ student.get_grade_level_display|default:"未设置" }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">班级</span>
+                <span class="info-value">
+                    {% if student.current_class %}
+                        {{ student.current_class }}
+                    {% else %}
+                        未分班
+                    {% endif %}
+                </span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">在校状态</span>
+                <span class="info-value">{{ student.get_status_display }}</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 成绩详情 -->
+    {% if exam_results %}
+        <div class="exam-summary">
+            <strong>📊 成绩统计：</strong>共参加 {{ exam_results|length }} 次考试
+        </div>
+        
+        {% for exam_result in exam_results %}
+            <table>
+                <thead>
+                    <tr class="exam-header">
+                        <td colspan="{{ exam_result.all_subjects|length|add:3 }}">
+                            📝 {{ exam_result.exam.academic_year }} {{ exam_result.exam.name }} 
+                            ({{ exam_result.exam.date|date:"Y年m月d日" }})
+                            {% if exam_result.grade_rank %}
+                                - 年级排名：第{{ exam_result.grade_rank }}名/{{ exam_result.total_students }}人
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        {% for subject in exam_result.all_subjects %}
+                            <th class="score-cell">{{ subject }}</th>
+                        {% endfor %}
+                        <th class="total-score">总分</th>
+                        <th class="rank-cell">年级排名</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        {% for subject in exam_result.all_subjects %}
+                            <td class="score-cell">
+                                {% if exam_result.scores|get_item:subject %}
+                                    {{ exam_result.scores|get_item:subject }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                        {% endfor %}
+                        <td class="total-score">{{ exam_result.total_score|floatformat:1 }}</td>
+                        <td class="rank-cell">
+                            {% if exam_result.grade_rank %}
+                                {{ exam_result.grade_rank }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        {% endfor %}
+    {% else %}
+        <div class="no-scores">
+            <h3>📋 暂无成绩记录</h3>
+            <p>该学生还没有任何考试成绩记录</p>
+            <a href="{% url 'score_add' %}?student={{ student.pk }}" style="color: #007bff; text-decoration: none;">
+                ➕ 为该学生添加成绩
+            </a>
+        </div>
+    {% endif %}
+</body>
+</html>

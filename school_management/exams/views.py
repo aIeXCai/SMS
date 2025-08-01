@@ -2,7 +2,9 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.views.decorators.http import require_http_methods, require_POST
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Sum, Count, Q, F, Case, When, IntegerField
+from django.db.models.functions import Rank
+from django.core.paginator import Paginator
 from django.http import HttpResponse
 import openpyxl
 from datetime import datetime
@@ -10,7 +12,7 @@ import io
 from collections import defaultdict
 
 from .models import Exam, Score, SUBJECT_CHOICES
-from .forms import ExamForm, ScoreForm, ScoreBatchUploadForm
+from .forms import ExamForm, ScoreForm, ScoreBatchUploadForm, ScoreQueryForm, ScoreAddForm
 from school_management.students.models import CLASS_NAME_CHOICES, Student, Class, GRADE_LEVEL_CHOICES
 
 # --- 考试管理 Views ---
@@ -141,24 +143,54 @@ def score_list(request):
     }
     return render(request, 'exams/score_list.html', context)
 
-# 新增單條成績 (Create)
 @require_http_methods(["GET", "POST"])
 def score_add(request):
     if request.method == 'POST':
-        form = ScoreForm(request.POST)
+        form = ScoreAddForm(request.POST)
         if form.is_valid():
             try:
-                form.save()
-                messages.success(request, "成绩新增成功！")
-                return redirect('score_list')
-            except Exception as e: # 捕獲可能的唯一性約束錯誤等
-                messages.error(request, f"新增成绩失敗：{e}。请检查是否已存在该学生在该考试该科目的成绩。")
+                with transaction.atomic():
+                    student = form.cleaned_data['student']
+                    exam = form.cleaned_data['exam']
+                    
+                    created_count = 0
+                    for subject_code, subject_name in SUBJECT_CHOICES:
+                        score_field = f'score_{subject_code}'
+                        score_value = form.cleaned_data.get(score_field)
+                        
+                        if score_value is not None:
+                            Score.objects.create(
+                                student=student,
+                                exam=exam,
+                                subject=subject_code,
+                                score_value=score_value
+                            )
+                            created_count += 1
+                    
+                    messages.success(request, f"成功添加 {created_count} 个科目的成绩！")
+                    return redirect('score_list')
+            except Exception as e:
+                messages.error(request, f"添加成绩失败：{e}")
         else:
-            messages.error(request, "新增成绩失敗，请检查表单数据。")
+            messages.error(request, "添加成绩失败，请检查表单数据。")
     else:
-        form = ScoreForm()
+        form = ScoreAddForm()
     
-    return render(request, 'exams/score_form.html', {'form': form, 'title': '新增成績'})
+    # Create a dictionary of score fields for easier template access
+    score_fields = {}
+    for subject_code, subject_name in SUBJECT_CHOICES:
+        field_name = f'score_{subject_code}'
+        if field_name in form.fields:
+            score_fields[subject_code] = form[field_name]
+    
+    context = {
+        'form': form,
+        'title': '新增成绩',
+        'subjects': SUBJECT_CHOICES,
+        'score_fields': score_fields
+    }
+    
+    return render(request, 'exams/score_form.html', context)
 
 # 編輯成績 (Update)
 @require_http_methods(["GET", "POST"])
@@ -328,7 +360,6 @@ def score_batch_import(request):
         'title': '批量導入成績',
         'download_template_url': download_template_url,
     })
-
 
 # 下載成績導入模板
 def download_score_import_template(request):
@@ -770,9 +801,430 @@ def get_existing_scores(student, exam):
         score_dict[score.subject] = score.score_value
     return score_dict
 
+# 成绩查询主页面
+def score_query(request):
+    """
+    成绩查询主页面，显示查询表单
+    """
+    form = ScoreQueryForm()
+    
+    context = {
+        'form': form,
+        'page_title': '成绩查询',
+    }
+    
+    return render(request, 'exams/score_query.html', context)
 
+# 成绩查询结果页面
+def score_query_results(request):
+    """
+    处理查询请求并显示结果，包含排名计算和科目排序
+    """
+    form = ScoreQueryForm(request.GET)
+    results = []
+    total_count = 0
+    
+    if form.is_valid():
+        # 获取查询参数
+        student_name = form.cleaned_data.get('student_name')
+        student_id = form.cleaned_data.get('student_id')
+        grade_level = form.cleaned_data.get('grade_level')
+        class_name = form.cleaned_data.get('class_name')
+        exam = form.cleaned_data.get('exam')
+        academic_year = form.cleaned_data.get('academic_year')
+        subject = form.cleaned_data.get('subject')
+        date_from = form.cleaned_data.get('date_from')
+        date_to = form.cleaned_data.get('date_to')
+        sort_by = form.cleaned_data.get('sort_by')
+        
+        # 获取科目排序参数
+        subject_sort = request.GET.get('subject_sort')
+        sort_order = request.GET.get('sort_order', 'desc')  # 默认降序
+        
+        # 构建查询条件
+        queryset = Score.objects.select_related(
+            'student', 'exam', 'student__current_class'
+        )
+        
+        # 应用筛选条件
+        if student_name:
+            queryset = queryset.filter(student__name__icontains=student_name)
+        
+        if student_id:
+            queryset = queryset.filter(student__student_id__icontains=student_id)
+        
+        if grade_level:
+            queryset = queryset.filter(student__grade_level=grade_level)
+        
+        if class_name:
+            queryset = queryset.filter(student__current_class__class_name=class_name)
+        
+        if exam:
+            queryset = queryset.filter(exam=exam)
+        
+        if academic_year:
+            queryset = queryset.filter(exam__academic_year=academic_year)
+        
+        if subject:
+            queryset = queryset.filter(subject=subject)
+        
+        if date_from:
+            queryset = queryset.filter(exam__date__gte=date_from)
+        
+        if date_to:
+            queryset = queryset.filter(exam__date__lte=date_to)
+        
+        # 聚合数据：按学生-考试组合
+        results = calculate_scores_with_ranking(queryset, sort_by, subject_sort, sort_order)
+        total_count = len(results)
+        
+        # 分页处理
+        paginator = Paginator(results, 20)  # 每页20条记录
+        page_number = request.GET.get('page')
+        page_obj = paginator.get_page(page_number)
+        
+        context = {
+            'form': form,
+            'results': page_obj,
+            'total_count': total_count,
+            'page_title': '查询结果',
+            'has_results': True,
+        }
+    else:
+        context = {
+            'form': form,
+            'page_title': '成绩查询',
+            'has_results': False,
+        }
+    
+    return render(request, 'exams/score_query_results.html', context)
 
+# 计算成绩和排名的辅助函数
+def calculate_scores_with_ranking(queryset, sort_by=None, subject_sort=None, sort_order='desc'):
+    """
+    计算成绩总分和年级排名，支持按科目、总分和排名排序
+    """
+    # 获取科目顺序
+    def get_subject_order(subject_name):
+        subject_dict = dict(SUBJECT_CHOICES)
+        for i, (code, name) in enumerate(SUBJECT_CHOICES):
+            if name == subject_name:
+                return i
+        return 999  # 未知科目排在最后
+    
+    # 聚合数据：按学生-考试组合
+    student_exam_data = defaultdict(lambda: {
+        'student': None,
+        'exam': None,
+        'class_obj': None,
+        'scores': {},
+        'total_score': 0,
+        'subject_count': 0
+    })
+    
+    # 收集所有科目
+    all_subjects = set()
+    
+    for score in queryset:
+        key = (score.student.pk, score.exam.pk)
+        data = student_exam_data[key]
+        
+        # 设置基本信息
+        if not data['student']:
+            data['student'] = score.student
+            data['exam'] = score.exam
+            data['class_obj'] = score.student.current_class
+        
+        # 获取科目显示名称
+        subject_name = dict(SUBJECT_CHOICES).get(score.subject, score.subject)
+        data['scores'][subject_name] = score.score_value
+        data['total_score'] += score.score_value or 0
+        data['subject_count'] += 1
+        all_subjects.add(subject_name)
+    
+    # 按SUBJECT_CHOICES顺序排列科目
+    all_subjects = sorted(all_subjects, key=get_subject_order)
+    
+    # 转换为列表并添加排名
+    results = []
+    for data in student_exam_data.values():
+        data['all_subjects'] = all_subjects
+        results.append(data)
+    
+    # 计算年级排名
+    grade_totals = defaultdict(list)
+    for result in results:
+        grade_level = result['student'].grade_level
+        exam_id = result['exam'].pk
+        grade_totals[(grade_level, exam_id)].append(result)
+    
+    # 为每个年级-考试组合计算排名
+    for grade_exam_results in grade_totals.values():
+        # 按总分降序排序
+        grade_exam_results.sort(key=lambda x: x['total_score'], reverse=True)
+        
+        # 分配排名
+        for rank, result in enumerate(grade_exam_results, 1):
+            result['grade_rank'] = rank
+    
+    # 应用排序
+    if subject_sort:
+        reverse_order = (sort_order == 'desc')
+        
+        if subject_sort == 'total_score':
+            # 按总分排序
+            results.sort(key=lambda x: x['total_score'], reverse=reverse_order)
+        elif subject_sort == 'grade_rank':
+            # 按年级排名排序
+            def get_rank_value(result):
+                rank = result.get('grade_rank')
+                return rank if rank is not None else 999  # 没有排名的排在最后
+            
+            results.sort(key=get_rank_value, reverse=reverse_order)
+        elif subject_sort in all_subjects:
+            # 按指定科目排序
+            def get_subject_score(result):
+                score = result['scores'].get(subject_sort)
+                return score if score is not None else -1  # 没有成绩的排在最后
+            
+            results.sort(key=get_subject_score, reverse=reverse_order)
+    elif sort_by:
+        # 应用其他排序
+        if sort_by == 'total_score_desc':
+            results.sort(key=lambda x: x['total_score'], reverse=True)
+        elif sort_by == 'total_score_asc':
+            results.sort(key=lambda x: x['total_score'], reverse=False)
+        elif sort_by == 'student_name':
+            results.sort(key=lambda x: x['student'].name)
+        elif sort_by == 'exam_date':
+            results.sort(key=lambda x: x['exam'].date, reverse=True)
+        elif sort_by == 'grade_rank':
+            results.sort(key=lambda x: x.get('grade_rank', 999))
+    
+    return results
 
+# 学生详细成绩页面
+def student_score_detail(request, student_id):
+    """
+    显示单个学生的所有考试成绩详情
+    """
+    student = get_object_or_404(Student, pk=student_id)
+    
+    # 获取该学生的所有成绩，按考试日期降序排列
+    scores = Score.objects.filter(student=student).select_related(
+        'exam', 'student__current_class'
+    ).order_by('-exam__date', 'subject')
+    
+    # 按考试分组成绩
+    exam_scores = defaultdict(lambda: {
+        'exam': None,
+        'scores': {},
+        'total_score': 0,
+        'subject_count': 0,
+        'grade_rank': None,
+    })
+    
+    for score in scores:
+        exam_id = score.exam.pk
+        if exam_scores[exam_id]['exam'] is None:
+            exam_scores[exam_id]['exam'] = score.exam
+        
+        exam_scores[exam_id]['scores'][score.subject] = score.score_value
+        exam_scores[exam_id]['total_score'] += float(score.score_value)
+        exam_scores[exam_id]['subject_count'] += 1
+    
+    # 计算每次考试的年级排名
+    for exam_id, exam_data in exam_scores.items():
+        exam = exam_data['exam']
+        total_score = exam_data['total_score']
+        
+        # 获取同年级同考试的所有学生总分
+        same_grade_scores = Score.objects.filter(
+            exam=exam,
+            student__grade_level=student.grade_level
+        ).values('student').annotate(
+            student_total=Sum('score_value')
+        ).order_by('-student_total')
+        
+        # 计算排名
+        rank = 1
+        for i, score_data in enumerate(same_grade_scores):
+            if score_data['student'] == student.pk:
+                rank = i + 1
+                break
+        
+        exam_scores[exam_id]['grade_rank'] = rank
+        exam_scores[exam_id]['total_students'] = same_grade_scores.count()
+    
+    # 转换为列表格式
+    exam_results = []
+    for exam_id, data in exam_scores.items():
+        result = type('ExamResult', (object,), {
+            'exam': data['exam'],
+            'scores': data['scores'],
+            'total_score': data['total_score'],
+            'subject_count': data['subject_count'],
+            'grade_rank': data['grade_rank'],
+            'total_students': data.get('total_students', 0),
+            'all_subjects': sorted(set(data['scores'].keys())),
+        })
+        exam_results.append(result)
+    
+    # 按考试日期降序排列
+    exam_results.sort(key=lambda x: x.exam.date, reverse=True)
+    
+    context = {
+        'student': student,
+        'exam_results': exam_results,
+        'page_title': f'{student.name} 的成绩详情',
+    }
+    
+    return render(request, 'exams/student_score_detail.html', context)
+
+# 成绩查询结果导出
+def score_query_export(request):
+    """
+    导出查询结果为Excel文件
+    """
+    # 重用查询逻辑
+    from .forms import ScoreQueryForm
+    
+    form = ScoreQueryForm(request.GET)
+    if not form.is_valid():
+        messages.error(request, '查询参数无效，无法导出')
+        return redirect('score_query')
+    
+    # 获取查询参数（与score_query_results相同的逻辑）
+    student_name = form.cleaned_data.get('student_name')
+    student_id = form.cleaned_data.get('student_id')
+    grade_level = form.cleaned_data.get('grade_level')
+    class_name = form.cleaned_data.get('class_name')
+    exam = form.cleaned_data.get('exam')
+    academic_year = form.cleaned_data.get('academic_year')
+    subject = form.cleaned_data.get('subject')
+    date_from = form.cleaned_data.get('date_from')
+    date_to = form.cleaned_data.get('date_to')
+    sort_by = form.cleaned_data.get('sort_by')
+    
+    # 构建查询条件
+    queryset = Score.objects.select_related(
+        'student', 'exam', 'student__current_class'
+    )
+    
+    # 应用筛选条件
+    if student_name:
+        queryset = queryset.filter(student__name__icontains=student_name)
+    
+    if student_id:
+        queryset = queryset.filter(student__student_id__icontains=student_id)
+    
+    if grade_level:
+        queryset = queryset.filter(student__grade_level=grade_level)
+    
+    if class_name:
+        queryset = queryset.filter(student__current_class__class_name=class_name)
+    
+    if exam:
+        queryset = queryset.filter(exam=exam)
+    
+    if academic_year:
+        queryset = queryset.filter(exam__academic_year=academic_year)
+    
+    if subject:
+        queryset = queryset.filter(subject=subject)
+    
+    if date_from:
+        queryset = queryset.filter(exam__date__gte=date_from)
+    
+    if date_to:
+        queryset = queryset.filter(exam__date__lte=date_to)
+    
+    # 计算结果
+    results = calculate_scores_with_ranking(queryset, sort_by)
+    
+    # 创建Excel文件
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    sheet.title = "成绩查询结果"
+    
+    # 设置表头
+    headers = [
+        "学号", "学生姓名", "年级", "班级", "考试名称"
+    ]
+    
+    # 添加科目列 - 按照SUBJECT_CHOICES顺序
+    all_subjects = set()
+    for result in results:
+        all_subjects.update(result.all_subjects)
+    
+    # 按照SUBJECT_CHOICES的顺序排列科目
+    def get_subject_order(subject):
+        """获取科目在SUBJECT_CHOICES中的顺序"""
+        for index, (choice_value, choice_display) in enumerate(SUBJECT_CHOICES):
+            if choice_value == subject:
+                return index
+        return 999  # 如果科目不在SUBJECT_CHOICES中，放到最后
+    
+    ordered_subjects = sorted(all_subjects, key=get_subject_order)
+    
+    subject_names = dict(SUBJECT_CHOICES)
+    for subject_code in ordered_subjects:
+        headers.append(subject_names.get(subject_code, subject_code))
+    
+    # 添加总分和年级排名列
+    headers.extend(["总分", "年级排名"])
+    
+    sheet.append(headers)
+    
+    # 添加数据行
+    for result in results:
+        row = [
+            result.student.student_id,
+            result.student.name,
+            result.student.get_grade_level_display() if result.student.grade_level else "N/A",
+            result.class_obj.class_name if result.class_obj else "N/A",
+            result.exam.name,
+        ]
+        
+        # 添加各科目成绩 - 按照SUBJECT_CHOICES顺序
+        for subject_code in ordered_subjects:
+            score_value = result.scores.get(subject_code, "")
+            row.append(score_value)
+        
+        # 添加总分和年级排名
+        row.append(result.total_score)
+        row.append(result.grade_rank or "")
+        
+        sheet.append(row)
+    
+    # 设置列宽
+    for column in sheet.columns:
+        max_length = 0
+        column_letter = column[0].column_letter
+        for cell in column:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except:
+                pass
+        adjusted_width = min(max_length + 2, 20)
+        sheet.column_dimensions[column_letter].width = adjusted_width
+    
+    # 生成文件名
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    filename = f"成绩查询结果_{timestamp}.xlsx"
+    
+    # 返回Excel文件
+    excel_file = io.BytesIO()
+    workbook.save(excel_file)
+    excel_file.seek(0)
+    
+    response = HttpResponse(
+        excel_file.read(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
 
 
 

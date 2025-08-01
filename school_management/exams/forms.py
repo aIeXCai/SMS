@@ -1,6 +1,6 @@
 from django import forms
 from .models import Exam, ACADEMIC_YEAR_CHOICES, SUBJECT_CHOICES, Score
-from school_management.students.models import Student, GRADE_LEVEL_CHOICES # 確保導入年級選項
+from school_management.students.models import Student, GRADE_LEVEL_CHOICES, CLASS_NAME_CHOICES # 確保導入年級選項
 
 class ExamForm(forms.ModelForm):
     # 如果你希望年級選擇像學生表單那樣有 '-- 選擇年級 --' 的預設選項
@@ -115,7 +115,161 @@ class ScoreBatchUploadForm(forms.Form):
             raise forms.ValidationError("不支持的文件类型。请上传 .xlsx 或 .xls 文件。")
         return excel_file
 
+# 成绩查询表单
+class ScoreQueryForm(forms.Form):
+    # 学生信息筛选
+    student_name = forms.CharField(
+        max_length=50,
+        required=False,
+        label="学生姓名",
+        widget=forms.TextInput(attrs={'placeholder': '支持模糊搜索'})
+    )
+    
+    student_id = forms.CharField(
+        max_length=20,
+        required=False,
+        label="学号",
+        widget=forms.TextInput(attrs={'placeholder': '支持模糊搜索'})
+    )
+    
+    # 班级信息筛选
+    grade_level = forms.ChoiceField(
+        choices=[('', '--- 所有年级 ---')] + GRADE_LEVEL_CHOICES,
+        required=False,
+        label="年级"
+    )
+    
+    class_name = forms.ChoiceField(
+        choices=[('', '--- 所有班级 ---')] + CLASS_NAME_CHOICES,
+        required=False,
+        label="班级"
+    )
+    
+    # 考试信息筛选
+    exam = forms.ModelChoiceField(
+        queryset=Exam.objects.all().order_by('-academic_year', '-date', 'name'),
+        required=False,
+        label="考试",
+        empty_label="--- 所有考试 ---"
+    )
+    
+    academic_year = forms.ChoiceField(
+        choices=[('', '--- 所有学年 ---')] + ACADEMIC_YEAR_CHOICES,
+        required=False,
+        label="学年"
+    )
+    
+    # 科目筛选
+    subject = forms.ChoiceField(
+        choices=[('', '--- 所有科目 ---')] + SUBJECT_CHOICES,
+        required=False,
+        label="科目"
+    )
+    
+    # 日期范围筛选
+    date_from = forms.DateField(
+        required=False,
+        label="考试开始日期",
+        widget=forms.DateInput(attrs={'type': 'date'})
+    )
+    
+    date_to = forms.DateField(
+        required=False,
+        label="考试结束日期",
+        widget=forms.DateInput(attrs={'type': 'date'})
+    )
+    
+    # 排序选项
+    SORT_CHOICES = [
+        ('', '--- 默认排序 ---'),
+        ('total_score_desc', '总分降序'),
+        ('total_score_asc', '总分升序'),
+        ('student_name', '学生姓名'),
+        ('exam_date', '考试日期'),
+        ('grade_rank', '年级排名'),
+    ]
+    
+    sort_by = forms.ChoiceField(
+        choices=SORT_CHOICES,
+        required=False,
+        label="排序方式"
+    )
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # 动态更新班级选择（可以通过Ajax实现年级联动）
+        # 这里先保持简单实现
+        pass
 
+# 成绩添加表单
+class ScoreAddForm(forms.Form):
+    student = forms.ModelChoiceField(
+        queryset=Student.objects.all().order_by('name', 'student_id'),
+        label="学生",
+        empty_label="--- 选择学生 ---",
+        required=True
+    )
+    
+    exam = forms.ModelChoiceField(
+        queryset=Exam.objects.all().order_by('-academic_year', '-date', 'name'),
+        label="考试",
+        empty_label="--- 选择考试 ---",
+        required=True
+    )
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # 为每个科目动态添加字段
+        for subject_code, subject_name in SUBJECT_CHOICES:
+            self.fields[f'score_{subject_code}'] = forms.DecimalField(
+                max_digits=5,
+                decimal_places=2,
+                required=False,
+                label=subject_name,
+                widget=forms.NumberInput(attrs={
+                    'step': '0.01',
+                    'min': '0',
+                    'max': '150',
+                    'placeholder': '请输入分数'
+                })
+            )
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        student = cleaned_data.get('student')
+        exam = cleaned_data.get('exam')
+        
+        # 检查是否至少输入了一个科目成绩
+        has_score = False
+        for subject_code, _ in SUBJECT_CHOICES:
+            score_field = f'score_{subject_code}'
+            if cleaned_data.get(score_field) is not None:
+                has_score = True
+                break
+        
+        if not has_score:
+            raise forms.ValidationError("请至少输入一个科目的成绩。")
+        
+        # 检查是否已存在成绩记录
+        if student and exam:
+            existing_subjects = []
+            for subject_code, subject_name in SUBJECT_CHOICES:
+                score_field = f'score_{subject_code}'
+                if cleaned_data.get(score_field) is not None:
+                    existing = Score.objects.filter(
+                        student=student,
+                        exam=exam,
+                        subject=subject_code
+                    ).exists()
+                    if existing:
+                        existing_subjects.append(subject_name)
+            
+            if existing_subjects:
+                raise forms.ValidationError(
+                    f"以下科目的成绩已存在：{', '.join(existing_subjects)}。请检查后重新输入。"
+                )
+        
+        return cleaned_data
 
 
 
