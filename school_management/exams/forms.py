@@ -1,6 +1,6 @@
 from django import forms
 from .models import Exam, ACADEMIC_YEAR_CHOICES, SUBJECT_CHOICES, Score
-from school_management.students.models import Student, GRADE_LEVEL_CHOICES, CLASS_NAME_CHOICES # 確保導入年級選項
+from school_management.students.models import Student, Class, GRADE_LEVEL_CHOICES, CLASS_NAME_CHOICES # 確保導入年級選項
 
 class ExamForm(forms.ModelForm):
     # 如果你希望年級選擇像學生表單那樣有 '-- 選擇年級 --' 的預設選項
@@ -271,7 +271,67 @@ class ScoreAddForm(forms.Form):
         
         return cleaned_data
 
-
+# 成绩分析筛选表单
+class ScoreAnalysisForm(forms.Form):
+    academic_year = forms.ChoiceField(
+        choices=[('', '--- 选择学年 ---')] + ACADEMIC_YEAR_CHOICES,
+        required=True,
+        label="学年"
+    )
+    
+    exam = forms.ModelChoiceField(
+        queryset=Exam.objects.all().order_by('-academic_year', '-date', 'name'),
+        required=True,
+        label="考试",
+        empty_label="--- 选择考试 ---"
+    )
+    
+    grade_level = forms.ChoiceField(
+        choices=[('', '--- 选择年级 ---')] + GRADE_LEVEL_CHOICES,
+        required=True,
+        label="年级"
+    )
+    
+    # 使用隐藏字段存储选择的班级
+    class_name = forms.CharField(
+        required=False,
+        widget=forms.HiddenInput(),
+        label="班级"
+    )
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # 动态过滤考试选项，只显示有成绩数据的考试
+        self.fields['exam'].queryset = Exam.objects.filter(
+            score__isnull=False
+        ).distinct().order_by('-academic_year', '-date', 'name')
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        grade_level = cleaned_data.get('grade_level')
+        class_selection = self.data.get('class_selection')
+        selected_classes = cleaned_data.get('selected_classes')
+        
+        # 验证班级选择
+        if class_selection == 'all':
+            # 选择所有班级，清空具体班级选择
+            cleaned_data['selected_classes'] = Class.objects.none()
+        elif not selected_classes:
+            raise forms.ValidationError("请选择至少一个班级进行分析。")
+        
+        # 验证选择的班级是否属于指定年级
+        if selected_classes and grade_level:
+            invalid_classes = selected_classes.exclude(grade_level=grade_level)
+            if invalid_classes.exists():
+                raise forms.ValidationError(
+                    f"选择的班级中有不属于{grade_level}的班级。"
+                )
+        
+        # 限制班级数量
+        if selected_classes and selected_classes.count() > 6:
+            raise forms.ValidationError("最多只能选择6个班级进行对比分析。")
+        
+        return cleaned_data
 
 
 

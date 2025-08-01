@@ -1,0 +1,90 @@
+{% load static %}
+{% block title %}{{ page_title }}{% endblock %}
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">{{ page_title }}</h3>
+                    <div class="card-tools">
+                        <a href="{% url 'score_analysis' %}" class="btn btn-secondary btn-sm">
+                            <i class="fas fa-arrow-left"></i> 返回
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- 筛选条件显示 -->
+                    {% if selected_exam %}
+                    <div class="alert alert-info">
+                        <strong>分析条件：</strong>
+                        学年：{{ academic_year }} | 
+                        考试：{{ selected_exam.name }} | 
+                        年级：{{ selected_grade }}
+                        {% if selected_class %} | 班级：{{ selected_class }}{% else %} | 范围：所有班级{% endif %}
+                    </div>
+                    
+                    <!-- 这里将来放置图表和分析内容 -->
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="alert alert-warning">
+                                <i class="fas fa-info-circle"></i>
+                                <strong>功能开发中：</strong>班级成绩分析图表功能正在开发中，敬请期待！
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {% else %}
+                    <!-- 筛选表单 -->
+                    <form method="get">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label for="{{ form.academic_year.id_for_label }}">{{ form.academic_year.label }}</label>
+                                    {{ form.academic_year }}
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label for="{{ form.exam.id_for_label }}">{{ form.exam.label }}</label>
+                                    {{ form.exam }}
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label for="{{ form.grade_level.id_for_label }}">{{ form.grade_level.label }}</label>
+                                    {{ form.grade_level }}
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label for="{{ form.class_name.id_for_label }}">{{ form.class_name.label }}</label>
+                                    {{ form.class_name }}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-12">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-search"></i> 开始分析
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// 为表单字段添加样式
+document.addEventListener('DOMContentLoaded', function() {
+    const selects = document.querySelectorAll('select');
+    selects.forEach(select => {
+        select.classList.add('form-control');
+    });
+});
+</script>
+{% endblock %}

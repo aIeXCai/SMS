@@ -24,7 +24,6 @@ SUBJECT_CHOICES = [
     # 可以根據需要添加更多科目
 ]
 
-
 class Exam(models.Model):
     """
     考試模型，用於記錄每次考試的基本資訊。
@@ -60,7 +59,7 @@ class Exam(models.Model):
         unique_together = ('academic_year', 'name') # 同一學年內，考試名稱必須唯一
 
     def __str__(self):
-        return f"{self.date.year}年{self.name} ({self.get_grade_level_display()})"
+        return f"{self.name} ({self.get_grade_level_display()})"
 
 class Score(models.Model):
     """

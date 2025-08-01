@@ -12,7 +12,7 @@ import io
 from collections import defaultdict
 
 from .models import Exam, Score, SUBJECT_CHOICES
-from .forms import ExamForm, ScoreForm, ScoreBatchUploadForm, ScoreQueryForm, ScoreAddForm
+from .forms import ExamForm, ScoreForm, ScoreBatchUploadForm, ScoreQueryForm, ScoreAddForm, ScoreAnalysisForm
 from school_management.students.models import CLASS_NAME_CHOICES, Student, Class, GRADE_LEVEL_CHOICES
 
 # --- 考试管理 Views ---
@@ -1227,6 +1227,124 @@ def score_query_export(request):
     return response
 
 
+# --- 成绩分析 Views ---
+# 成绩分析主界面
+def score_analysis(request):
+    form = ScoreAnalysisForm()
+    
+    exams = Exam.objects.all().order_by('-academic_year', '-date', 'name')
+
+    context = {
+        'form': form,
+        'page_title': '成绩分析',
+        'exams' : exams,
+    }
+    
+    return render(request, 'exams/score_analysis.html', context)
+
+# 班级/年级成绩分析
+def score_analysis_class(request):
+    form = ScoreAnalysisForm(request.GET or None)
+    
+    # 获取可选班级列表（根据年级筛选）
+    available_classes = []
+    if request.GET.get('grade_level'):
+        available_classes = Class.objects.filter(
+            grade_level=request.GET.get('grade_level')
+        ).annotate(
+            student_count=Count('student')
+        ).order_by('class_name')
+    
+    context = {
+        'form': form,
+        'available_classes': available_classes,
+        'page_title': '班级成绩分析',
+        'analysis_type': 'class'
+    }
+    
+    if form.is_valid():
+        academic_year = form.cleaned_data['academic_year']
+        exam = form.cleaned_data['exam']
+        grade_level = form.cleaned_data['grade_level']
+        
+        # 判断分析模式
+        all_classes_selected = request.GET.get('class_selection') == 'all'
+        selected_classes = form.cleaned_data.get('selected_classes')
+        
+        if all_classes_selected or not selected_classes:
+            # 年级整体分析
+            analysis_mode = 'grade_overall'
+            analysis_scope = f"年级整体分析：{grade_level}"
+            filters = {
+                'exam': exam,
+                'student__grade_level': grade_level,
+            }
+        else:
+            # 多班级对比分析
+            analysis_mode = 'class_comparison'
+            class_names = [f"{c.grade_level}{c.class_name}" for c in selected_classes]
+            analysis_scope = f"班级对比分析：{', '.join(class_names)}"
+            filters = {
+                'exam': exam,
+                'student__current_class__in': selected_classes,
+            }
+        
+        # 获取成绩数据并进行相应分析
+        scores = Score.objects.filter(**filters).select_related(
+            'student', 'exam', 'student__current_class'
+        )
+        
+        context.update({
+            'scores': scores,
+            'analysis_mode': analysis_mode,
+            'analysis_scope': analysis_scope,
+            'selected_exam': exam,
+            'selected_grade': grade_level,
+            'selected_classes': selected_classes,
+            'academic_year': academic_year,
+        })
+    
+    return render(request, 'exams/score_analysis_class.html', context)
+
+# 学生个人成绩分析
+def score_analysis_student(request):
+    form = ScoreAnalysisForm(request.GET or None)
+
+    context = {
+        'form': form,
+        'page_title': '个人成绩分析',
+        'analysis_type': 'student'
+    }
+    
+    if form.is_valid():
+        # 获取筛选条件
+        academic_year = form.cleaned_data['academic_year']
+        exam = form.cleaned_data['exam']
+        grade_level = form.cleaned_data['grade_level']
+        class_name = form.cleaned_data.get('class_name')
+        
+        # 构建查询条件
+        filters = {
+            'grade_level': grade_level,
+        }
+        
+        if class_name:
+            filters['current_class__class_name'] = class_name
+        
+        # 获取学生列表
+        students = Student.objects.filter(**filters).order_by(
+            'current_class__class_name', 'name'
+        )
+        
+        context.update({
+            'students': students,
+            'selected_exam': exam,
+            'selected_grade': grade_level,
+            'selected_class': class_name,
+            'academic_year': academic_year,
+        })
+    
+    return render(request, 'exams/score_analysis_student.html', context)
 
 
 

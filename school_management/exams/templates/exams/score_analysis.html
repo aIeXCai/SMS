@@ -1,0 +1,613 @@
+{% load static %}
+{% block title %}{{ page_title }}{% endblock %}
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">{{ page_title }}</h3>
+                </div>
+                <div class="card-body">
+                    <!-- 筛选条件表单 -->
+                    <form method="get" id="analysisForm">
+                        <div class="row">
+                            <!-- 选择学年-->
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label>学年</label>
+                                    <div class="class-selection-container">
+                                        <div class="custom-multiselect">
+                                            <div class="multiselect-display form-control" onclick="toggleDropdown('academicYearDropdown', 'selectedAcademicYearDisplay')">
+                                                <span id="selectedAcademicYearDisplay">请选择学年</span>
+                                                <span class="dropdown-arrow">▼</span>
+                                            </div>
+                                            <div class="multiselect-dropdown" id="academicYearDropdown">
+                                                {% for year_value, year_label in form.academic_year.field.choices %}
+                                                    {% if year_value %}
+                                                        <div class="multiselect-option" data-value="{{ year_value }}" onclick="selectSingleOption(this, 'selectedAcademicYearDisplay', 'selectedAcademicYear')">{{ year_label }}</div>
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                        <input type="hidden" name="academic_year" id="selectedAcademicYear">
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- 选择考试 -->
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label>考试</label>
+                                    <div class="class-selection-container">
+                                        <div class="custom-multiselect">
+                                            <div class="multiselect-display form-control" onclick="toggleDropdown('examDropdown', 'selectedExamDisplay')">
+                                                <span id="selectedExamDisplay">请选择考试</span>
+                                                <span class="dropdown-arrow">▼</span>
+                                            </div>
+                                            <div class="multiselect-dropdown" id="examDropdown">
+                                                {% for exam in exams %}
+                                                    <div class="multiselect-option" data-value="{{ exam.pk }}" onclick="selectSingleOption(this, 'selectedExamDisplay', 'selectedExam')">{{ exam.name }} ({{ exam.get_grade_level_display }})</div>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                        <input type="hidden" name="exam" id="selectedExam">
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- 选择年级 -->
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label>年级</label>
+                                    <div class="class-selection-container">
+                                        <div class="custom-multiselect">
+                                            <div class="multiselect-display form-control" onclick="toggleDropdown('gradeDropdown', 'selectedGradeDisplay')">
+                                                <span id="selectedGradeDisplay">请选择年级</span>
+                                                <span class="dropdown-arrow">▼</span>
+                                            </div>
+                                            <div class="multiselect-dropdown" id="gradeDropdown">
+                                                {% for grade_value, grade_label in form.grade_level.field.choices %}
+                                                    {% if grade_value %}
+                                                        <div class="multiselect-option" data-value="{{ grade_value }}" onclick="selectSingleOption(this, 'selectedGradeDisplay', 'selectedGrade')">{{ grade_label }}</div>
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                        <input type="hidden" name="grade_level" id="selectedGrade">
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- 选择班级 -->
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label>班级</label>
+                                    <div class="class-selection-container">
+                                        <!-- 自定义多选下拉菜单 -->
+                                        <div class="custom-multiselect">
+                                            <div class="multiselect-display form-control" onclick="toggleDropdown('classDropdown', 'selectedDisplay')">
+                                                <span id="selectedDisplay">请选择班级</span>
+                                                <span class="dropdown-arrow">▼</span>
+                                            </div>
+                                            <div class="multiselect-dropdown" id="classDropdown">
+                                                <div class="multiselect-option" data-value="all" onclick="selectOption(this)">
+                                                    所有班级
+                                                </div>
+                                                <div class="multiselect-option" data-value="1班" onclick="selectOption(this)">
+                                                    1班
+                                                </div>
+                                                <div class="multiselect-option" data-value="2班" onclick="selectOption(this)">
+                                                    2班
+                                                </div>
+                                                <div class="multiselect-option" data-value="3班" onclick="selectOption(this)">
+                                                    3班
+                                                </div>
+                                                <div class="multiselect-option" data-value="4班" onclick="selectOption(this)">
+                                                    4班
+                                                </div>
+                                                <div class="multiselect-option" data-value="5班" onclick="selectOption(this)">
+                                                    5班
+                                                </div>
+                                                <div class="multiselect-option" data-value="6班" onclick="selectOption(this)">
+                                                    6班
+                                                </div>
+                                                <div class="multiselect-option" data-value="7班" onclick="selectOption(this)">
+                                                    7班
+                                                </div>
+                                                <div class="multiselect-option" data-value="8班" onclick="selectOption(this)">
+                                                    8班
+                                                </div>
+                                                <div class="multiselect-option" data-value="9班" onclick="selectOption(this)">
+                                                    9班
+                                                </div>
+                                                <div class="multiselect-option" data-value="10班" onclick="selectOption(this)">
+                                                    10班
+                                                </div>
+                                                <div class="multiselect-option" data-value="11班" onclick="selectOption(this)">
+                                                    11班
+                                                </div>
+                                                <div class="multiselect-option" data-value="12班" onclick="selectOption(this)">
+                                                    12班
+                                                </div>
+                                                <div class="multiselect-option" data-value="13班" onclick="selectOption(this)">
+                                                    13班
+                                                </div>
+                                                <div class="multiselect-option" data-value="14班" onclick="selectOption(this)">
+                                                    14班
+                                                </div>
+                                                <div class="multiselect-option" data-value="15班" onclick="selectOption(this)">
+                                                    15班
+                                                </div>
+                                                <div class="multiselect-option" data-value="16班" onclick="selectOption(this)">
+                                                    16班
+                                                </div>
+                                                <div class="multiselect-option" data-value="17班" onclick="selectOption(this)">
+                                                    17班
+                                                </div>
+                                                <div class="multiselect-option" data-value="18班" onclick="selectOption(this)">
+                                                    18班
+                                                </div>
+                                                <div class="multiselect-option" data-value="19班" onclick="selectOption(this)">
+                                                    19班
+                                                </div>
+                                                <div class="multiselect-option" data-value="20班" onclick="selectOption(this)">
+                                                    20班
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div id="selectedTags" class="selected-tags-container"></div>
+                                    </div>
+                                    <div id="selectedTags" class="selected-tags-container"></div>
+                                    <input type="hidden" name="class_name" id="selectedClassesInput"> </div>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                    
+                    <!-- 分析选项 -->
+                    <div class="row mt-4">
+                        <div class="col-12">
+                            <h5>请选择分析类型：</h5>
+                        </div>
+                    </div>
+                    
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <div class="card border-primary">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-chart-line fa-3x text-primary mb-3"></i>
+                                    <h5 class="card-title">班级成绩分析</h5>
+                                    <p class="card-text">分析班级整体成绩趋势、科目对比、成绩分布等</p>
+                                    <button type="button" class="btn btn-primary" onclick="goToClassAnalysis()">进入分析</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card border-success">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-user-chart fa-3x text-success mb-3"></i>
+                                    <h5 class="card-title">学生个人成绩分析</h5>
+                                    <p class="card-text">分析个人成绩变化、学科能力、进步情况等</p>
+                                    <button type="button" class="btn btn-success" onclick="goToStudentAnalysis()">进入分析</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let selectedClasses = [];
+
+// 通用的下拉菜单切换函数
+function toggleDropdown(dropdownId, displayId) {
+    const dropdown = document.getElementById(dropdownId);
+    const display = document.getElementById(displayId).closest('.multiselect-display');
+    
+    // 如果当前下拉菜单已打开，则关闭
+    if (dropdown.style.display === 'block') {
+        dropdown.style.display = 'none';
+        display.classList.remove('dropdown-open');
+        return;
+    }
+
+    // 关闭所有其他下拉菜单
+    document.querySelectorAll('.multiselect-dropdown').forEach(d => {
+        d.style.display = 'none';
+    });
+    document.querySelectorAll('.multiselect-display').forEach(d => {
+        d.classList.remove('dropdown-open');
+    });
+
+    // 打开当前下拉菜单
+    dropdown.style.display = 'block';
+    display.classList.add('dropdown-open');
+}
+
+// 专门用于班级（多选）的选项选择函数
+function selectOption(element) {
+    const value = element.getAttribute('data-value');
+    
+    // 如果选择"所有班级"，清空其他选择
+    if (value === 'all') {
+        selectedClasses = ['all'];
+        document.querySelectorAll('#classDropdown .multiselect-option').forEach(opt => {
+            opt.classList.remove('selected');
+        });
+        element.classList.add('selected');
+    } else {
+        // 如果选择具体班级，移除"所有班级"的选择
+        const allOption = document.querySelector('#classDropdown [data-value="all"]');
+        if (allOption) {
+            allOption.classList.remove('selected');
+        }
+        selectedClasses = selectedClasses.filter(cls => cls !== 'all');
+        
+        // 切换当前选项的选中状态
+        if (selectedClasses.includes(value)) {
+            selectedClasses = selectedClasses.filter(cls => cls !== value);
+            element.classList.remove('selected');
+        } else {
+            selectedClasses.push(value);
+            element.classList.add('selected');
+        }
+    }
+    
+    updateClassDisplayAndTags();
+}
+
+// 通用单选选项的函数
+function selectSingleOption(element, displayId, hiddenInputId) {
+    const value = element.getAttribute('data-value');
+    const text = element.textContent.trim();
+    
+    const dropdown = element.closest('.multiselect-dropdown');
+    
+    // 移除所有选项的选中状态
+    dropdown.querySelectorAll('.multiselect-option').forEach(opt => {
+        opt.classList.remove('selected');
+    });
+    
+    // 添加当前选项的选中状态
+    element.classList.add('selected');
+    
+    // 更新显示文本和隐藏字段的值
+    const display = document.getElementById(displayId);
+    display.textContent = text;
+    display.className = 'selected-text';
+    
+    const hiddenInput = document.getElementById(hiddenInputId);
+    hiddenInput.value = (value === 'all') ? '' : value;
+    
+    // 关闭下拉菜单
+    dropdown.style.display = 'none';
+    display.closest('.multiselect-display').classList.remove('dropdown-open');
+}
+
+// 删除指定班级
+function removeClass(value) {
+    selectedClasses = selectedClasses.filter(cls => cls !== value);
+    const option = document.querySelector(`#classDropdown [data-value="${value}"]`);
+    if (option) {
+        option.classList.remove('selected');
+    }
+    updateClassDisplayAndTags();
+}
+
+// 更新班级下拉菜单的显示和标签
+function updateClassDisplayAndTags() {
+    const display = document.getElementById('selectedDisplay');
+    const hiddenInput = document.getElementById('selectedClassesInput');
+    const tagsContainer = document.getElementById('selectedTags');
+    
+    // 更新显示文本
+    if (selectedClasses.length === 0) {
+        display.textContent = '请选择班级';
+        display.className = 'placeholder-text';
+        hiddenInput.value = '';
+    } else if (selectedClasses.includes('all')) {
+        display.textContent = '所有班级';
+        display.className = 'selected-text';
+        hiddenInput.value = 'all';
+    } else {
+        const count = selectedClasses.length;
+        display.textContent = `已选择 ${count} 个班级`;
+        display.className = 'selected-text';
+        hiddenInput.value = selectedClasses.join(',');
+    }
+
+    // 更新标签显示
+    tagsContainer.innerHTML = '';
+    if (selectedClasses.length === 0) return;
+    
+    if (selectedClasses.includes('all')) {
+        const tag = document.createElement('span');
+        tag.className = 'class-tag all-classes-tag';
+        tag.innerHTML = `所有班级 <button type="button" class="tag-remove" onclick="removeClass('all')" title="移除">×</button>`;
+        tagsContainer.appendChild(tag);
+        return;
+    }
+    
+    selectedClasses.forEach(className => {
+        const tag = document.createElement('span');
+        tag.className = 'class-tag';
+        tag.innerHTML = `${className} <button type="button" class="tag-remove" onclick="removeClass('${className}')" title="移除">×</button>`;
+        tagsContainer.appendChild(tag);
+    });
+}
+
+// 阻止点击表单内的元素时关闭下拉菜单
+document.addEventListener('click', function(event) {
+    const customMultiselects = document.querySelectorAll('.custom-multiselect');
+    let isInsideMultiselect = false;
+    customMultiselects.forEach(ms => {
+        if (ms.contains(event.target)) {
+            isInsideMultiselect = true;
+        }
+    });
+
+    if (!isInsideMultiselect) {
+        document.querySelectorAll('.multiselect-dropdown').forEach(d => {
+            d.style.display = 'none';
+        });
+        document.querySelectorAll('.multiselect-display').forEach(d => {
+            d.classList.remove('dropdown-open');
+        });
+    }
+});
+
+// 表单验证和跳转函数保持不变
+function validateForm() {
+    const academicYear = document.querySelector('#analysisForm [name="academic_year"]').value;
+    const exam = document.querySelector('#analysisForm [name="exam"]').value;
+    const gradeLevel = document.querySelector('#analysisForm [name="grade_level"]').value;
+    
+    if (!academicYear || !exam || !gradeLevel) {
+        alert('请先选择学年、考试和年级！');
+        return false;
+    }
+    return true;
+}
+
+function goToClassAnalysis() {
+    if (validateForm()) {
+        const form = document.getElementById('analysisForm');
+        const formData = new FormData(form);
+        const params = new URLSearchParams(formData);
+        window.location.href = '{% url "score_analysis_class" %}?' + params.toString();
+    }
+}
+
+function goToStudentAnalysis() {
+    if (validateForm()) {
+        const form = document.getElementById('analysisForm');
+        const formData = new FormData(form);
+        const params = new URLSearchParams(formData);
+        window.location.href = '{% url "score_analysis_student" %}?' + params.toString();
+    }
+}
+</script>
+
+<style>
+.card {
+    transition: transform 0.2s;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.fa-user-chart:before {
+    content: "\f007";
+}
+
+.custom-multiselect {
+    position: relative;
+    flex: 1;
+    min-width: 200px;
+}
+
+.multiselect-display {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    background-color: #fff;
+    background-clip: padding-box;
+    border: 1px solid #ced4da;
+    border-radius: 0.25rem;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    padding: 0.375rem 0.75rem;
+    font-size: 1rem;
+    font-weight: 400;
+    line-height: 1.5;
+    color: #495057;
+    min-height: calc(1.5em + 0.75rem + 2px);
+    box-sizing: border-box;
+}
+
+.multiselect-display:hover {
+    border-color: #80bdff;
+}
+
+.multiselect-display:focus,
+.multiselect-display.dropdown-open {
+    color: #495057;
+    background-color: #fff;
+    border-color: #80bdff;
+    outline: 0;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.placeholder-text {
+    color: #6c757d !important;
+}
+
+.selected-text {
+    color: #495057 !important;
+    font-weight: 500;
+}
+
+.dropdown-arrow {
+    color: #6c757d;
+    font-size: 12px;
+    transition: transform 0.2s;
+    margin-left: 8px;
+}
+
+.dropdown-open .dropdown-arrow {
+    transform: rotate(180deg);
+}
+
+.multiselect-dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background-color: white;
+    border: 1px solid #ced4da;
+    border-top: none;
+    border-radius: 0 0 0.25rem 0.25rem;
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 1000;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.multiselect-option {
+    padding: 0.5rem 0.75rem;
+    cursor: pointer;
+    border-bottom: 1px solid #f8f9fa;
+    transition: background-color 0.15s ease-in-out;
+    color: #495057;
+    font-size: 1rem;
+    line-height: 1.5;
+}
+
+.multiselect-option:hover {
+    background-color: #f8f9fa;
+    color: #16181b;
+}
+
+.multiselect-option.selected {
+    background-color: #007bff;
+    color: white;
+}
+
+.multiselect-option.selected:hover {
+    background-color: #0056b3;
+    color: white;
+}
+
+.multiselect-option:last-child {
+    border-bottom: none;
+}
+
+/* 已选择班级标签样式 */
+.selected-tags-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-height: 20px;
+    flex: 1;
+    align-items: flex-start;
+    margin-top: 0;
+    padding-top: 8px;
+}
+
+.class-selection-container {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.class-tag {
+    display: inline-flex;
+    align-items: center;
+    background-color: #e3f2fd;
+    color: #1976d2;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    border: 1px solid #bbdefb;
+    animation: fadeIn 0.2s ease-in;
+}
+
+.class-tag.all-classes-tag {
+    background-color: #e8f5e8;
+    color: #2e7d32;
+    border-color: #c8e6c9;
+}
+
+.class-tag.clear-all-tag {
+    background-color: #ffebee;
+    border-color: #ffcdd2;
+    padding: 0;
+}
+
+.tag-remove {
+    background: none;
+    border: none;
+    color: inherit;
+    margin-left: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: bold;
+    padding: 0;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s;
+}
+
+.tag-remove:hover {
+    background-color: rgba(0,0,0,0.1);
+}
+
+.clear-all-btn {
+    background: none;
+    border: none;
+    color: #d32f2f;
+    cursor: pointer;
+    font-size: 11px;
+    padding: 4px 8px;
+    border-radius: 12px;
+    transition: background-color 0.2s;
+}
+
+.clear-all-btn:hover {
+    background-color: rgba(211, 47, 47, 0.1);
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.8);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* 确保与其他表单字段高度一致 */
+.form-group {
+    display: flex;
+    margin-bottom: 1rem;
+}
+
+.form-group label {
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: #495057;
+    white-space: nowrap;
+}
+</style>
+{% endblock %}
