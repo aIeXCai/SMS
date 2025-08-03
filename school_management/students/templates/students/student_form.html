@@ -6,104 +6,104 @@
 {% block extra_css %}
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 <style>
-.page-header {
-    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-    color: white;
-    padding: 2rem 0;
-    margin-bottom: 2rem;
-    border-radius: 10px;
-}
-
-.page-header h1 {
-    margin: 0;
-    font-weight: 600;
-}
-
-.form-card {
-    border: none;
-    border-radius: 15px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    overflow: hidden;
-}
-
-.form-card .card-header {
-    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-    border-bottom: 1px solid #dee2e6;
-    padding: 1.5rem;
-}
-
-.form-card .card-body {
-    padding: 2rem;
-}
-
-.form-floating {
-    margin-bottom: 1.5rem;
-}
-
-.form-floating > .form-control,
-.form-floating > .form-select {
-    height: calc(3.5rem + 2px);
-    line-height: 1.25;
-}
-
-.form-floating > label {
-    padding: 1rem 0.75rem;
-}
-
-.invalid-feedback {
-    display: block;
-    width: 100%;
-    margin-top: 0.25rem;
-    font-size: 0.875rem;
-    color: #dc3545;
-}
-
-.btn-group-custom {
-    gap: 1rem;
-}
-
-.btn-custom {
-    padding: 0.75rem 2rem;
-    font-weight: 500;
-    border-radius: 25px;
-    transition: all 0.3s ease;
-}
-
-.btn-custom:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-}
-
-.required-field::after {
-    content: ' *';
-    color: #dc3545;
-}
-
-.help-text {
-    font-size: 0.875rem;
-    color: #6c757d;
-    margin-top: 0.25rem;
-}
-
-@media (max-width: 768px) {
     .page-header {
-        padding: 1rem 0;
-        margin-bottom: 1rem;
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        color: white;
+        padding: 2rem 0;
+        margin-bottom: 2rem;
+        border-radius: 10px;
     }
-    
+
+    .page-header h1 {
+        margin: 0;
+        font-weight: 600;
+    }
+
+    .form-card {
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+    }
+
+    .form-card .card-header {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-bottom: 1px solid #dee2e6;
+        padding: 1.5rem;
+    }
+
     .form-card .card-body {
-        padding: 1rem;
+        padding: 2rem;
     }
-    
-    .btn-group-custom {
-        flex-direction: column;
+
+    .form-floating {
+        margin-bottom: 1.5rem;
     }
-    
-    .btn-custom {
+
+    .form-floating > .form-control,
+    .form-floating > .form-select {
+        height: calc(3.5rem + 2px);
+        line-height: 1.25;
+    }
+
+    .form-floating > label {
+        padding: 1rem 0.75rem;
+    }
+
+    .invalid-feedback {
+        display: block;
         width: 100%;
-        margin-bottom: 0.5rem;
+        margin-top: 0.25rem;
+        font-size: 0.875rem;
+        color: #dc3545;
     }
-}
+
+    .btn-group-custom {
+        gap: 1rem;
+    }
+
+    .btn-custom {
+        padding: 0.75rem 2rem;
+        font-weight: 500;
+        border-radius: 25px;
+        transition: all 0.3s ease;
+    }
+
+    .btn-custom:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .required-field::after {
+        content: ' *';
+        color: #dc3545;
+    }
+
+    .help-text {
+        font-size: 0.875rem;
+        color: #6c757d;
+        margin-top: 0.25rem;
+    }
+
+    @media (max-width: 768px) {
+        .page-header {
+            padding: 1rem 0;
+            margin-bottom: 1rem;
+        }
+        
+        .form-card .card-body {
+            padding: 1rem;
+        }
+        
+        .btn-group-custom {
+            flex-direction: column;
+        }
+        
+        .btn-custom {
+            width: 100%;
+            margin-bottom: 0.5rem;
+        }
+    }
 </style>
 {% endblock %}
 

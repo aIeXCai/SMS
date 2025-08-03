@@ -261,27 +261,29 @@ class ScoreQueryForm(forms.Form):
         max_length=50,
         required=False,
         label="学生姓名",
-        widget=forms.TextInput(attrs={'placeholder': '支持模糊搜索'})
+        widget=forms.TextInput(attrs={'placeholder': '支持模糊搜索', 'class': 'form-control'})
     )
     
     student_id = forms.CharField(
         max_length=20,
         required=False,
         label="学号",
-        widget=forms.TextInput(attrs={'placeholder': '支持模糊搜索'})
+        widget=forms.TextInput(attrs={'placeholder': '支持模糊搜索', 'class': 'form-control'})
     )
     
     # 班级信息筛选
     grade_level = forms.ChoiceField(
         choices=[('', '--- 所有年级 ---')] + GRADE_LEVEL_CHOICES,
         required=False,
-        label="年级"
+        label="年级",
+        widget=forms.Select(attrs={'class': 'form-select'})
     )
     
     class_name = forms.ChoiceField(
         choices=[('', '--- 所有班级 ---')] + CLASS_NAME_CHOICES,
         required=False,
-        label="班级"
+        label="班级",
+        widget=forms.Select(attrs={'class': 'form-select'})
     )
     
     # 考试信息筛选
@@ -289,33 +291,36 @@ class ScoreQueryForm(forms.Form):
         queryset=Exam.objects.all().order_by('-academic_year', '-date', 'name'),
         required=False,
         label="考试",
-        empty_label="--- 所有考试 ---"
+        empty_label="--- 所有考试 ---",
+        widget=forms.Select(attrs={'class': 'form-select'})
     )
     
     academic_year = forms.ChoiceField(
         choices=[('', '--- 所有学年 ---')] + ACADEMIC_YEAR_CHOICES,
         required=False,
-        label="学年"
+        label="学年",
+        widget=forms.Select(attrs={'class': 'form-select'})
     )
     
     # 科目筛选
     subject = forms.ChoiceField(
         choices=[('', '--- 所有科目 ---')] + SUBJECT_CHOICES,
         required=False,
-        label="科目"
+        label="科目",
+        widget=forms.Select(attrs={'class': 'form-select'})
     )
     
     # 日期范围筛选
     date_from = forms.DateField(
         required=False,
         label="考试开始日期",
-        widget=forms.DateInput(attrs={'type': 'date'})
+        widget=forms.DateInput(attrs={'type': 'date', 'class': 'form-control'})
     )
     
     date_to = forms.DateField(
         required=False,
         label="考试结束日期",
-        widget=forms.DateInput(attrs={'type': 'date'})
+        widget=forms.DateInput(attrs={'type': 'date', 'class': 'form-control'})
     )
     
     # 排序选项
@@ -331,7 +336,8 @@ class ScoreQueryForm(forms.Form):
     sort_by = forms.ChoiceField(
         choices=SORT_CHOICES,
         required=False,
-        label="排序方式"
+        label="排序方式",
+        widget=forms.Select(attrs={'class': 'form-select'})
     )
     
     def __init__(self, *args, **kwargs):

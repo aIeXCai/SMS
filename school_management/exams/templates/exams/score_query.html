@@ -11,8 +11,14 @@
         color: white;
         padding: 2rem 0;
         margin-bottom: 2rem;
-        border-radius: 0.5rem;
+        border-radius: 10px;
     }
+
+    .page-header h1 {
+        margin: 0;
+        font-weight: 600;
+    }
+
     .query-card {
         background: white;
         border-radius: 0.75rem;
@@ -26,39 +32,106 @@
         border: none;
         padding: 1.5rem;
     }
-    .form-floating {
-        margin-bottom: 1rem;
-    }
-    .form-floating > .form-control {
-        height: calc(3.5rem + 2px);
-        line-height: 1.25;
-    }
-    .form-floating > label {
-        padding: 1rem 0.75rem;
-    }
-    .btn-search {
-        background: linear-gradient(45deg, #28a745, #20c997);
+    .filter-card {
+        background: white;
         border: none;
-        padding: 0.75rem 2rem;
-        font-weight: 600;
-        border-radius: 0.5rem;
+        border-radius: 15px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        margin-bottom: 2rem;
+    }
+
+    .filter-card .card-header {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-bottom: 1px solid #dee2e6;
+        border-radius: 15px 15px 0 0;
+        padding: 1rem 1.5rem;
+    }
+
+    /* 参考score_analysis的下拉菜单样式 */
+    .form-control, .form-select {
+        background-color: #fff;
+        background-clip: padding-box;
+        border: 1px solid #ced4da;
+        border-radius: 8px;
+        transition: all 0.15s ease-in-out;
+        padding: 0.75rem 1rem;
+        font-size: 1rem;
+        font-weight: 400;
+        line-height: 1.5;
+        color: #495057;
+        min-height: calc(1.5em + 1.5rem + 2px);
+        box-sizing: border-box;
+    }
+
+    .form-control:hover, .form-select:hover {
+        border-color: #80bdff;
+        box-shadow: 0 0 0 0.1rem rgba(0, 123, 255, 0.1);
+    }
+
+    .form-control:focus, .form-select:focus {
+        color: #495057;
+        background-color: #fff;
+        border-color: #80bdff;
+        outline: 0;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+
+    /* 下拉菜单选项样式 */
+    select.form-control option,
+    select.form-select option {
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid #f8f9fa;
+        transition: all 0.15s ease-in-out;
+        color: #495057;
+        font-size: 1rem;
+        line-height: 1.5;
+        background-color: #fff;
+    }
+
+    select.form-control option:hover,
+    select.form-select option:hover {
+        background-color: #f8f9fa;
+        color: #16181b;
+    }
+
+    select.form-control option:checked,
+    select.form-select option:checked {
+        background-color: #007bff;
+        color: white;
+    }
+
+    select.form-control option:checked:hover,
+    select.form-select option:checked:hover {
+        background-color: #0056b3;
+        color: white;
+    }
+
+     /* 垂直布局样式 */
+     .form-group-vertical {
+         display: flex;
+         flex-direction: column;
+         margin-bottom: 1rem;
+     }
+
+     .form-group-vertical .form-label {
+         margin-bottom: 0.5rem;
+         color:rgb(0, 0, 0);
+     }
+
+     .form-group-vertical .form-control,
+     .form-group-vertical .form-select {
+         width: 100%;
+     }
+    .btn {
+        border-radius: 8px;
+        font-weight: 500;
+        padding: 0.5rem 1rem;
         transition: all 0.3s ease;
     }
-    .btn-search:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 0.5rem 1rem rgba(40, 167, 69, 0.3);
-    }
-    .btn-reset {
-        background: linear-gradient(45deg, #6c757d, #495057);
-        border: none;
-        padding: 0.75rem 2rem;
-        font-weight: 600;
-        border-radius: 0.5rem;
-        transition: all 0.3s ease;
-    }
-    .btn-reset:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 0.5rem 1rem rgba(108, 117, 125, 0.3);
+
+    .btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
     }
     .help-section {
         background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
@@ -90,31 +163,6 @@
         justify-content: center;
         margin-right: 1rem;
     }
-    .quick-filters {
-        background: white;
-        border-radius: 0.75rem;
-        padding: 1.5rem;
-        margin-bottom: 2rem;
-        box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.075);
-    }
-    .filter-chip {
-        display: inline-block;
-        padding: 0.5rem 1rem;
-        margin: 0.25rem;
-        background: linear-gradient(45deg, #e9ecef, #f8f9fa);
-        border: 1px solid #dee2e6;
-        border-radius: 2rem;
-        text-decoration: none;
-        color: #495057;
-        font-size: 0.875rem;
-        transition: all 0.3s ease;
-    }
-    .filter-chip:hover {
-        background: linear-gradient(45deg, #007bff, #0056b3);
-        color: white;
-        transform: translateY(-1px);
-        box-shadow: 0 0.25rem 0.5rem rgba(0, 123, 255, 0.3);
-    }
 </style>
 {% endblock %}
 
@@ -129,158 +177,93 @@
                 </h1>
                 <p class="mb-0 mt-2 opacity-75">快速查询学生成绩信息</p>
             </div>
-            <div class="col-md-4 text-end">
-                <a href="{% url 'score_list' %}" class="btn btn-light btn-lg">
-                    <i class="fas fa-chart-line me-2"></i>成绩管理
-                </a>
-            </div>
         </div>
     </div>
 </div>
 
-<!-- 快速筛选 -->
-<div class="quick-filters">
-    <h6 class="mb-3">
-        <i class="fas fa-filter me-2"></i>快速筛选
-    </h6>
-    <div class="d-flex flex-wrap">
-        <a href="?grade_level=1" class="filter-chip">
-            <i class="fas fa-user-graduate me-1"></i>一年级
-        </a>
-        <a href="?grade_level=2" class="filter-chip">
-            <i class="fas fa-user-graduate me-1"></i>二年级
-        </a>
-        <a href="?grade_level=3" class="filter-chip">
-            <i class="fas fa-user-graduate me-1"></i>三年级
-        </a>
-        <a href="?subject=语文" class="filter-chip">
-            <i class="fas fa-book me-1"></i>语文
-        </a>
-        <a href="?subject=数学" class="filter-chip">
-            <i class="fas fa-calculator me-1"></i>数学
-        </a>
-        <a href="?subject=英语" class="filter-chip">
-            <i class="fas fa-language me-1"></i>英语
-        </a>
-        <a href="?sort_by=total_score" class="filter-chip">
-            <i class="fas fa-sort-amount-down me-1"></i>按总分排序
-        </a>
-    </div>
-</div>
 <!-- 查询表单 -->
-<div class="card query-card">
-    <div class="card-header">
-        <h5 class="mb-0">
-            <i class="fas fa-sliders-h me-2"></i>查询条件设置
-        </h5>
-    </div>
-    <div class="card-body p-4">
-        <form method="get" action="{% url 'score_query_results' %}" id="queryForm">
-            <div class="row">
-                <!-- 学生信息 -->
-                <div class="col-md-6">
-                    <div class="form-floating">
-                        {{ form.student_name }}
-                        <label for="{{ form.student_name.id_for_label }}">
-                            <i class="fas fa-user me-2"></i>{{ form.student_name.label }}
-                        </label>
+<div class="container-fluid">
+    <div class="card filter-card">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="fas fa-search me-2"></i>查询条件设置
+            </h5>
+        </div>
+        <div class="card-body">
+            <form method="get" action="{% url 'score_query_results' %}" id="queryForm">
+                <div class="row g-3">
+                    <div class="col-md-2">
+                        <div class="form-group-vertical">
+                            <label for="{{ form.academic_year.id_for_label }}" class="form-label">学年</label>
+                            {{ form.academic_year }}
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-group-vertical">
+                            <label for="{{ form.grade_level.id_for_label }}" class="form-label">年级</label>
+                            {{ form.grade_level }}
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-group-vertical">
+                            <label for="{{ form.date_from.id_for_label }}" class="form-label">开始日期</label>
+                            {{ form.date_from }}
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-group-vertical">
+                            <label for="{{ form.date_to.id_for_label }}" class="form-label">结束日期</label>
+                            {{ form.date_to }}
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-group-vertical">
+                            <label for="{{ form.exam.id_for_label }}" class="form-label">考试</label>
+                            {{ form.exam }}
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-group-vertical">
+                            <label for="{{ form.subject.id_for_label }}" class="form-label">科目</label>
+                            {{ form.subject }}
+                        </div>
                     </div>
                 </div>
-                <div class="col-md-6">
-                    <div class="form-floating">
-                        {{ form.student_id }}
-                        <label for="{{ form.student_id.id_for_label }}">
-                            <i class="fas fa-id-card me-2"></i>{{ form.student_id.label }}
-                        </label>
+                <div class="row g-3 mt-2">
+                    <div class="col-md-2">
+                        <div class="form-group-vertical">
+                            <label for="{{ form.class_name.id_for_label }}" class="form-label">班级</label>
+                            {{ form.class_name }}
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-group-vertical">
+                            <label for="{{ form.student_name.id_for_label }}" class="form-label">姓名</label>
+                            {{ form.student_name }}
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-group-vertical">
+                            <label for="{{ form.sort_by.id_for_label }}" class="form-label">排序方式</label>
+                            {{ form.sort_by }}
+                        </div>
                     </div>
                 </div>
-            </div>
-            
-            <div class="row">
-                <!-- 年级和考试 -->
-                <div class="col-md-6">
-                    <div class="form-floating">
-                        {{ form.grade_level }}
-                        <label for="{{ form.grade_level.id_for_label }}">
-                            <i class="fas fa-layer-group me-2"></i>{{ form.grade_level.label }}
-                        </label>
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <button type="submit" class="btn btn-primary me-2">
+                            <i class="fas fa-search"></i> 开始查询
+                        </button>
+                        <button type="reset" class="btn btn-secondary me-2">
+                            <i class="fas fa-undo"></i> 重置条件
+                        </button>
                     </div>
                 </div>
-                <div class="col-md-6">
-                    <div class="form-floating">
-                        {{ form.exam }}
-                        <label for="{{ form.exam.id_for_label }}">
-                            <i class="fas fa-clipboard-list me-2"></i>{{ form.exam.label }}
-                        </label>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="row">
-                <!-- 学年和科目 -->
-                <div class="col-md-6">
-                    <div class="form-floating">
-                        {{ form.academic_year }}
-                        <label for="{{ form.academic_year.id_for_label }}">
-                            <i class="fas fa-calendar-alt me-2"></i>{{ form.academic_year.label }}
-                        </label>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="form-floating">
-                        {{ form.subject }}
-                        <label for="{{ form.subject.id_for_label }}">
-                            <i class="fas fa-book me-2"></i>{{ form.subject.label }}
-                        </label>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="row">
-                <!-- 日期范围 -->
-                <div class="col-md-4">
-                    <div class="form-floating">
-                        {{ form.date_from }}
-                        <label for="{{ form.date_from.id_for_label }}">
-                            <i class="fas fa-calendar-plus me-2"></i>{{ form.date_from.label }}
-                        </label>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="form-floating">
-                        {{ form.date_to }}
-                        <label for="{{ form.date_to.id_for_label }}">
-                            <i class="fas fa-calendar-minus me-2"></i>{{ form.date_to.label }}
-                        </label>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="form-floating">
-                        {{ form.sort_by }}
-                        <label for="{{ form.sort_by.id_for_label }}">
-                            <i class="fas fa-sort me-2"></i>{{ form.sort_by.label }}
-                        </label>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- 操作按钮 -->
-            <div class="row mt-4">
-                <div class="col-12 text-center">
-                    <button type="submit" class="btn btn-search btn-lg me-3">
-                        <i class="fas fa-search me-2"></i>开始查询
-                    </button>
-                    <button type="reset" class="btn btn-reset btn-lg me-3">
-                        <i class="fas fa-undo me-2"></i>重置条件
-                    </button>
-                    <a href="{% url 'score_list' %}" class="btn btn-outline-secondary btn-lg">
-                        <i class="fas fa-arrow-left me-2"></i>返回成绩管理
-                    </a>
-                </div>
-            </div>
-        </form>
+            </form>
+        </div>
     </div>
 </div>
+
 <!-- 使用说明 -->
 <div class="help-section">
     <h5 class="mb-4">
@@ -294,7 +277,7 @@
                 </div>
                 <div>
                     <h6 class="mb-1">学生信息查询</h6>
-                    <p class="mb-0 text-muted">可通过学生姓名或学号进行模糊搜索，支持部分匹配</p>
+                    <p class="mb-0 text-muted">可通过学生姓名进行模糊搜索，支持部分匹配</p>
                 </div>
             </div>
             <div class="help-item">
@@ -351,54 +334,46 @@
 
 {% block extra_js %}
 <script>
-// 表单增强功能
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('queryForm');
-    const inputs = form.querySelectorAll('input, select');
-    
-    // 添加表单验证提示
-    inputs.forEach(input => {
-        input.addEventListener('focus', function() {
-            this.parentElement.classList.add('focused');
+    // 表单增强功能
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('queryForm');
+        const inputs = form.querySelectorAll('input, select');
+        
+        // 添加表单验证提示
+        inputs.forEach(input => {
+            input.addEventListener('focus', function() {
+                this.parentElement.classList.add('focused');
+            });
+            
+            input.addEventListener('blur', function() {
+                this.parentElement.classList.remove('focused');
+            });
         });
         
-        input.addEventListener('blur', function() {
-            this.parentElement.classList.remove('focused');
-        });
-    });
-    
-    // 重置按钮功能增强
-    const resetBtn = form.querySelector('button[type="reset"]');
-    resetBtn.addEventListener('click', function(e) {
-        e.preventDefault();
-        if (confirm('确定要重置所有查询条件吗？')) {
-            form.reset();
-            // 清除所有浮动标签的激活状态
-            inputs.forEach(input => {
-                input.parentElement.classList.remove('focused');
-            });
-        }
-    });
-    
-    // 表单提交前验证
-    form.addEventListener('submit', function(e) {
-        const hasValue = Array.from(inputs).some(input => input.value.trim() !== '');
-        if (!hasValue) {
+        // 重置按钮功能增强
+        const resetBtn = form.querySelector('button[type="reset"]');
+        resetBtn.addEventListener('click', function(e) {
             e.preventDefault();
-            alert('请至少填写一个查询条件！');
-            return false;
-        }
-    });
-});
+            if (confirm('确定要重置所有查询条件吗？')) {
+                form.reset();
+                // 清除所有浮动标签的激活状态
+                inputs.forEach(input => {
+                    input.parentElement.classList.remove('focused');
+                });
 
-// 快速筛选功能
-function applyQuickFilter(param, value) {
-    const form = document.getElementById('queryForm');
-    const input = form.querySelector(`[name="${param}"]`);
-    if (input) {
-        input.value = value;
-        input.focus();
-    }
-}
+            }
+        });
+        
+        // 表单提交前验证
+        form.addEventListener('submit', function(e) {
+            const hasValue = Array.from(inputs).some(input => input.value.trim() !== '');
+            if (!hasValue) {
+                e.preventDefault();
+                alert('请至少填写一个查询条件！');
+                return false;
+            }
+        });
+
+    });
 </script>
 {% endblock %}
