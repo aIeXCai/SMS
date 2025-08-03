@@ -12,8 +12,8 @@ import io
 import json
 from collections import defaultdict
 
-from .models import Exam, Score, SUBJECT_CHOICES
-from .forms import ExamForm, ScoreForm, ScoreBatchUploadForm, ScoreQueryForm, ScoreAddForm, ScoreAnalysisForm
+from .models import Exam, ExamSubject, Score, SUBJECT_CHOICES, SUBJECT_DEFAULT_MAX_SCORES
+from .forms import ExamCreateForm, ExamSubjectFormSet, ScoreForm, ScoreBatchUploadForm, ScoreQueryForm, ScoreAddForm, ScoreAnalysisForm
 from school_management.students.models import CLASS_NAME_CHOICES, Student, Class, GRADE_LEVEL_CHOICES
 
 # --- 考试管理 Views ---
@@ -22,9 +22,6 @@ def exam_list(request):
     exams = Exam.objects.all()
     return render(request, 'exams/exam_list.html', {'exams': exams})
 
-# 新增考試 (Create)
-@require_http_methods(["GET", "POST"])
-def exam_add(request):
     if request.method == 'POST':
         form = ExamForm(request.POST)
         if form.is_valid():
@@ -38,22 +35,251 @@ def exam_add(request):
     
     return render(request, 'exams/exam_form.html', {'form': form, 'title': '新增考試'})
 
+# 两步考试创建流程
+@require_http_methods(["GET", "POST"])
+def exam_create_step1(request):
+    """
+    考试创建第一步：基本信息
+    """
+    if request.method == 'POST':
+        form = ExamCreateForm(request.POST)
+        if form.is_valid():
+            # 将表单数据保存到session中
+            request.session['exam_create_data'] = {
+                'name': form.cleaned_data['name'],
+                'academic_year': form.cleaned_data['academic_year'],
+                'date': form.cleaned_data['date'].isoformat(),
+                'grade_level': form.cleaned_data['grade_level'],
+                'description': form.cleaned_data['description'] or '',
+            }
+            return redirect('exam_create_step2')
+        else:
+            messages.error(request, "请检查表单数据。")
+    else:
+        form = ExamCreateForm()
+    
+    return render(request, 'exams/exam_create_step1.html', {
+        'form': form,
+        'title': '创建考试 - 第1步：基本信息'
+    })
+
+@require_http_methods(["GET", "POST"])
+def exam_create_step2(request):
+    """
+    考试创建第二步：科目配置
+    """
+    # 检查是否有第一步的数据
+    exam_data = request.session.get('exam_create_data')
+    if not exam_data:
+        messages.error(request, "请先完成第一步的基本信息填写。")
+        return redirect('exam_create_step1')
+    
+    grade_level = exam_data['grade_level']
+    
+    # 获取默认科目配置，传递给模板用于JavaScript初始化
+    default_subjects = SUBJECT_DEFAULT_MAX_SCORES.get(grade_level, {})
+    default_subjects_json = json.dumps(default_subjects)
+    
+    if request.method == 'POST':
+        formset = ExamSubjectFormSet(request.POST, grade_level=grade_level)
+        if formset.is_valid():
+            try:
+                with transaction.atomic():
+                    # 创建考试
+                    exam = Exam.objects.create(
+                        name=exam_data['name'],
+                        academic_year=exam_data['academic_year'],
+                        date=datetime.fromisoformat(exam_data['date']).date(),
+                        grade_level=exam_data['grade_level'],
+                        description=exam_data['description']
+                    )
+                    
+                    # 创建考试科目
+                    for form in formset:
+                        if form.cleaned_data and not form.cleaned_data.get('DELETE', False):
+                            ExamSubject.objects.create(
+                                exam=exam,
+                                subject_code=form.cleaned_data['subject_code'],
+                                subject_name=form.cleaned_data['subject_code'],  # 使用科目代码作为名称
+                                max_score=form.cleaned_data['max_score']
+                            )
+                    
+                    # 清除session数据
+                    del request.session['exam_create_data']
+                    
+                    messages.success(request, f"考试 '{exam.name}' 创建成功！")
+                    return redirect('exam_list')
+            except Exception as e:
+                messages.error(request, f"创建考试失败：{str(e)}")
+        else:
+            messages.error(request, "请检查科目配置数据。")
+    else:
+        # 创建空的表单集，通过前端JavaScript动态添加默认科目
+        formset = ExamSubjectFormSet(
+            grade_level=grade_level
+        )
+    
+    return render(request, 'exams/exam_create_step2.html', {
+        'formset': formset,
+        'exam_data': exam_data,
+        'grade_level': grade_level,
+        'default_subjects_json': default_subjects_json,
+        'title': '创建考试 - 第2步：科目配置'
+    })
+
+@require_http_methods(["GET"])
+def get_default_subjects_ajax(request):
+    """
+    AJAX接口：根据年级获取默认科目配置
+    """
+    grade_level = request.GET.get('grade_level')
+    if not grade_level:
+        return JsonResponse({'error': '缺少年级参数'}, status=400)
+    
+    default_config = SUBJECT_DEFAULT_MAX_SCORES.get(grade_level, {})
+    subjects_data = []
+    
+    for i, (subject_code, max_score) in enumerate(default_config.items()):
+        subjects_data.append({
+            'subject_code': subject_code,
+            'subject_name': subject_code,
+            'max_score': float(max_score),
+            'order': i
+        })
+    
+    return JsonResponse({
+        'subjects': subjects_data,
+        'grade_level': grade_level
+    })
+
 # 編輯考試 (Update)
 @require_http_methods(["GET", "POST"])
-def exam_edit(request, pk):
+def exam_edit_step1(request, pk):
+    """
+    考试编辑第一步：基本信息编辑
+    """
     exam = get_object_or_404(Exam, pk=pk)
-    if request.method == 'POST':
-        form = ExamForm(request.POST, instance=exam)
-        if form.is_valid():
-            form.save()
-            messages.success(request, "考試信息更新成功！")
-            return redirect('exam_list')
-        else:
-            messages.error(request, "更新考試信息失敗，請檢查表單數據。")
-    else:
-        form = ExamForm(instance=exam)
     
-    return render(request, 'exams/exam_form.html', {'form': form, 'title': '編輯考試'})
+    if request.method == 'POST':
+        form = ExamCreateForm(request.POST, instance=exam)
+        if form.is_valid():
+            # 将表单数据存储到session中
+            request.session['exam_edit_data'] = {
+                'exam_id': exam.id,
+                'name': form.cleaned_data['name'],
+                'academic_year': form.cleaned_data['academic_year'],
+                'date': form.cleaned_data['date'].isoformat(),
+                'grade_level': form.cleaned_data['grade_level'],
+                'description': form.cleaned_data['description']
+            }
+            return redirect('exam_edit_step2', pk=pk)
+        else:
+            # 添加表单验证错误的调试信息
+            messages.error(request, f"表单验证失败：{form.errors}")
+    else:
+        # 使用instance参数预填充现有数据
+        form = ExamCreateForm(instance=exam)
+    
+    return render(request, 'exams/exam_edit_step1.html', {
+        'form': form,
+        'exam': exam
+    })
+
+@require_http_methods(["GET", "POST"])
+def exam_edit_step2(request, pk):
+    """
+    考试编辑第二步：科目配置编辑
+    """
+    exam = get_object_or_404(Exam, pk=pk)
+    
+    # 检查是否有第一步的数据
+    exam_data = request.session.get('exam_edit_data')
+    if not exam_data or exam_data['exam_id'] != exam.id:
+        messages.error(request, "请先完成第一步的基本信息编辑。")
+        return redirect('exam_edit_step1', pk=pk)
+    
+    grade_level = exam_data['grade_level']
+    
+    if request.method == 'POST':
+        formset = ExamSubjectFormSet(request.POST, grade_level=grade_level)
+        if formset.is_valid():
+            try:
+                with transaction.atomic():
+                    # 更新考试基本信息
+                    exam.name = exam_data['name']
+                    exam.academic_year = exam_data['academic_year']
+                    exam.date = datetime.fromisoformat(exam_data['date']).date()
+                    exam.grade_level = exam_data['grade_level']
+                    exam.description = exam_data['description']
+                    exam.save()
+                    
+                    # 获取提交的科目代码列表
+                    submitted_subjects = set()
+                    for form in formset:
+                        if form.cleaned_data:
+                            submitted_subjects.add(form.cleaned_data['subject_code'])
+                    
+                    # 获取现有的科目代码列表
+                    existing_subjects = set(exam.exam_subjects.values_list('subject_code', flat=True))
+                    
+                    # 删除不再需要的科目（只删除被移除的科目）
+                    subjects_to_delete = existing_subjects - submitted_subjects
+                    if subjects_to_delete:
+                        exam.exam_subjects.filter(subject_code__in=subjects_to_delete).delete()
+                    
+                    # 更新或创建科目配置
+                    for form in formset:
+                        if form.cleaned_data:
+                            subject_code = form.cleaned_data['subject_code']
+                            max_score = form.cleaned_data['max_score']
+                            
+                            # 更新现有科目或创建新科目
+                            exam_subject, created = ExamSubject.objects.update_or_create(
+                                exam=exam,
+                                subject_code=subject_code,
+                                defaults={'max_score': max_score}
+                            )
+                    
+                    # 清除session数据
+                    if 'exam_edit_data' in request.session:
+                        del request.session['exam_edit_data']
+                    
+                    messages.success(request, f"考试 '{exam.name}' 更新成功！")
+                    return redirect('exam_list')
+            except Exception as e:
+                messages.error(request, f"更新考试失败：{str(e)}")
+        else:
+            messages.error(request, "表单验证失败，请检查输入数据。")
+            # 表单验证失败时，保持用户提交的数据，不重新加载数据库数据
+    else:
+        # 预填充现有科目数据，按照SUBJECT_CHOICES的顺序排列
+        existing_subjects = exam.exam_subjects.all()
+        
+        # 创建科目顺序映射字典
+        subject_order = {choice[0]: index for index, choice in enumerate(SUBJECT_CHOICES)}
+        
+        # 按照SUBJECT_CHOICES的顺序对现有科目进行排序
+        sorted_subjects = sorted(existing_subjects, key=lambda x: subject_order.get(x.subject_code, 999))
+        
+        initial_data = []
+        for subject in sorted_subjects:
+            initial_data.append({
+                'subject_code': subject.subject_code,
+                'max_score': subject.max_score
+            })
+        
+        formset = ExamSubjectFormSet(initial=initial_data, grade_level=grade_level)
+    
+    # 获取默认科目配置，传递给模板用于JavaScript初始化
+    default_subjects = SUBJECT_DEFAULT_MAX_SCORES.get(grade_level, {})
+    default_subjects_json = json.dumps(default_subjects)
+    
+    return render(request, 'exams/exam_edit_step2.html', {
+        'formset': formset,
+        'exam_data': exam_data,
+        'exam': exam,
+        'default_subjects_json': default_subjects_json
+    })
 
 # 刪除考試 (Delete)
 @require_POST # 確保只接受 POST 請求以執行刪除操作
@@ -67,18 +293,22 @@ def exam_delete(request, pk):
 # --- 成績管理 Views ---
 # 成績列表 (Read)
 def score_list(request):
-    # 獲取所有成績記錄
-    scores = Score.objects.all()
-
-    # --- 篩選功能 ---
+    # 获取筛选参数
     student_id_filter = request.GET.get('student_id_filter')
     student_name_filter = request.GET.get('student_name_filter')
     exam_filter = request.GET.get('exam_filter')
     subject_filter = request.GET.get('subject_filter')
     grade_filter = request.GET.get('grade_filter')
     class_filter = request.GET.get('class_filter')
+    
+    # 优化查询：使用select_related减少数据库查询次数
+    scores = Score.objects.select_related(
+        'student', 
+        'student__current_class', 
+        'exam'
+    ).order_by('student__student_id', 'exam__date', 'subject')
 
-    # 應用篩選
+    # 应用筛选
     if student_id_filter:
         scores = scores.filter(student__student_id__icontains=student_id_filter)
     if student_name_filter:
@@ -92,7 +322,10 @@ def score_list(request):
     if class_filter:
         scores = scores.filter(student__current_class__class_name=class_filter)
 
-    # --- 数据聚合逻辑 ---
+    # --- 优化的数据聚合逻辑 ---
+    # 限制查询结果数量，避免内存溢出
+    scores = scores[:2000]  # 限制最多处理2000条记录
+    
     aggregated_data = defaultdict(lambda: {
         'student_obj': None,
         'class_obj': None,
@@ -121,18 +354,32 @@ def score_list(request):
         row_data_obj = type('obj', (object,), data)
         final_display_rows.append(row_data_obj)
 
-    # 获取筛选选项数据
-    students = Student.objects.all().order_by('name', 'student_id')
-    exams = Exam.objects.all().order_by('-academic_year', '-date', 'name')
+    # 添加分页功能
+    paginator = Paginator(final_display_rows, 50)  # 每页显示50条记录
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    # 获取筛选选项数据（优化查询）
+    # 只获取有成绩记录的学生，避免加载所有学生数据
+    students = Student.objects.filter(
+        pk__in=Score.objects.values_list('student_id', flat=True).distinct()
+    ).select_related('current_class').order_by('name', 'student_id')[:100]  # 限制数量
+    
+    # 获取所有考试用于批量导入功能，按时间倒序排列
+    exams = Exam.objects.all().order_by('-academic_year', '-date', 'name')[:100]  # 适当限制数量
 
     context = {
-        'aggregated_scores': final_display_rows,  # 模板期望的聚合数据
-        'all_subjects': all_subjects,             # 所有科目列表
+        'aggregated_scores': page_obj,  # 使用分页对象
+        'all_subjects': all_subjects,   # 所有科目列表
         'students': students,
         'exams': exams,
         'subjects': SUBJECT_CHOICES,
         'grade_levels': GRADE_LEVEL_CHOICES,
-        'class_name_choices' : CLASS_NAME_CHOICES,
+        'class_name_choices': CLASS_NAME_CHOICES,
+        
+        # 分页信息
+        'page_obj': page_obj,
+        'is_paginated': page_obj.has_other_pages(),
         
         # 保持筛选状态
         'selected_student_id_filter': student_id_filter,
@@ -213,143 +460,149 @@ def score_edit(request, pk):
     
     return render(request, 'exams/score_form.html', {'form': form, 'title': '編輯成績'})
 
-# 批量導入成績 (Excel)
+# 批量導入成績 (Excel) - AJAX版本
+@require_POST
+def score_batch_import_ajax(request):
+    """AJAX批量导入成绩接口"""
+    try:
+        form = ScoreBatchUploadForm(request.POST, request.FILES)
+        if not form.is_valid():
+            return JsonResponse({
+                'success': False,
+                'message': '表单验证失败，请检查文件格式和考试选择。',
+                'errors': form.errors
+            })
+        
+        excel_file = request.FILES['excel_file']
+        selected_exam = form.cleaned_data['exam']
+        
+        workbook = openpyxl.load_workbook(excel_file)
+        sheet = workbook.active
+        headers = [cell.value for cell in sheet[1]]
+        
+        imported_count = 0
+        failed_count = 0
+        error_details = []  # 收集详细错误信息
+        
+        # 預定義標準列頭（非科目列）
+        fixed_headers_mapping = {
+            "学号": "student_id",
+            "学生姓名": "student_name",
+        }
+        
+        # 動態識別科目列
+        all_valid_subjects = {choice[0] for choice in SUBJECT_CHOICES}
+        
+        with transaction.atomic():
+            for row_idx, row in enumerate(sheet.iter_rows(min_row=2, values_only=True), start=2):
+                row_data = dict(zip(headers, row))
+                student_id_from_excel = row_data.get("学号")
+                
+                errors_in_row = []
+                student_obj = None
+                
+                # 學生查找和姓名验证
+                if student_id_from_excel:
+                    try:
+                        student_obj = Student.objects.get(student_id=str(student_id_from_excel).strip())
+                        
+                        # 验证姓名是否匹配
+                        student_name_from_excel = row_data.get("学生姓名")
+                        if student_name_from_excel:
+                            student_name_from_excel = str(student_name_from_excel).strip()
+                            if student_obj.name != student_name_from_excel:
+                                errors_in_row.append(f"学号 '{student_id_from_excel}' 对应的学生姓名不匹配")
+                                student_obj = None
+                                
+                    except Student.DoesNotExist:
+                        errors_in_row.append(f"学号 '{student_id_from_excel}' 对应的学生不存在")
+                else:
+                    errors_in_row.append("学号不能为空")
+                
+                # 如果學生不存在，則跳過此行
+                if student_obj is None:
+                    failed_count += 1
+                    continue
+                
+                # 遍歷科目分數
+                scores_processed_for_student = 0
+                for col_header, score_value_from_excel in row_data.items():
+                    if col_header in all_valid_subjects:
+                        current_subject = col_header
+                        
+                        # 分數驗證與轉換
+                        if score_value_from_excel is not None and str(score_value_from_excel).strip() != '':
+                            try:
+                                score_value = float(score_value_from_excel)
+                                if not (0 <= score_value <= 200):
+                                    errors_in_row.append(f"分数超出有效范围")
+                                    continue
+                            except ValueError:
+                                errors_in_row.append(f"分数格式不正确")
+                                continue
+                        else:
+                            continue
+                        
+                        # 保存成績
+                        if not errors_in_row:
+                            try:
+                                score_obj, created = Score.objects.update_or_create(
+                                    student=student_obj,
+                                    exam=selected_exam,
+                                    subject=current_subject,
+                                    defaults={'score_value': score_value}
+                                )
+                                imported_count += 1
+                                scores_processed_for_student += 1
+                            except Exception as e:
+                                errors_in_row.append(f"数据库操作失败: {str(e)}")
+                
+                # 記錄失敗行
+                if errors_in_row:
+                    failed_count += 1
+                    error_details.append({
+                        'row': row_idx,
+                        'student_id': student_id_from_excel,
+                        'student_name': row_data.get("学生姓名", ''),
+                        'errors': errors_in_row
+                    })
+        
+        # 返回简化的结果
+        if imported_count > 0:
+            message = f"上传成功！成功导入 {imported_count} 条学生数据"
+            if failed_count > 0:
+                message += f"，失败 {failed_count} 条学生数据"
+            return JsonResponse({
+                'success': True,
+                'message': message,
+                'imported_count': imported_count,
+                'failed_count': failed_count,
+                'error_details': error_details
+            })
+        else:
+            return JsonResponse({
+                'success': False,
+                'message': f"上传失败！失败 {failed_count} 条学生数据",
+                'imported_count': 0,
+                'failed_count': failed_count,
+                'error_details': error_details
+            })
+            
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f"文件处理失败：{str(e)}",
+            'imported_count': 0,
+            'failed_count': 0
+        })
+
+
+# 批量導入成績 (Excel) - 原版本保留用于获取表单
 @require_http_methods(["GET", "POST"])
 def score_batch_import(request):
     if request.method == 'POST':
-        form = ScoreBatchUploadForm(request.POST, request.FILES)
-        if form.is_valid():
-            excel_file = request.FILES['excel_file']
-            selected_exam = form.cleaned_data['exam'] # 獲取用戶選擇的考試
-            
-            try:
-                workbook = openpyxl.load_workbook(excel_file)
-                sheet = workbook.active
-                
-                # 假設第一行是標題，從第二行開始讀取數據
-                headers = [cell.value for cell in sheet[1]]
-                
-                imported_count = 0
-                failed_rows = []
-                
-                # 預定義標準列頭（非科目列）
-                fixed_headers_mapping = {
-                    "学号": "student_id",
-                    "学生姓名": "student_name", # 輔助信息，用於錯誤提示
-                }
-
-                # 動態識別科目列：將 SUBJECT_CHOICES 中的科目名轉換為集合，便於查找
-                all_valid_subjects = {choice[0] for choice in SUBJECT_CHOICES}
-                
-                with transaction.atomic(): # 使用事務確保數據一致性
-                    for row_idx, row in enumerate(sheet.iter_rows(min_row=2, values_only=True), start=2):
-                        row_data = dict(zip(headers, row)) # 將行數據映射到列頭
-
-                        student_id_from_excel = row_data.get("学号")
-                        
-                        errors_in_row = []
-                        student_obj = None
-
-                        # 1. 學生查找和姓名验证
-                        if student_id_from_excel:
-                            try:
-                                student_obj = Student.objects.get(student_id=str(student_id_from_excel).strip())
-                                
-                                # 验证姓名是否匹配
-                                student_name_from_excel = row_data.get("学生姓名")
-                                if student_name_from_excel:
-                                    student_name_from_excel = str(student_name_from_excel).strip()
-                                    if student_obj.name != student_name_from_excel:
-                                        errors_in_row.append(f"学号 '{student_id_from_excel}' 对应的学生姓名不匹配。数据库中为 '{student_obj.name}'，Excel中为 '{student_name_from_excel}'。")
-                                        student_obj = None  # 设为None，跳过此学生的成绩处理
-                                else:
-                                    # 如果Excel中没有姓名列，给出警告但不阻止导入
-                                    errors_in_row.append(f"Excel中缺少学生姓名列，无法验证学号 '{student_id_from_excel}' 的姓名匹配性。")
-                                    
-                            except Student.DoesNotExist:
-                                errors_in_row.append(f"学号 '{student_id_from_excel}' 对应的学生不存在。")
-                        else:
-                            errors_in_row.append("学号不能为空。")
-                        
-                        # 如果學生不存在，則跳過此行所有科目成績的處理
-                        if student_obj is None:
-                            failed_rows.append((row_idx, row_data, "; ".join(errors_in_row)))
-                            continue
-
-                        # 2. 遍歷 Excel 列頭，動態識別科目分數
-                        scores_processed_for_student = 0
-                        for col_header, score_value_from_excel in row_data.items():
-                            # 判斷列頭是否是一個有效科目，並且不是固定列頭
-                            if col_header in all_valid_subjects:
-                                current_subject = col_header # Excel 列頭就是科目名稱
-                                
-                                # 分數驗證與轉換
-                                score_value = None
-                                if score_value_from_excel is not None and str(score_value_from_excel).strip() != '': # 允許空分數單元格，表示沒有該科成績
-                                    try:
-                                        score_value = float(score_value_from_excel)
-                                        # 可以添加分數範圍驗證，例如 0-100
-                                        if not (0 <= score_value <= 200):
-                                            errors_in_row.append(f"学生 '{student_obj.name}' 在 '{current_subject}' 科目的分数 '{score_value_from_excel}' 超出有效范围 (0-100)。")
-                                    except ValueError:
-                                        errors_in_row.append(f"学生 '{student_obj.name}' 在 '{current_subject}' 科目的分数 '{score_value_from_excel}' 格式不正確。")
-                                else:
-                                    # 如果分數為空，我們不處理這條成績，而是跳過
-                                    # messages.info(request, f"学生 '{student_obj.name}' 在 '{current_subject}' 科目沒有分數，已跳過。")
-                                    continue # 跳過空分數的科目
-
-                                # 如果該科目有分數且通過驗證，嘗試創建或更新成績
-                                if not errors_in_row: # 只有當目前行沒有錯誤時才嘗試保存
-                                    try:
-                                        score_obj, created = Score.objects.update_or_create(
-                                            student=student_obj,
-                                            exam=selected_exam,
-                                            subject=current_subject,
-                                            defaults={'score_value': score_value}
-                                        )
-                                        if created:
-                                            messages.info(request, f"成功新增成绩：{student_obj.name} - {selected_exam.name} - {current_subject}: {score_value}")
-                                        else:
-                                            messages.info(request, f"成功更新成绩：{student_obj.name} - {selected_exam.name} - {current_subject}: {score_value}")
-                                        imported_count += 1
-                                        scores_processed_for_student += 1
-                                    except Exception as e:
-                                        # 捕獲數據庫層面的錯誤 (例如 unique_together 衝突但未被 update_or_create 處理的極端情況)
-                                        errors_in_row.append(f"学生 '{student_obj.name}' 在 '{current_subject}' 科目數據庫操作失敗: {e}")
-                                else:
-                                    # 如果前面已經記錄了錯誤，則不嘗試保存
-                                    pass
-                        
-                        # 記錄處理完一個學生後，該行是否還有未解決的錯誤
-                        if errors_in_row:
-                            failed_rows.append((row_idx, row_data, "; ".join(errors_in_row)))
-                        
-                        # 如果一個學生都沒有導入任何科目成績，也記錄一下
-                        if scores_processed_for_student == 0 and not errors_in_row:
-                            messages.warning(request, f"第 {row_idx} 行 (学生 {student_obj.name}) 未检测到任何有效科目成绩导入。")
-                
-                # 事務結束，如果失敗行數大於0，則顯示警告
-                if imported_count > 0:
-                    messages.success(request, f"成功导入 {imported_count} 条成绩数据。")
-                
-                if failed_rows:
-                    messages.error(request, f"有 {len(failed_rows)} 行數據導入失敗，請查看下方詳情。")
-                    # 將失敗數據傳遞回模板，以便顯示詳細信息
-                    return render(request, 'exams/score_batch_import.html', {
-                        'form': form,
-                        'title': '批量導入成績',
-                        'failed_rows': failed_rows,
-                        'download_template_url': request.build_absolute_uri(redirect('download_score_import_template').url)
-                    })
-                else:
-                    messages.info(request, "所有数据均已成功处理。")
-                
-                return redirect('score_list') # 導入後返回成績列表頁
-
-            except Exception as e:
-                messages.error(request, f"文件處理失敗或格式不正確: {e}")
-        else:
-            messages.error(request, "請選擇正確的 Excel 文件並選擇對應考試。")
+        # 重定向到AJAX版本
+        return score_batch_import_ajax(request)
             
     else: # GET 請求
         form = ScoreBatchUploadForm()

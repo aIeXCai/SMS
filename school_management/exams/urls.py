@@ -4,8 +4,10 @@ from . import views
 urlpatterns = [
     # 考试管理urls
     path('exams/', views.exam_list, name='exam_list'),
-    path('exams/add/', views.exam_add, name='exam_add'),
-    path('exams/<int:pk>/edit/', views.exam_edit, name='exam_edit'),
+    path('exams/create/step1/', views.exam_create_step1, name='exam_create_step1'),
+    path('exams/create/step2/', views.exam_create_step2, name='exam_create_step2'),
+    path('exams/<int:pk>/edit/step1/', views.exam_edit_step1, name='exam_edit_step1'),
+    path('exams/<int:pk>/edit/step2/', views.exam_edit_step2, name='exam_edit_step2'),
     path('exams/<int:pk>/delete/', views.exam_delete, name='exam_delete'),
 
     # 成绩管理urls
@@ -40,4 +42,6 @@ urlpatterns = [
     
     # AJAX接口URLs
     path('get_classes_by_grade/', views.get_classes_by_grade, name='get_classes_by_grade'),
+    path('get_default_subjects/', views.get_default_subjects_ajax, name='get_default_subjects_ajax'),
+    path('scores/batch_import_ajax/', views.score_batch_import_ajax, name='score_batch_import_ajax'),
 ]

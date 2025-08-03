@@ -1,0 +1,542 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}编辑考试 - 第二步{% endblock %}
+
+{% block extra_css %}
+<style>
+    .step-indicator {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 30px;
+    }
+    .step {
+        display: flex;
+        align-items: center;
+        margin: 0 20px;
+    }
+    .step-number {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        margin-right: 10px;
+    }
+    .step.active .step-number {
+        background-color: #007bff;
+        color: white;
+    }
+    .step.completed .step-number {
+        background-color: #28a745;
+        color: white;
+    }
+    .step.inactive .step-number {
+        background-color: #e9ecef;
+        color: #6c757d;
+    }
+    .form-container {
+        max-width: 800px;
+        margin: 0 auto;
+        background: white;
+        padding: 30px;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .exam-info {
+        background-color: #f8f9fa;
+        padding: 20px;
+        border-radius: 6px;
+        margin-bottom: 25px;
+        border-left: 4px solid #007bff;
+    }
+    .exam-info h4 {
+        margin-bottom: 15px;
+        color: #007bff;
+    }
+    .exam-info p {
+        margin-bottom: 8px;
+        color: #495057;
+    }
+    .subjects-section {
+        margin-top: 30px;
+    }
+    .subject-form {
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+        padding: 20px;
+        margin-bottom: 15px;
+        background-color: #fff;
+        position: relative;
+    }
+    
+    .subject-header {
+        font-weight: bold;
+        margin-bottom: 15px;
+        color: #495057;
+        border-bottom: 1px solid #dee2e6;
+        padding-bottom: 8px;
+    }
+
+    .form-row {
+        display: flex;
+        gap: 15px;
+        align-items: end;
+    }
+    
+    .subject-form-row {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        flex-wrap: wrap;
+    }
+    .form-group {
+        flex: 1;
+        margin-bottom: 15px;
+        min-width: 150px;
+    }
+    .form-group.small {
+        flex: 0 0 100px;
+    }
+    .form-group.actions {
+        flex: 0 0 auto;
+    }
+    label {
+        font-weight: 500;
+        margin-bottom: 5px;
+        display: block;
+        color: #333;
+    }
+    .form-control {
+        border-radius: 4px;
+        border: 1px solid #ddd;
+        padding: 10px;
+        width: 100%;
+        font-size: 14px;
+    }
+    .form-control:focus {
+        border-color: #007bff;
+        outline: none;
+        box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+    }
+    
+    /* 科目选择框自定义样式 */
+    .subject-select-wrapper {
+        position: relative;
+        display: inline-block;
+        width: 100%;
+    }
+    
+    .subject-select {
+        appearance: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        background-color: white;
+        padding-right: 35px !important;
+        cursor: pointer;
+    }
+    
+    .subject-select-wrapper::after {
+        content: '▼';
+        position: absolute;
+        top: 50%;
+        right: 12px;
+        transform: translateY(-50%);
+        pointer-events: none;
+        color: #666;
+        font-size: 12px;
+        transition: transform 0.2s ease;
+    }
+    
+    .subject-select:focus + .subject-select-wrapper::after,
+    .subject-select-wrapper:hover::after {
+        color: #007bff;
+        transform: translateY(-50%) rotate(180deg);
+    }
+    .btn {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        text-decoration: none;
+        display: inline-block;
+        text-align: center;
+        transition: all 0.3s;
+        margin-right: 8px;
+    }
+    .btn-sm {
+        padding: 6px 12px;
+        font-size: 12px;
+    }
+    .btn-primary {
+        background-color: #007bff;
+        color: white;
+    }
+    .btn-primary:hover {
+        background-color: #0056b3;
+    }
+    .btn-success {
+        background-color: #28a745;
+        color: white;
+    }
+    .btn-success:hover {
+        background-color: #1e7e34;
+    }
+    .btn-danger {
+        background-color: #dc3545;
+        color: white;
+    }
+    .btn-danger:hover {
+        background-color: #c82333;
+    }
+    .btn-secondary {
+        background-color: #6c757d;
+        color: white;
+    }
+    .btn-secondary:hover {
+        background-color: #545b62;
+    }
+    .btn-outline-secondary {
+        background-color: transparent;
+        color: #6c757d;
+        border: 1px solid #6c757d;
+    }
+    .btn-outline-secondary:hover {
+        background-color: #6c757d;
+        color: white;
+    }
+    .button-group {
+        text-align: center;
+        margin-top: 30px;
+        padding-top: 20px;
+        border-top: 1px solid #dee2e6;
+    }
+    .add-subject-btn {
+        text-align: center;
+        margin: 20px 0;
+    }
+    .alert {
+        padding: 12px;
+        margin-bottom: 20px;
+        border: 1px solid transparent;
+        border-radius: 4px;
+    }
+    .alert-info {
+        color: #0c5460;
+        background-color: #d1ecf1;
+        border-color: #bee5eb;
+    }
+    .alert-danger {
+        color: #721c24;
+        background-color: #f8d7da;
+        border-color: #f5c6cb;
+    }
+    .alert-warning {
+        color: #856404;
+        background-color: #fff3cd;
+        border-color: #ffeaa7;
+    }
+    .errorlist {
+        color: #dc3545;
+        list-style: none;
+        padding: 0;
+        margin: 5px 0 0 0;
+        font-size: 13px;
+    }
+    
+    .help-text {
+        font-size: 12px;
+        color: #6c757d;
+        margin-top: 5px;
+    }
+
+    .hidden {
+        display: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- 步骤指示器 -->
+    <div class="step-indicator">
+        <div class="step completed">
+            <div class="step-number">1</div>
+            <span>基本信息</span>
+        </div>
+        <div class="step active">
+            <div class="step-number">2</div>
+            <span>科目配置</span>
+        </div>
+    </div>
+
+    <div class="form-container">
+        <h2 class="text-center mb-4">编辑考试 - 科目配置</h2>
+        
+        <!-- 显示考试基本信息 -->
+        <div class="exam-info">
+            <h4>考试信息</h4>
+            <p><strong>学年：</strong>{{ exam_data.academic_year }}</p>
+            <p><strong>考试名称：</strong>{{ exam_data.name }}</p>
+            <p><strong>考试日期：</strong>{{ exam_data.date }}</p>
+            <p><strong>年级：</strong>{{ exam_data.grade_level }}</p>
+            {% if exam_data.description %}
+                <p><strong>描述：</strong>{{ exam_data.description }}</p>
+            {% endif %}
+        </div>
+        
+         <div class="alert alert-info">
+            <strong>提示：</strong>系统将根据所选年级自动配置默认科目和满分。您可以根据实际需要进行调整。
+        </div>
+        
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <form method="post" id="subjectForm">
+            {% csrf_token %}
+            {{ formset.management_form }}
+            
+            <div class="subjects-section">
+                <h4>科目配置</h4>
+                
+                <div id="subject-forms">
+                    {% for form in formset %}
+                        <div class="subject-form" data-form-index="{{ forloop.counter0 }}">
+                            <div class="subject-header">科目 {{ forloop.counter }}</div>
+                            
+                            <div class="subject-form-row">
+                                <div class="form-group">
+                                    <label>{{ form.subject_code.label }}</label>
+                                    <div class="subject-select-wrapper">
+                                        {{ form.subject_code }}
+                                    </div>
+                                    {% if form.subject_code.errors %}
+                                        <div class="text-danger help-text">
+                                            {% for error in form.subject_code.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label>{{ form.max_score.label }}</label>
+                                    {{ form.max_score }}
+                                    {% if form.max_score.errors %}
+                                        <div class="text-danger help-text">
+                                            {% for error in form.max_score.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="form-group actions">
+                                    <label>&nbsp;</label><br>
+                                    <button type="button" class="btn btn-danger btn-sm delete-subject-btn">删除</button>
+                                </div>
+                            </div>
+                            
+                            {% for hidden in form.hidden_fields %}
+                                {{ hidden }}
+                            {% endfor %}
+                        </div>
+                    {% endfor %}
+                </div>
+                
+                <div class="add-subject-btn">
+                    <button type="button" id="add-subject" class="btn btn-success">+ 添加科目</button>
+                </div>
+            </div>
+
+            <div class="button-group">
+                <a href="{% url 'exam_edit_step1' exam.pk %}" class="btn btn-outline-secondary">上一步</a>
+                <a href="{% url 'exam_list' %}" class="btn btn-secondary">取消</a>
+                <button type="submit" class="btn btn-primary">保存修改</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// 表单集管理
+let formIndex = {{ formset.total_form_count }};
+const maxForms = {{ formset.max_num }};
+
+// 添加科目表单
+document.getElementById('add-subject').addEventListener('click', function() {
+    if (formIndex >= maxForms) {
+        alert('已达到最大科目数量限制');
+        return;
+    }
+    
+    const formTemplate = `
+        <div class="subject-form" data-form-index="${formIndex}">
+            <div class="subject-header">新科目</div>
+            <div class="subject-form-row">
+                <div class="form-group">
+                    <label for="id_form-${formIndex}-subject_code">科目</label>
+                    <div class="subject-select-wrapper">
+                        <select name="form-${formIndex}-subject_code" id="id_form-${formIndex}-subject_code" class="form-control subject-select">
+                            <option value="">请选择科目</option>
+                        <option value="语文">语文</option>
+                        <option value="数学">数学</option>
+                        <option value="英语">英语</option>
+                        <option value="物理">物理</option>
+                        <option value="化学">化学</option>
+                        <option value="生物">生物</option>
+                        <option value="政治">政治</option>
+                        <option value="历史">历史</option>
+                        <option value="地理">地理</option>
+                        <option value="体育">体育</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="id_form-${formIndex}-max_score">满分</label>
+                    <input type="number" name="form-${formIndex}-max_score" id="id_form-${formIndex}-max_score" class="form-control max-score-input" min="1" step="1">
+                </div>
+                <div class="form-group actions">
+                    <label>&nbsp;</label><br>
+                    <button type="button" class="btn btn-danger btn-sm delete-subject-btn">删除</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('subject-forms').insertAdjacentHTML('beforeend', formTemplate);
+    formIndex++;
+    
+    // 更新总表单数
+    document.getElementById('id_form-TOTAL_FORMS').value = formIndex;
+    
+    // 为新添加的表单绑定事件
+    bindSubjectEvents();
+    bindDeleteEvents();
+});
+
+// 删除科目表单
+function bindDeleteEvents() {
+    document.querySelectorAll('.delete-subject-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const subjectForm = this.closest('.subject-form');
+            // 删除表单
+            subjectForm.remove();
+            
+            // 重新索引所有剩余的表单
+            reindexForms();
+        });
+    });
+}
+
+// 重新索引表单
+function reindexForms() {
+    const forms = document.querySelectorAll('.subject-form');
+    
+    forms.forEach((form, index) => {
+        // 更新data-form-index属性
+        form.setAttribute('data-form-index', index);
+        
+        // 更新所有表单字段的name和id属性
+        const inputs = form.querySelectorAll('input, select');
+        inputs.forEach(input => {
+            if (input.name) {
+                // 更新name属性
+                input.name = input.name.replace(/form-\d+-/, `form-${index}-`);
+            }
+            if (input.id) {
+                // 更新id属性
+                input.id = input.id.replace(/id_form-\d+-/, `id_form-${index}-`);
+            }
+        });
+        
+        // 更新label的for属性
+        const labels = form.querySelectorAll('label');
+        labels.forEach(label => {
+            if (label.getAttribute('for')) {
+                label.setAttribute('for', label.getAttribute('for').replace(/id_form-\d+-/, `id_form-${index}-`));
+            }
+        });
+    });
+    
+    // 更新总表单数和formIndex
+    const totalForms = forms.length;
+    document.getElementById('id_form-TOTAL_FORMS').value = totalForms;
+    formIndex = totalForms;
+}
+
+// 科目选择变化时自动填充满分
+function bindSubjectEvents() {
+    document.querySelectorAll('.subject-select').forEach(select => {
+        select.addEventListener('change', function() {
+            const subjectCode = this.value;
+            const subjectForm = this.closest('.subject-form');
+            
+            // 查找满分输入框，支持两种情况：
+            // 1. 动态添加的表单使用 .max-score-input 类
+            // 2. 现有表单使用 Django 渲染的表单字段
+            let maxScoreInput = subjectForm.querySelector('.max-score-input');
+            if (!maxScoreInput) {
+                // 如果没找到 .max-score-input，查找 input[name$="-max_score"]
+                maxScoreInput = subjectForm.querySelector('input[name$="-max_score"]');
+            }
+            
+            if (subjectCode && maxScoreInput) {
+                // 从后端动态获取默认满分配置
+                const defaultScores = {{ default_subjects_json|safe }};
+                maxScoreInput.value = defaultScores[subjectCode] || 100;
+            }
+        });
+    });
+}
+
+// 表单验证
+document.getElementById('subjectForm').addEventListener('submit', function(e) {
+    const subjectForms = document.querySelectorAll('.subject-form');
+    const subjects = new Set();
+    let hasValidSubject = false;
+    
+    for (let form of subjectForms) {
+        const subjectSelect = form.querySelector('select[name$="-subject_code"]');
+        const maxScoreInput = form.querySelector('input[name$="-max_score"]');
+        
+        if (subjectSelect && subjectSelect.value) {
+            hasValidSubject = true;
+            
+            // 检查重复科目
+            if (subjects.has(subjectSelect.value)) {
+                alert(`科目 "${subjectSelect.options[subjectSelect.selectedIndex].text}" 重复，请检查！`);
+                e.preventDefault();
+                return;
+            }
+            subjects.add(subjectSelect.value);
+            
+            // 检查满分
+            if (!maxScoreInput.value || maxScoreInput.value <= 0) {
+                alert('请为所有科目设置有效的满分！');
+                e.preventDefault();
+                return;
+            }
+        }
+    }
+    
+    if (!hasValidSubject) {
+        alert('请至少配置一个科目！');
+        e.preventDefault();
+        return;
+    }
+});
+
+// 初始化事件绑定
+bindDeleteEvents();
+bindSubjectEvents();
+</script>
+{% endblock %}

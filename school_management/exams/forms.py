@@ -1,45 +1,184 @@
 from django import forms
-from .models import Exam, ACADEMIC_YEAR_CHOICES, SUBJECT_CHOICES, Score
+from django.forms import formset_factory, BaseFormSet
+from .models import Exam, ExamSubject, ACADEMIC_YEAR_CHOICES, SUBJECT_CHOICES, SUBJECT_DEFAULT_MAX_SCORES, Score
 from school_management.students.models import Student, Class, GRADE_LEVEL_CHOICES, CLASS_NAME_CHOICES # 確保導入年級選項
 
-class ExamForm(forms.ModelForm):
-    # 如果你希望年級選擇像學生表單那樣有 '-- 選擇年級 --' 的預設選項
+
+class ExamSubjectForm(forms.Form):
+    """
+    考试科目配置表单，用于设置每个科目的满分
+    """
+    subject_code = forms.ChoiceField(
+        choices=SUBJECT_CHOICES,
+        label="科目",
+        required=True,
+        widget=forms.Select(attrs={'class': 'form-control subject-select'})
+    )
+    max_score = forms.IntegerField(
+        min_value=1,
+        max_value=999,
+        label="满分",
+        required=True,
+        widget=forms.NumberInput(attrs={
+            'step': '1',
+            'min': '1',
+            'max': '999',
+            'class': 'form-control'
+        })
+    )
+
+    
+    def __init__(self, *args, **kwargs):
+        grade_level = kwargs.pop('grade_level', None)
+        super().__init__(*args, **kwargs)
+        
+        # 如果提供了年级，设置默认满分
+        if grade_level and not self.is_bound:
+            subject_code = self.initial.get('subject_code')
+            if subject_code:
+                default_config = SUBJECT_DEFAULT_MAX_SCORES.get(grade_level, {})
+                default_max_score = default_config.get(subject_code, 100)
+                self.fields['max_score'].initial = default_max_score
+
+class BaseExamSubjectFormSet(BaseFormSet):
+    """
+    考试科目表单集的基类，提供额外的验证和处理逻辑
+    """
+    def __init__(self, *args, **kwargs):
+        self.grade_level = kwargs.pop('grade_level', None)
+        super().__init__(*args, **kwargs)
+    
+    def get_form_kwargs(self, index):
+        kwargs = super().get_form_kwargs(index)
+        if self.grade_level:
+            kwargs['grade_level'] = self.grade_level
+        return kwargs
+    
+    def clean(self):
+        """
+        验证表单集，确保没有重复的科目
+        """
+        if any(self.errors):
+            return
+        
+        subjects = []
+        valid_forms_count = 0
+        
+        for i, form in enumerate(self.forms):
+            # 检查表单是否有效且有数据
+            if (hasattr(form, 'cleaned_data') and 
+                form.cleaned_data and 
+                not form.cleaned_data.get('DELETE', False)):
+                
+                subject_code = form.cleaned_data.get('subject_code')
+                
+                if subject_code:
+                    valid_forms_count += 1
+                    if subject_code in subjects:
+                        # 提供更详细的错误信息
+                        first_occurrence = subjects.index(subject_code) + 1
+                        raise forms.ValidationError(
+                            f"存在重复的科目：{subject_code}，请检查配置！"
+                            f"该科目在第 {first_occurrence} 个和第 {i+1} 个表单中重复出现。"
+                        )
+                    subjects.append(subject_code)
+        
+        if not subjects:
+            raise forms.ValidationError("至少需要配置一个科目")
+        
+
+
+# 创建考试科目表单集
+ExamSubjectFormSet = formset_factory(
+    ExamSubjectForm,
+    formset=BaseExamSubjectFormSet,
+    extra=0,  # 不显示空表单，避免与JavaScript动态添加的默认科目重复
+    can_delete=False,  # 前端直接删除，不使用Django的DELETE机制
+    min_num=0,  # 修改为0，避免自动生成额外表单
+    validate_min=False,  # 在clean方法中手动验证
+    max_num=20  # 设置最大表单数量限制
+)
+
+class ExamCreateForm(forms.ModelForm):
+    """
+    考试创建表单，用于第一步的基本信息录入
+    """
     grade_level = forms.ChoiceField(
         choices=[('', '--- 选择年级 ---')] + GRADE_LEVEL_CHOICES,
         label="适用年级",
-        required=True
+        required=True,
+        widget=forms.Select(attrs={'class': 'form-control', 'id': 'id_grade_level'})
     )
 
     academic_year = forms.ChoiceField(
-        choices=[('', '--- 选择学年 ---')] + ACADEMIC_YEAR_CHOICES, # 使用新的學年選項
+        choices=[('', '--- 选择学年 ---')] + ACADEMIC_YEAR_CHOICES,
         label="学年",
-        required=True
+        required=True,
+        widget=forms.Select(attrs={'class': 'form-control'})
     )
-
+    
     class Meta:
         model = Exam
         fields = ['name', 'academic_year', 'date', 'grade_level', 'description']
         widgets = {
-            'date': forms.DateInput(attrs={'type': 'date'}), # 使用 HTML5 date input
+            'name': forms.TextInput(attrs={'class': 'form-control'}),
+            'date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }
         labels = {
-            'name': '考試名稱',
-            'academic_year': '學年',
-            'date': '考試日期',
-            'grade_level': '適用年級',
-            'description': '考試描述',
+            'name': '考试名称',
+            'academic_year': '学年',
+            'date': '考试日期',
+            'grade_level': '适用年级',
+            'description': '考试描述',
         }
-
-    # 確保日期在編輯時能正確顯示 (與學生表單的邏輯類似)
+    
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if self.instance and self.instance.pk:
             if self.instance.date:
                 self.initial['date'] = self.instance.date.strftime('%Y-%m-%d')
-            else:
-                self.initial['date'] = ''
-            if self.instance.academic_year:
-                self.initial['academic_year'] = self.instance.academic_year
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        name = cleaned_data.get('name')
+        academic_year = cleaned_data.get('academic_year')
+        grade_level = cleaned_data.get('grade_level')
+        
+        if name and academic_year and grade_level:
+            # 检查是否存在相同学年、考试名称和年级的考试
+            existing_exam = Exam.objects.filter(
+                academic_year=academic_year,
+                name=name,
+                grade_level=grade_level
+            )
+            
+            # 如果是编辑模式，排除当前正在编辑的考试
+            if self.instance and self.instance.pk:
+                existing_exam = existing_exam.exclude(pk=self.instance.pk)
+            
+            if existing_exam.exists():
+                raise forms.ValidationError(
+                    f"学年 {academic_year} 的 {grade_level} 中已存在名为 '{name}' 的考试，请使用不同的考试名称。"
+                )
+        
+        return cleaned_data
+    
+    def get_default_subjects_for_grade(self, grade_level):
+        """
+        获取指定年级的默认科目配置
+        """
+        default_config = SUBJECT_DEFAULT_MAX_SCORES.get(grade_level, {})
+        subjects_data = []
+        
+        for i, (subject_code, max_score) in enumerate(default_config.items()):
+            subjects_data.append({
+                'subject_code': subject_code,
+                'max_score': max_score,
+                'order': i
+            })
+        
+        return subjects_data
 
 # 单条成绩录入/编辑
 class ScoreForm(forms.ModelForm):

@@ -1,106 +1,502 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>{{ title }}</title>
-    <style>
-        .messages {
-            list-style: none;
-            padding: 0;
-        }
-        .messages li {
-            padding: 10px;
-            margin-bottom: 10px;
-            border-radius: 5px;
-        }
-        .messages .success { background-color: #d4edda; color: #155724; border-color: #c3e6cb; }
-        .messages .error { background-color: #f8d7da; color: #721c24; border-color: #f5c6cb; }
-        .messages .info { background-color: #d1ecf1; color: #0c5460; border-color: #bee5eb; }
-        .messages .warning { background-color: #fff3cd; color: #856404; border-color: #ffeeba; }
+{% extends 'base.html' %}
+{% load static %}
 
-        .errorlist {
-            color: red;
-            list-style-type: none;
-            padding: 0;
-            margin: 0;
-        }
-        .failed-rows-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-        .failed-rows-table th, .failed-rows-table td {
-            border: 1px solid #ccc;
-            padding: 8px;
-            text-align: left;
-        }
-        .failed-rows-table th {
-            background-color: #f2f2f2;
-        }
-    </style>
-</head>
-<body>
-    <h1>{{ title }}</h1>
+{% block title %}{{ title }}{% endblock %}
 
-    {% if messages %}
-        <ul class="messages">
-            {% for message in messages %}
-                <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
-            {% endfor %}
-        </ul>
-    {% endif %}
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+<style>
+.page-header {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: white;
+    padding: 2rem 0;
+    margin-bottom: 2rem;
+    border-radius: 10px;
+}
 
-    <p>
-        請下載成績導入模板並填寫數據：
-        <a href="{{ download_template_url }}">下載成績導入模板 (Excel)</a>
-    </p>
+.page-header h1 {
+    margin: 0;
+    font-weight: 600;
+}
 
-    <form method="post" enctype="multipart/form-data">
-        {% csrf_token %}
-        <p>
-            {{ form.exam.label_tag }} {{ form.exam }}
-            {% if form.exam.errors %}
-                <ul class="errorlist">{% for error in form.exam.errors %}<li>{{ error }}</li>{% endfor %}</ul>
-            {% endif %}
-        </p>
-        <p>
-            {{ form.excel_file.label_tag }} {{ form.excel_file }}
-            {% if form.excel_file.help_text %}
-                <small style="color: gray;">{{ form.excel_file.help_text }}</small>
-            {% endif %}
-            {% if form.excel_file.errors %}
-                <ul class="errorlist">{% for error in form.excel_file.errors %}<li>{{ error }}</li>{% endfor %}</ul>
-            {% endif %}
-        </p>
-        <button type="submit">上傳並導入</button>
-        <a href="{% url 'score_list' %}">取消</a>
-    </form>
+.page-header .breadcrumb {
+    background: transparent;
+    margin: 0;
+    padding: 0;
+}
 
+.page-header .breadcrumb-item a {
+    color: rgba(255, 255, 255, 0.8);
+    text-decoration: none;
+}
+
+.page-header .breadcrumb-item.active {
+    color: white;
+}
+
+.import-card {
+    border: none;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    border-radius: 15px;
+    overflow: hidden;
+}
+
+.import-card .card-header {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-bottom: 1px solid #dee2e6;
+    padding: 1.5rem;
+}
+
+.import-card .card-body {
+    padding: 2rem;
+}
+
+.template-download {
+    background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+    border: 1px solid #2196f3;
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    text-align: center;
+}
+
+.template-download .btn {
+    border-radius: 25px;
+    padding: 0.75rem 2rem;
+    font-weight: 500;
+    box-shadow: 0 2px 4px rgba(33, 150, 243, 0.3);
+}
+
+.upload-area {
+    border: 2px dashed #dee2e6;
+    border-radius: 10px;
+    padding: 2rem;
+    text-align: center;
+    transition: all 0.3s ease;
+    background: #f8f9fa;
+}
+
+.upload-area:hover {
+    border-color: #28a745;
+    background: #f0fff4;
+}
+
+.upload-area.dragover {
+    border-color: #28a745;
+    background: #e8f5e9;
+    transform: scale(1.02);
+}
+
+.form-floating {
+    margin-bottom: 1.5rem;
+}
+
+.btn-upload {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    border: none;
+    border-radius: 25px;
+    padding: 0.75rem 2rem;
+    font-weight: 500;
+    color: white;
+    transition: all 0.3s ease;
+}
+
+.btn-upload:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
+    color: white;
+}
+
+.btn-cancel {
+    border-radius: 25px;
+    padding: 0.75rem 2rem;
+    font-weight: 500;
+}
+
+.failed-rows-card {
+    border: none;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    border-radius: 15px;
+    margin-top: 2rem;
+    border-left: 4px solid #dc3545;
+}
+
+.failed-rows-table {
+    margin: 0;
+}
+
+.failed-rows-table th {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border: none;
+    font-weight: 600;
+    color: #495057;
+}
+
+.failed-rows-table td {
+    border: none;
+    border-bottom: 1px solid #dee2e6;
+    vertical-align: top;
+}
+
+.error-text {
+    color: #dc3545;
+    font-weight: 500;
+}
+
+.data-preview {
+    background: #f8f9fa;
+    border-radius: 5px;
+    padding: 0.5rem;
+    font-family: 'Courier New', monospace;
+    font-size: 0.875rem;
+    max-height: 100px;
+    overflow-y: auto;
+}
+
+.progress-container {
+    display: none;
+    margin-top: 1rem;
+}
+
+.upload-icon {
+    font-size: 3rem;
+    color: #6c757d;
+    margin-bottom: 1rem;
+}
+
+.quick-actions {
+    background: #f8f9fa;
+    border-radius: 10px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.quick-actions .btn {
+    margin-right: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+@media (max-width: 768px) {
+    .page-header {
+        padding: 1rem 0;
+        margin-bottom: 1rem;
+    }
+    
+    .import-card .card-body {
+        padding: 1rem;
+    }
+    
+    .template-download {
+        padding: 1rem;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- 页面头部 -->
+<div class="page-header">
+    <div class="container-fluid">
+        <div class="row align-items-center">
+            <div class="col-md-6">
+                <h1><i class="fas fa-file-upload me-3"></i>{{ title }}</h1>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="{% url 'student_list' %}">首页</a></li>
+                        <li class="breadcrumb-item"><a href="{% url 'score_list' %}">成绩管理</a></li>
+                        <li class="breadcrumb-item active">批量导入</li>
+                    </ol>
+                </nav>
+            </div>
+            <div class="col-md-6 text-end">
+                <div class="quick-actions d-none d-md-block">
+                    <a href="{% url 'score_list' %}" class="btn btn-outline-light btn-sm">
+                        <i class="fas fa-arrow-left me-1"></i>返回成绩管理
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container-fluid">
+
+    <!-- 模板下载区域 -->
+    <div class="template-download">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h5 class="mb-2"><i class="fas fa-download me-2"></i>下载导入模板</h5>
+                <p class="mb-0 text-muted">请先下载标准模板，按照模板格式填写数据后再进行导入</p>
+            </div>
+            <div class="col-md-4 text-end">
+                <a href="{{ download_template_url }}" class="btn btn-primary">
+                    <i class="fas fa-file-excel me-2"></i>下载模板
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- 导入表单卡片 -->
+    <div class="card import-card">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="fas fa-upload me-2"></i>批量导入成绩</h5>
+        </div>
+        <div class="card-body">
+            <form method="post" enctype="multipart/form-data" id="importForm">
+                {% csrf_token %}
+                
+                <!-- 考试选择 -->
+                <div class="form-floating">
+                    {{ form.exam }}
+                    <label for="id_exam"><i class="fas fa-clipboard-list me-2"></i>选择考试</label>
+                    {% if form.exam.errors %}
+                        <div class="invalid-feedback d-block">
+                            {% for error in form.exam.errors %}
+                                <div>{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- 文件上传区域 -->
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-icon">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                    </div>
+                    <h6>拖拽文件到此处或点击选择文件</h6>
+                    <p class="text-muted mb-3">支持 .xlsx, .xls 格式文件，文件大小不超过 10MB</p>
+                    
+                    <div class="mb-3">
+                        {{ form.excel_file }}
+                        {% if form.excel_file.errors %}
+                            <div class="invalid-feedback d-block">
+                                {% for error in form.excel_file.errors %}
+                                    <div>{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div id="fileInfo" class="d-none">
+                        <div class="alert alert-info">
+                            <i class="fas fa-file-excel me-2"></i>
+                            <span id="fileName"></span>
+                            <span class="badge bg-secondary ms-2" id="fileSize"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 进度条 -->
+                <div class="progress-container">
+                    <div class="progress">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                             role="progressbar" style="width: 0%"></div>
+                    </div>
+                    <small class="text-muted mt-1">正在处理文件，请稍候...</small>
+                </div>
+
+                <!-- 操作按钮 -->
+                <div class="d-flex justify-content-between align-items-center mt-4">
+                    <a href="{% url 'score_list' %}" class="btn btn-outline-secondary btn-cancel">
+                        <i class="fas fa-arrow-left me-2"></i>返回
+                    </a>
+                    <button type="submit" class="btn btn-upload" id="submitBtn">
+                        <i class="fas fa-upload me-2"></i>开始导入
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 失败记录显示 -->
     {% if failed_rows %}
-        <h2>導入失敗詳情</h2>
-        <table class="failed-rows-table">
-            <thead>
-                <tr>
-                    <th>行號</th>
-                    <th>原始數據 (部分)</th>
-                    <th>失敗原因</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for row_idx, row_data, errors_str in failed_rows %}
-                <tr>
-                    <td>{{ row_idx }}</td>
-                    <td>
-                        {% for key, value in row_data.items %}
-                            {{ key }}: {{ value|default_if_none:"空" }}<br>
-                        {% endfor %}
-                    </td>
-                    <td style="color: red;">{{ errors_str }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <div class="card failed-rows-card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 text-danger">
+                        <i class="fas fa-exclamation-triangle me-2"></i>导入失败记录
+                    </h5>
+                    <span class="badge bg-danger">{{ failed_rows|length }} 条记录失败</span>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover failed-rows-table">
+                        <thead>
+                            <tr>
+                                <th><i class="fas fa-hashtag me-1"></i>行号</th>
+                                <th><i class="fas fa-user me-1"></i>学生姓名</th>
+                                <th><i class="fas fa-id-card me-1"></i>学号</th>
+                                <th><i class="fas fa-layer-group me-1"></i>年级</th>
+                                <th><i class="fas fa-users me-1"></i>班级</th>
+                                <th><i class="fas fa-book me-1"></i>科目</th>
+                                <th><i class="fas fa-chart-line me-1"></i>分数</th>
+                                <th><i class="fas fa-exclamation-circle me-1"></i>错误信息</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in failed_rows %}
+                                <tr>
+                                    <td><span class="badge bg-light text-dark">{{ row.row_number }}</span></td>
+                                    <td>{{ row.student_name|default:"-" }}</td>
+                                    <td>{{ row.student_id|default:"-" }}</td>
+                                    <td>{{ row.grade|default:"-" }}</td>
+                                    <td>{{ row.class_name|default:"-" }}</td>
+                                    <td>{{ row.subject|default:"-" }}</td>
+                                    <td>{{ row.score|default:"-" }}</td>
+                                    <td><span class="error-text">{{ row.error }}</span></td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card-footer">
+                <div class="d-flex justify-content-between align-items-center">
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle me-1"></i>
+                        请修正错误后重新导入失败的记录
+                    </small>
+                    <a href="{% url 'download_template' %}" class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-download me-1"></i>重新下载模板
+                    </a>
+                </div>
+            </div>
+        </div>
     {% endif %}
+</div>
 
-    <p><a href="{% url 'score_list' %}">返回成績列表</a></p>
-</body>
-</html>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // 文件上传区域拖拽功能
+    const uploadArea = $('#uploadArea');
+    const fileInput = $('#id_excel_file');
+    const fileInfo = $('#fileInfo');
+    const fileName = $('#fileName');
+    const fileSize = $('#fileSize');
+    const submitBtn = $('#submitBtn');
+    const progressContainer = $('.progress-container');
+    const progressBar = $('.progress-bar');
+    
+    // 点击上传区域触发文件选择
+    uploadArea.on('click', function(e) {
+        if (e.target.type !== 'file') {
+            fileInput.click();
+        }
+    });
+    
+    // 拖拽事件
+    uploadArea.on('dragover', function(e) {
+        e.preventDefault();
+        $(this).addClass('dragover');
+    });
+    
+    uploadArea.on('dragleave', function(e) {
+        e.preventDefault();
+        $(this).removeClass('dragover');
+    });
+    
+    uploadArea.on('drop', function(e) {
+        e.preventDefault();
+        $(this).removeClass('dragover');
+        
+        const files = e.originalEvent.dataTransfer.files;
+        if (files.length > 0) {
+            fileInput[0].files = files;
+            handleFileSelect(files[0]);
+        }
+    });
+    
+    // 文件选择事件
+    fileInput.on('change', function() {
+        const file = this.files[0];
+        if (file) {
+            handleFileSelect(file);
+        }
+    });
+    
+    // 处理文件选择
+    function handleFileSelect(file) {
+        // 验证文件类型
+        const allowedTypes = ['.xlsx', '.xls'];
+        const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
+        
+        if (!allowedTypes.includes(fileExtension)) {
+            alert('请选择 Excel 文件（.xlsx 或 .xls 格式）');
+            fileInput.val('');
+            fileInfo.addClass('d-none');
+            return;
+        }
+        
+        // 验证文件大小（10MB）
+        if (file.size > 10 * 1024 * 1024) {
+            alert('文件大小不能超过 10MB');
+            fileInput.val('');
+            fileInfo.addClass('d-none');
+            return;
+        }
+        
+        // 显示文件信息
+        fileName.text(file.name);
+        fileSize.text(formatFileSize(file.size));
+        fileInfo.removeClass('d-none');
+        
+        // 启用提交按钮
+        submitBtn.prop('disabled', false);
+    }
+    
+    // 格式化文件大小
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+    
+    // 表单提交处理
+    $('#importForm').on('submit', function(e) {
+        const examSelect = $('#id_exam');
+        const fileInput = $('#id_excel_file');
+        
+        // 验证表单
+        if (!examSelect.val()) {
+            alert('请选择考试');
+            examSelect.focus();
+            e.preventDefault();
+            return false;
+        }
+        
+        if (!fileInput.val()) {
+            alert('请选择要导入的文件');
+            fileInput.focus();
+            e.preventDefault();
+            return false;
+        }
+        
+        // 显示进度条
+        progressContainer.show();
+        submitBtn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>正在导入...');
+        
+        // 模拟进度更新
+        let progress = 0;
+        const progressInterval = setInterval(function() {
+            progress += Math.random() * 15;
+            if (progress > 90) progress = 90;
+            progressBar.css('width', progress + '%');
+        }, 500);
+        
+        // 清理定时器（表单提交后页面会刷新）
+        setTimeout(function() {
+            clearInterval(progressInterval);
+        }, 10000);
+    });
+    
+    // 页面加载动画
+    $('.import-card, .template-download').hide().fadeIn(800);
+});
+</script>
+{% endblock %}
