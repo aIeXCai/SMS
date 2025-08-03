@@ -44,4 +44,5 @@ urlpatterns = [
     path('get_classes_by_grade/', views.get_classes_by_grade, name='get_classes_by_grade'),
     path('get_default_subjects/', views.get_default_subjects_ajax, name='get_default_subjects_ajax'),
     path('scores/batch_import_ajax/', views.score_batch_import_ajax, name='score_batch_import_ajax'),
+    path('search_students_ajax/', views.search_students_ajax, name='search_students_ajax'),
 ]

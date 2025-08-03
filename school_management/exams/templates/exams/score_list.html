@@ -79,6 +79,7 @@
         padding: 10px 6px;
         font-size: 0.8rem;
         white-space: nowrap;
+        text-align: center;
     }
 
     .table td {
@@ -87,6 +88,7 @@
         border-color: #f1f3f4;
         font-size: 0.8rem;
         white-space: nowrap;
+        text-align: center;
     }
 
     .badge {
@@ -153,7 +155,7 @@
                         <label for="student_name_filter" class="form-label">学生姓名</label>
                         <input type="text" class="form-control" id="student_name_filter" name="student_name_filter" value="{{ selected_student_name_filter|default_if_none:'' }}">
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label for="exam_filter" class="form-label">考试</label>
                         <select class="form-select" id="exam_filter" name="exam_filter">
                             <option value="">--- 所有考试 ---</option>
@@ -186,7 +188,7 @@
                             {% endfor %}
                         </select>
                     </div>
-                    <div class="col-md-1">
+                    <div class="col-md-2">
                         <label for="subject_filter" class="form-label">科目</label>
                         <select class="form-select" id="subject_filter" name="subject_filter">
                             <option value="">--- 所有科目 ---</option>
@@ -290,7 +292,7 @@
                             {% endfor %}
                             <td>
                                 <a href="{% url 'score_batch_edit' %}?student={{ row_data.student_obj.pk }}&exam={{ row_data.exam_obj.pk }}" 
-                                   class="btn btn-sm btn-primary">
+                                   class="btn btn-sm btn-warning">
                                     <i class="fas fa-edit"></i> 编辑成绩
                                 </a>
                             </td>
@@ -735,8 +737,8 @@
             content = `
                 <div class="alert alert-success">
                     <h5><i class="fas fa-check-circle"></i> 导入成功！</h5>
-                    <p>成功导入 <strong>${data.imported_count}</strong> 条记录</p>
-                    ${data.failed_count > 0 ? `<p>失败 <strong>${data.failed_count}</strong> 条记录</p>` : ''}
+                    <p>成功导入 <strong>${data.imported_count}</strong> 个学生</p>
+                    ${data.failed_count > 0 ? `<p>失败 <strong>${data.failed_count}</strong> 个学生</p>` : ''}
                 </div>
             `;
         } else {
@@ -744,7 +746,7 @@
                 <div class="alert alert-danger">
                     <h5><i class="fas fa-exclamation-circle"></i> 导入失败！</h5>
                     <p>${data.message}</p>
-                    ${data.failed_count > 0 ? `<p>失败 <strong>${data.failed_count}</strong> 条记录</p>` : ''}
+                    ${data.failed_count > 0 ? `<p>失败 <strong>${data.failed_count}</strong> 个学生</p>` : ''}
                 </div>
             `;
         }

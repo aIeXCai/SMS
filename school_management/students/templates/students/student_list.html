@@ -265,7 +265,7 @@
         </div>
         <div class="card-body">
             <form method="get" action="{% url 'student_list' %}" class="row g-3">
-                <div class="col-md-6">
+                <div class="col-md-3">
                     <label for="id_search_query" class="form-label">搜索 (学号/姓名)</label>
                     <div class="input-group">
                         <span class="input-group-text"><i class="fas fa-search"></i></span>
@@ -306,7 +306,8 @@
                         {% endfor %}
                     </select>
                 </div>
-                <div class="col-12">
+                <div class="col-md-3">
+                    <label class="form-label">&nbsp;</label>
                     <div class="d-flex gap-2">
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-search me-1"></i>筛选
@@ -353,11 +354,11 @@
                     
                     <div class="col-md-7">
                         <div class="btn-group" role="group">
-                            <button type="submit" class="btn btn-danger btn-sm" formaction="{% url 'student_batch_delete' %}" onclick="return confirmBatchDelete();">
-                                <i class="fas fa-trash me-1"></i>批量删除
-                            </button>
                             <button type="submit" class="btn btn-warning btn-sm" formaction="{% url 'student_batch_update_status' %}" onclick="return confirmBatchUpdateStatus();">
                                 <i class="fas fa-edit me-1"></i>应用状态修改
+                            </button>
+                            <button type="submit" class="btn btn-danger btn-sm" formaction="{% url 'student_batch_delete' %}" onclick="return confirmBatchDelete();">
+                                <i class="fas fa-trash me-1"></i>批量删除
                             </button>
                             <button type="button" class="btn btn-info btn-sm" onclick="confirmAndRedirectForPromote();">
                                 <i class="fas fa-level-up-alt me-1"></i>批量升年级

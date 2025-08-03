@@ -6,6 +6,7 @@ from django.db.models import Sum, Count, Q, F, Case, When, IntegerField, Avg, Ma
 from django.db.models.functions import Rank
 from django.core.paginator import Paginator
 from django.http import HttpResponse, JsonResponse
+from django.views.decorators.csrf import csrf_exempt
 import openpyxl
 from datetime import datetime
 import io
@@ -16,7 +17,7 @@ from .models import Exam, ExamSubject, Score, SUBJECT_CHOICES, SUBJECT_DEFAULT_M
 from .forms import ExamCreateForm, ExamSubjectFormSet, ScoreForm, ScoreBatchUploadForm, ScoreQueryForm, ScoreAddForm, ScoreAnalysisForm
 from school_management.students.models import CLASS_NAME_CHOICES, Student, Class, GRADE_LEVEL_CHOICES
 
-# --- 考试管理 Views ---
+# <!--- 考试管理 Views --->
 # 考試列表 (Read)
 def exam_list(request):
     exams = Exam.objects.all()
@@ -585,6 +586,8 @@ def score_batch_import_ajax(request):
         imported_count = 0
         failed_count = 0
         error_details = []  # 收集详细错误信息
+        successful_students = set()  # 跟踪成功导入的学生
+        failed_students = set()  # 跟踪失败的学生
         
         # 預定義標準列頭（非科目列）
         fixed_headers_mapping = {
@@ -623,7 +626,8 @@ def score_batch_import_ajax(request):
                 
                 # 如果學生不存在，則跳過此行
                 if student_obj is None:
-                    failed_count += 1
+                    if student_id_from_excel:
+                        failed_students.add(student_id_from_excel)
                     continue
                 
                 # 遍歷科目分數
@@ -654,14 +658,15 @@ def score_batch_import_ajax(request):
                                     subject=current_subject,
                                     defaults={'score_value': score_value}
                                 )
-                                imported_count += 1
                                 scores_processed_for_student += 1
+                                successful_students.add(student_obj.student_id)
                             except Exception as e:
                                 errors_in_row.append(f"数据库操作失败: {str(e)}")
                 
                 # 記錄失敗行
                 if errors_in_row:
-                    failed_count += 1
+                    if student_id_from_excel:
+                        failed_students.add(student_id_from_excel)
                     error_details.append({
                         'row': row_idx,
                         'student_id': student_id_from_excel,
@@ -669,11 +674,15 @@ def score_batch_import_ajax(request):
                         'errors': errors_in_row
                     })
         
+        # 计算最终的学生数量统计
+        imported_count = len(successful_students)
+        failed_count = len(failed_students)
+        
         # 返回简化的结果
         if imported_count > 0:
-            message = f"上传成功！成功导入 {imported_count} 条学生数据"
+            message = f"上传成功！成功导入 {imported_count} 个学生"
             if failed_count > 0:
-                message += f"，失败 {failed_count} 条学生数据"
+                message += f"，失败 {failed_count} 个学生"
             return JsonResponse({
                 'success': True,
                 'message': message,
@@ -684,7 +693,7 @@ def score_batch_import_ajax(request):
         else:
             return JsonResponse({
                 'success': False,
-                'message': f"上传失败！失败 {failed_count} 条学生数据",
+                'message': f"上传失败！失败 {failed_count} 个学生",
                 'imported_count': 0,
                 'failed_count': failed_count,
                 'error_details': error_details
@@ -1954,6 +1963,48 @@ def score_analysis_student(request):
         })
     
     return render(request, 'exams/score_analysis_student.html', context)
+
+# AJAX端点：根据输入的关键字搜索学生
+# 支持按姓名、学号、年级班级进行模糊搜索
+@require_http_methods(["GET"])
+def search_students_ajax(request):
+    query = request.GET.get('q', '').strip()
+    
+    if not query:
+        return JsonResponse({'students': []})
+    
+    # 构建搜索条件
+    search_conditions = Q()
+    
+    # 按姓名搜索
+    search_conditions |= Q(name__icontains=query)
+    
+    # 按学号搜索
+    search_conditions |= Q(student_id__icontains=query)
+    
+    # 按年级班级搜索（通过关联的Class模型）
+    search_conditions |= Q(current_class__grade_level__icontains=query)
+    search_conditions |= Q(current_class__class_name__icontains=query)
+    
+    # 执行搜索，限制结果数量避免性能问题
+    students = Student.objects.filter(search_conditions).select_related('current_class').order_by('name', 'student_id')[:20]
+    
+    # 构建返回数据
+    student_list = []
+    for student in students:
+        class_info = ''
+        if student.current_class:
+            class_info = f"{student.current_class.grade_level}{student.current_class.class_name}"
+        
+        student_list.append({
+            'id': student.id,
+            'text': f"{student.name}-{student.student_id}-{class_info}",
+            'name': student.name,
+            'student_id': student.student_id,
+            'class_info': class_info
+        })
+    
+    return JsonResponse({'students': student_list})
 
 
 

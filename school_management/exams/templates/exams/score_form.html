@@ -1,207 +1,516 @@
+{% extends 'base.html' %}
+{% load static %}
 {% load exam_filters %}
-<!DOCTYPE html>
-<html>
-<head>
-    <title>{{ title }}</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        h1 { color: #333; }
-        .form-controls {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            max-width: 600px;
-            margin-bottom: 20px;
-        }
-        .form-control {
-            display: flex;
-            flex-direction: column;
-        }
-        .form-control label {
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-        .form-control select {
-            padding: 8px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-        }
-        .score-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            max-width: 600px;
-        }
-        .score-item {
-            display: flex;
-            align-items: center;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            background-color: #fff;
-        }
-        .score-item label {
-            font-weight: bold;
-            min-width: 80px;
-            margin-right: 10px;
-        }
-        .score-item input {
-            flex: 1;
-            padding: 8px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            text-align: center;
-        }
-        .score-item input:focus {
-            border-color: #007bff;
-            outline: none;
-        }
-        .buttons {
-            margin-top: 20px;
-        }
-        .btn {
-            padding: 10px 20px;
-            margin-right: 10px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            text-decoration: none;
-            display: inline-block;
-        }
-        .btn-primary {
-            background-color: #007bff;
-            color: white;
-        }
-        .btn-secondary {
-            background-color: #6c757d;
-            color: white;
-        }
-        .btn:hover {
-            opacity: 0.9;
-        }
-        .messages {
-            list-style: none;
-            padding: 0;
-        }
-        .messages li {
-            padding: 10px;
-            margin-bottom: 10px;
-            border-radius: 5px;
-        }
-        .messages .success { background-color: #d4edda; color: #155724; }
-        .messages .error { background-color: #f8d7da; color: #721c24; }
-        .messages .info { background-color: #d1ecf1; color: #0c5460; }
-        .help-text {
-            color: #6c757d;
-            font-size: 14px;
-            margin-bottom: 15px;
-        }
-        .errorlist {
-            color: red;
-            list-style-type: none;
-            padding: 0;
-            margin: 5px 0 0 0;
-        }
-    </style>
-</head>
-<body>
-    <h1>{{ title }}</h1>
 
-    {% if messages %}
-        <ul class="messages">
-            {% for message in messages %}
-                <li class="{{ message.tags }}">{{ message }}</li>
-            {% endfor %}
-        </ul>
-    {% endif %}
+{% block title %}{{ title }} - 学校管理系统{% endblock %}
 
-    <div class="help-text">
-        💡 提示：选择学生和考试后，输入各科成绩，留空表示不录入该科目
+{% block extra_css %}
+<style>
+    .page-header {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        color: white;
+        padding: 2rem 0;
+        margin-bottom: 2rem;
+        border-radius:10px;
+    }
+
+    .page-header h1 {
+        margin: 0;
+        font-weight: 600;
+    }
+
+    .form-card {
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+        margin-bottom: 2rem;
+    }
+
+    .form-card-header {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        padding: 1.5rem;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .form-card-body {
+        padding: 2rem;
+    }
+
+    .score-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1rem;
+        margin-top: 1.5rem;
+    }
+
+    .score-item {
+        background: #f8f9fa;
+        border: 2px solid #e9ecef;
+        border-radius: 10px;
+        padding: 1rem;
+        transition: all 0.3s ease;
+    }
+
+    .score-item:hover {
+        border-color: #007bff;
+        box-shadow: 0 2px 8px rgba(0, 123, 255, 0.15);
+    }
+
+    .score-item label {
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 0.5rem;
+        display: block;
+    }
+
+    .score-item input {
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid #ced4da;
+        border-radius: 8px;
+        text-align: center;
+        font-size: 1.1rem;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+
+    .score-item input:focus {
+        border-color: #007bff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+        outline: none;
+    }
+
+    .help-alert {
+        background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+        border: none;
+        border-radius: 10px;
+        color: #1565c0;
+    }
+
+    .btn-save {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        border: none;
+        padding: 0.75rem 2rem;
+        font-weight: 600;
+        border-radius: 10px;
+        transition: all 0.3s ease;
+    }
+
+    .btn-save:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+    }
+
+    .btn-cancel {
+        background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+        border: none;
+        padding: 0.75rem 2rem;
+        font-weight: 600;
+        border-radius: 10px;
+        transition: all 0.3s ease;
+    }
+
+    .btn-cancel:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
+    }
+
+    .form-select, .form-control {
+        border-radius: 8px;
+        border: 1px solid #ced4da;
+        padding: 0.75rem;
+        transition: all 0.3s ease;
+    }
+
+    .form-select:focus, .form-control:focus {
+        border-color: #007bff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+
+    /* 学生搜索下拉框样式 */
+    .student-search-container {
+        position: relative;
+    }
+
+    .student-search-dropdown {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid #ced4da;
+        border-top: none;
+        border-radius: 0 0 8px 8px;
+        max-height: 200px;
+        overflow-y: auto;
+        z-index: 1000;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .student-search-item {
+        padding: 0.75rem;
+        cursor: pointer;
+        border-bottom: 1px solid #f8f9fa;
+        transition: background-color 0.2s ease;
+    }
+
+    .student-search-item:hover {
+        background-color: #f8f9fa;
+    }
+
+    .student-search-item:last-child {
+        border-bottom: none;
+    }
+
+    .student-search-item.selected {
+        background-color: #007bff;
+        color: white;
+    }
+
+    .student-search-loading {
+        padding: 0.75rem;
+        text-align: center;
+        color: #6c757d;
+        font-style: italic;
+    }
+
+    .student-search-no-results {
+        padding: 0.75rem;
+        text-align: center;
+        color: #6c757d;
+        font-style: italic;
+    }
+
+    .invalid-feedback {
+        display: block;
+        color: #dc3545;
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- 页面头部 -->
+<div class="page-header">
+    <div class="container-fluid">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1><i class="fas fa-plus me-3"></i>{{ title }}</h1>
+                <nav aria-label="breadcrumb" class="mt-2">
+                    <ol class="breadcrumb mb-0">
+                        <li class="breadcrumb-item"><a href="{% url 'score_list' %}" class="text-white-50">成绩管理</a></li>
+                        <li class="breadcrumb-item active text-white">手动新增成绩</li>
+                    </ol>
+                </nav>
+            </div>
+            <div class="col-md-4 text-end">
+                <a href="{% url 'score_list' %}" class="btn btn-light border me-2">
+                    <i class="fas fa-arrow-left me-2"></i>返回列表
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container-fluid">
+    <!-- 提示信息 -->
+    <div class="alert alert-info help-alert" role="alert">
+        <i class="fas fa-lightbulb me-2"></i>
+        <strong>操作提示：</strong>选择学生和考试后，输入各科成绩，留空表示不录入该科目。支持键盘快捷操作，按回车键可快速跳转到下一个输入框。
     </div>
     
-    <form method="post">
-        {% csrf_token %}
-        
-        <!-- 学生和考试选择 -->
-        <div class="form-controls">
-            <div class="form-control">
-                {{ form.student.label_tag }}
-                {{ form.student }}
-                {% if form.student.errors %}
-                    <ul class="errorlist">
-                        {% for error in form.student.errors %}
-                            <li>{{ error }}</li>
-                        {% endfor %}
-                    </ul>
-                {% endif %}
-            </div>
-            
-            <div class="form-control">
-                {{ form.exam.label_tag }}
-                {{ form.exam }}
-                {% if form.exam.errors %}
-                    <ul class="errorlist">
-                        {% for error in form.exam.errors %}
-                            <li>{{ error }}</li>
-                        {% endfor %}
-                    </ul>
-                {% endif %}
-            </div>
+    <!-- 表单卡片 -->
+    <div class="form-card">
+        <div class="form-card-header">
+            <h5 class="mb-0">
+                <i class="fas fa-edit me-2"></i>成绩录入表单
+            </h5>
         </div>
-        
-        <!-- 各科成绩输入 -->
-        <div class="score-grid">
-            {% for subject_code, subject_name in subjects %}
-            <div class="score-item">
-                <label for="score_{{ subject_code }}">{{ subject_name }}：</label>
-                {{ score_fields|get_item:subject_code }}
-            </div>
-            {% endfor %}
-        </div>
-        
-        <!-- 显示表单错误 -->
-        {% if form.non_field_errors %}
-            <ul class="errorlist">
-                {% for error in form.non_field_errors %}
-                    <li>{{ error }}</li>
-                {% endfor %}
-            </ul>
-        {% endif %}
-        
-        <div class="buttons">
-            <button type="submit" class="btn btn-primary">保存所有成绩</button>
-            <a href="{% url 'score_list' %}" class="btn btn-secondary">取消</a>
-        </div>
-    </form>
+        <div class="form-card-body">
+            <form method="post" id="scoreForm">
+                {% csrf_token %}
+                
+                <!-- 基本信息选择 -->
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <label for="id_student" class="form-label">
+                            <i class="fas fa-user me-1"></i>选择学生 <span class="text-danger">*</span>
+                        </label>
+                        <div class="student-search-container">
+                            {{ form.student }}
+                            {{ form.student_id }}
+                            <div class="student-search-dropdown" id="studentSearchDropdown" style="display: none;"></div>
+                        </div>
+                        {% if form.student.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in form.student.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        {% if form.student_id.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in form.student_id.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <label for="id_exam" class="form-label">
+                            <i class="fas fa-clipboard-list me-1"></i>选择考试 <span class="text-danger">*</span>
+                        </label>
+                        {{ form.exam }}
+                        {% if form.exam.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in form.exam.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
 
-    <script>
-        // 自动聚焦到第一个选择框
-        document.addEventListener('DOMContentLoaded', function() {
-            const firstSelect = document.querySelector('select');
-            if (firstSelect) {
-                firstSelect.focus();
+                <!-- 成绩输入区域 -->
+                <div class="mb-4">
+                    <h6 class="mb-3">
+                        <i class="fas fa-chart-line me-2"></i>各科成绩录入
+                        <small class="text-muted">(满分100分，支持小数)</small>
+                    </h6>
+                    <div class="score-grid">
+                        {% for subject_code, subject_name in subjects %}
+                        <div class="score-item">
+                            <label for="score_{{ subject_code }}">
+                                <i class="fas fa-book me-1"></i>{{ subject_name }}
+                            </label>
+                            {{ score_fields|get_item:subject_code }}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                
+                <!-- 显示表单错误 -->
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger" role="alert">
+                        {% for error in form.non_field_errors %}
+                            <div>{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+                
+                <!-- 操作按钮 -->
+                <div class="d-flex justify-content-between align-items-center pt-3 border-top">
+                    <div class="text-muted small">
+                        <i class="fas fa-info-circle me-1"></i>
+                        提示：留空的科目将不会被录入系统
+                    </div>
+                    <div>
+                        <a href="{% url 'score_list' %}" class="btn btn-cancel me-2">
+                            <i class="fas fa-times me-1"></i>取消
+                        </a>
+                        <button type="submit" class="btn btn-save">
+                            <i class="fas fa-save me-1"></i>保存成绩
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+<!-- JavaScript增强 -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 表单验证
+    const form = document.getElementById('scoreForm');
+    const studentSearchInput = document.getElementById('student-search');
+    const studentIdInput = document.getElementById('id_student_id');
+    const studentDropdown = document.getElementById('studentSearchDropdown');
+    const examSelect = document.getElementById('id_exam');
+    
+    // 添加Bootstrap样式类
+    if (examSelect) examSelect.classList.add('form-select');
+    
+    // 学生搜索功能
+    let searchTimeout;
+    let selectedStudentIndex = -1;
+    let searchResults = [];
+    
+    if (studentSearchInput) {
+        studentSearchInput.addEventListener('input', function() {
+            const query = this.value.trim();
+            
+            clearTimeout(searchTimeout);
+            
+            if (query.length < 1) {
+                hideDropdown();
+                return;
+            }
+            
+            searchTimeout = setTimeout(() => {
+                searchStudents(query);
+            }, 300);
+        });
+        
+        studentSearchInput.addEventListener('keydown', function(e) {
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                navigateDropdown(1);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                navigateDropdown(-1);
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (selectedStudentIndex >= 0 && searchResults[selectedStudentIndex]) {
+                    selectStudent(searchResults[selectedStudentIndex]);
+                }
+            } else if (e.key === 'Escape') {
+                hideDropdown();
             }
         });
         
-        // 回车键自动跳转到下一个输入框
-        document.addEventListener('DOMContentLoaded', function() {
-            const scoreInputs = document.querySelectorAll('.score-item input[type="number"]');
-            
-            scoreInputs.forEach((input, index) => {
-                input.addEventListener('keypress', function(e) {
-                    if (e.key === 'Enter') {
-                        e.preventDefault();
-                        const nextIndex = index + 1;
-                        if (nextIndex < scoreInputs.length) {
-                            scoreInputs[nextIndex].focus();
-                        } else {
-                            // 最后一个输入框，提交表单
-                            document.querySelector('form').submit();
-                        }
-                    }
-                });
+        studentSearchInput.addEventListener('blur', function() {
+            // 延迟隐藏下拉框，以便点击事件能够触发
+            setTimeout(() => {
+                hideDropdown();
+            }, 200);
+        });
+    }
+    
+    function searchStudents(query) {
+        showLoading();
+        
+        fetch(`{% url 'search_students_ajax' %}?q=${encodeURIComponent(query)}`)
+            .then(response => response.json())
+            .then(data => {
+                searchResults = data.students;
+                displaySearchResults(searchResults);
+            })
+            .catch(error => {
+                console.error('搜索学生时出错:', error);
+                showNoResults();
+            });
+    }
+    
+    function displaySearchResults(students) {
+        if (students.length === 0) {
+            showNoResults();
+            return;
+        }
+        
+        const html = students.map((student, index) => 
+            `<div class="student-search-item" data-index="${index}" data-id="${student.id}">
+                ${student.text}
+            </div>`
+        ).join('');
+        
+        studentDropdown.innerHTML = html;
+        studentDropdown.style.display = 'block';
+        selectedStudentIndex = -1;
+        
+        // 添加点击事件
+        studentDropdown.querySelectorAll('.student-search-item').forEach(item => {
+            item.addEventListener('click', function() {
+                const studentId = this.getAttribute('data-id');
+                const student = students.find(s => s.id == studentId);
+                if (student) {
+                    selectStudent(student);
+                }
             });
         });
-    </script>
-</body>
-</html>
+    }
+    
+    function selectStudent(student) {
+        studentSearchInput.value = student.text;
+        studentIdInput.value = student.id;
+        hideDropdown();
+        
+        // 移除验证错误样式
+        studentSearchInput.classList.remove('is-invalid');
+    }
+    
+    function navigateDropdown(direction) {
+        const items = studentDropdown.querySelectorAll('.student-search-item');
+        if (items.length === 0) return;
+        
+        // 移除当前选中状态
+        if (selectedStudentIndex >= 0) {
+            items[selectedStudentIndex].classList.remove('selected');
+        }
+        
+        // 计算新的选中索引
+        selectedStudentIndex += direction;
+        if (selectedStudentIndex < 0) {
+            selectedStudentIndex = items.length - 1;
+        } else if (selectedStudentIndex >= items.length) {
+            selectedStudentIndex = 0;
+        }
+        
+        // 添加新的选中状态
+        items[selectedStudentIndex].classList.add('selected');
+        
+        // 滚动到可见区域
+        items[selectedStudentIndex].scrollIntoView({
+            block: 'nearest'
+        });
+    }
+    
+    function showLoading() {
+        studentDropdown.innerHTML = '<div class="student-search-loading">搜索中...</div>';
+        studentDropdown.style.display = 'block';
+    }
+    
+    function showNoResults() {
+        studentDropdown.innerHTML = '<div class="student-search-no-results">未找到匹配的学生</div>';
+        studentDropdown.style.display = 'block';
+    }
+    
+    function hideDropdown() {
+        studentDropdown.style.display = 'none';
+        selectedStudentIndex = -1;
+    }
+    
+    // 键盘导航支持
+    const scoreInputs = document.querySelectorAll('.score-item input[type="number"]');
+    scoreInputs.forEach((input, index) => {
+        input.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const nextIndex = (index + 1) % scoreInputs.length;
+                scoreInputs[nextIndex].focus();
+            }
+        });
+        
+        // 输入验证
+        input.addEventListener('input', function() {
+            const value = parseFloat(this.value);
+            if (this.value && (value < 0 || value > 100)) {
+                this.classList.add('is-invalid');
+            } else {
+                this.classList.remove('is-invalid');
+            }
+        });
+    });
+    
+    // 表单提交验证
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            if (!studentIdInput.value || !examSelect.value) {
+                e.preventDefault();
+                alert('请选择学生和考试！');
+                return false;
+            }
+            
+            // 检查是否至少输入了一个成绩
+            const hasScore = Array.from(scoreInputs).some(input => input.value.trim() !== '');
+            if (!hasScore) {
+                e.preventDefault();
+                alert('请至少输入一个科目的成绩！');
+                return false;
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

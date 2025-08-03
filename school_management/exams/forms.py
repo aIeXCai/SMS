@@ -342,10 +342,18 @@ class ScoreQueryForm(forms.Form):
 
 # 成绩添加表单
 class ScoreAddForm(forms.Form):
-    student = forms.ModelChoiceField(
-        queryset=Student.objects.all().order_by('name', 'student_id'),
+    student = forms.CharField(
         label="学生",
-        empty_label="--- 选择学生 ---",
+        required=True,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': '输入学生姓名、学号或班级进行搜索...',
+            'id': 'student-search'
+        })
+    )
+    
+    student_id = forms.CharField(
+        widget=forms.HiddenInput(),
         required=True
     )
     
@@ -375,8 +383,17 @@ class ScoreAddForm(forms.Form):
     
     def clean(self):
         cleaned_data = super().clean()
-        student = cleaned_data.get('student')
+        student_id = cleaned_data.get('student_id')
         exam = cleaned_data.get('exam')
+        
+        # 验证学生ID并获取学生对象
+        student = None
+        if student_id:
+            try:
+                student = Student.objects.get(id=student_id)
+                cleaned_data['student'] = student
+            except Student.DoesNotExist:
+                raise forms.ValidationError("选择的学生不存在，请重新选择。")
         
         # 检查是否至少输入了一个科目成绩
         has_score = False
