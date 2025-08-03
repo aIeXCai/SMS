@@ -7,22 +7,41 @@
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 <style>
     .page-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(80deg,rgb(65, 49, 2) 0%,rgb(209, 158, 116) 100%);
         color: white;
         padding: 2rem 0;
         margin-bottom: 2rem;
-        border-radius: 0.5rem;
+        border-radius: 10px;
+    }
+
+    .page-header h1 {
+        margin: 0;
+        font-weight: 600;
     }
     .stats-card {
-        background: white;
-        border-radius: 0.5rem;
-        padding: 1.5rem;
-        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
-        border-left: 4px solid #007bff;
-        transition: transform 0.2s;
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s ease;
     }
+    
     .stats-card:hover {
-        transform: translateY(-2px);
+        transform: translateY(-5px);
+    }
+    
+    .stats-card .card-body {
+        padding: 1.5rem;
+    }
+    
+    .stats-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        color: white;
     }
     .action-buttons {
         margin-bottom: 1.5rem;
@@ -32,6 +51,16 @@
         border-radius: 0.5rem;
         padding: 1.5rem;
         box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    }
+    
+    .table th {
+        text-align: center;
+        vertical-align: middle;
+    }
+    
+    .table td {
+        text-align: center;
+        vertical-align: middle;
     }
     .btn-action {
         margin-right: 0.5rem;
@@ -51,18 +80,17 @@
 {% endblock %}
 
 {% block content %}
+{% csrf_token %}
 <!-- 页面头部 -->
 <div class="page-header">
-    <div class="container">
+    <div class="container-fluid">
         <div class="row align-items-center">
             <div class="col-md-8">
-                <h1 class="mb-0">
-                    <i class="fas fa-clipboard-list me-3"></i>考试管理
-                </h1>
-                <p class="mb-0 mt-2 opacity-75">管理学校的各类考试信息</p>
+                <h1><i class="fas fa-clipboard-list me-3"></i>考试管理</h1>
+                <p class="mb-0 opacity-75">管理学校的各类考试信息</p>
             </div>
             <div class="col-md-4 text-end">
-                <a href="{% url 'exam_create_step1' %}" class="btn btn-light btn-lg">
+                <a href="{% url 'exam_create_step1' %}" class="btn btn-light border">
                     <i class="fas fa-plus me-2"></i>创建考试
                 </a>
             </div>
@@ -72,16 +100,55 @@
 
 <!-- 统计信息 -->
 <div class="row mb-4">
-    <div class="col-md-3">
-        <div class="stats-card">
-            <div class="d-flex align-items-center">
-                <div class="flex-shrink-0">
-                    <i class="fas fa-clipboard-list fa-2x text-primary"></i>
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card stats-card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="stats-icon bg-primary me-3">
+                        <i class="fas fa-clipboard-list"></i>
+                    </div>
+                    <div>
+                        <h5 class="card-title mb-0">{{ exams|length }}</h5>
+                        <p class="card-text text-muted mb-0">总考试数</p>
+                    </div>
                 </div>
-                <div class="flex-grow-1 ms-3">
-                    <div class="fw-bold fs-4">{{ exams|length }}</div>
-                    <div class="text-muted">总考试数</div>
-                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 筛选模块 -->
+<div class="card mb-4">
+    <div class="card-body">
+        <h6 class="card-title mb-3">
+            <i class="fas fa-filter me-2"></i>筛选条件
+        </h6>
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label for="academicYearFilter" class="form-label">学年</label>
+                <select class="form-select" id="academicYearFilter">
+                    <option value="">全部学年</option>
+                    {% for value, label in academic_year_choices %}
+                        <option value="{{ value }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="gradeFilter" class="form-label">年级</label>
+                <select class="form-select" id="gradeFilter">
+                    <option value="">全部年级</option>
+                    {% for value, label in grade_level_choices %}
+                        <option value="{{ value }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3 d-flex align-items-end">
+                <button type="button" class="btn btn-primary me-2" onclick="applyFilters()">
+                    <i class="fas fa-search me-1"></i>筛选
+                </button>
+                <button type="button" class="btn btn-outline-secondary" onclick="resetFilters()">
+                    <i class="fas fa-undo me-1"></i>重置
+                </button>
             </div>
         </div>
     </div>
@@ -102,8 +169,8 @@
                     <tr>
                         <th><i class="fas fa-tag me-2"></i>考试名称</th>
                         <th><i class="fas fa-calendar-alt me-2"></i>学年</th>
-                        <th><i class="fas fa-clock me-2"></i>考试日期</th>
                         <th><i class="fas fa-users me-2"></i>适用年级</th>
+                        <th><i class="fas fa-clock me-2"></i>考试日期</th>
                         <th><i class="fas fa-info-circle me-2"></i>考试描述</th>
                         <th><i class="fas fa-cogs me-2"></i>操作</th>
                     </tr>
@@ -118,11 +185,11 @@
                             <span class="badge bg-info">{{ exam.academic_year }}</span>
                         </td>
                         <td>
-                            <i class="fas fa-calendar me-1"></i>
-                            {{ exam.date|date:"Y年m月d日" }}
+                            <span class="badge bg-success">{{ exam.get_grade_level_display }}</span>
                         </td>
                         <td>
-                            <span class="badge bg-success">{{ exam.get_grade_level_display }}</span>
+                            <i class="fas fa-calendar me-1"></i>
+                            {{ exam.date|date:"Y年m月d日" }}
                         </td>
                         <td>
                             <div class="text-muted" style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;">
@@ -160,45 +227,149 @@
         </div>
     {% endif %}
 </div>
+
+<!-- 删除确认模态窗口 -->
+<div class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-labelledby="deleteConfirmModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteConfirmModalLabel">
+                    <i class="fas fa-exclamation-triangle me-2 text-danger"></i>确认删除考试
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-danger d-flex align-items-center" role="alert">
+                    <i class="fas fa-exclamation-triangle me-3 fs-4"></i>
+                    <div>
+                        <h6 class="alert-heading mb-1">危险操作警告</h6>
+                        <p class="mb-0" id="deleteConfirmMessage"><!-- 动态内容 --></p>
+                        <small class="text-muted">此操作将同时删除该考试的所有成绩记录，且不可撤销！</small>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>取消
+                </button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">
+                    <i class="fas fa-trash me-1"></i>确认删除
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-function deleteExam(examId, examName) {
-    if (confirm(`确定要删除考试 "${examName}" 吗？\n\n此操作将同时删除该考试的所有成绩记录，且不可撤销！`)) {
+    let currentExamId = null;
+    let currentExamName = null;
+
+    function deleteExam(examId, examName) {
+        // 存储当前要删除的考试信息
+        currentExamId = examId;
+        currentExamName = examName;
+        
+        // 设置确认消息
+        const confirmMessage = `确定要删除考试 "${examName}" 吗？`;
+        document.getElementById('deleteConfirmMessage').textContent = confirmMessage;
+        
+        // 显示确认模态窗口
+        const confirmModal = new bootstrap.Modal(document.getElementById('deleteConfirmModal'));
+        confirmModal.show();
+    }
+
+    // 确认删除函数
+    function confirmDelete() {
+        if (!currentExamId) {
+            alert('删除信息丢失，请重新操作。');
+            return;
+        }
+        
         // 创建表单并提交
         const form = document.createElement('form');
         form.method = 'POST';
-        form.action = `/exams/${examId}/delete/`;
+        form.action = `/exams/${currentExamId}/delete/`;
         
         // 添加CSRF token
-        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
-                         document.querySelector('meta[name=csrf-token]')?.getAttribute('content');
-        if (csrfToken) {
-            const csrfInput = document.createElement('input');
-            csrfInput.type = 'hidden';
-            csrfInput.name = 'csrfmiddlewaretoken';
-            csrfInput.value = csrfToken;
-            form.appendChild(csrfInput);
+        const csrfTokenElement = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (!csrfTokenElement) {
+            alert('CSRF token not found. Please refresh the page and try again.');
+            return;
         }
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfmiddlewaretoken';
+        csrfInput.value = csrfTokenElement.value;
+        form.appendChild(csrfInput);
         
         document.body.appendChild(form);
         form.submit();
+        
+        // 关闭模态窗口
+        const modal = bootstrap.Modal.getInstance(document.getElementById('deleteConfirmModal'));
+        modal.hide();
     }
-}
 
-// 页面加载完成后的初始化
-document.addEventListener('DOMContentLoaded', function() {
-    // 添加表格行悬停效果
-    const tableRows = document.querySelectorAll('tbody tr');
-    tableRows.forEach(row => {
-        row.addEventListener('mouseenter', function() {
-            this.style.backgroundColor = '#f8f9fa';
-        });
-        row.addEventListener('mouseleave', function() {
-            this.style.backgroundColor = '';
-        });
+    // 绑定确认删除按钮事件
+    document.addEventListener('DOMContentLoaded', function() {
+        const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+        if (confirmDeleteBtn) {
+            confirmDeleteBtn.addEventListener('click', confirmDelete);
+        }
     });
-});
+
+    // 筛选功能
+    function applyFilters() {
+        const academicYear = document.getElementById('academicYearFilter').value;
+        const grade = document.getElementById('gradeFilter').value;
+        const tableRows = document.querySelectorAll('tbody tr');
+        
+        tableRows.forEach(row => {
+            let showRow = true;
+            
+            // 检查学年筛选
+            if (academicYear) {
+                const rowAcademicYear = row.cells[1].textContent.trim();
+                if (!rowAcademicYear.includes(academicYear)) {
+                    showRow = false;
+                }
+            }
+            
+            // 检查年级筛选
+            if (grade && showRow) {
+                const rowGrade = row.cells[2].textContent.trim();
+                if (!rowGrade.includes(grade)) {
+                    showRow = false;
+                }
+            }
+            
+            row.style.display = showRow ? '' : 'none';
+        });
+    }
+    
+    function resetFilters() {
+        document.getElementById('academicYearFilter').value = '';
+        document.getElementById('gradeFilter').value = '';
+        const tableRows = document.querySelectorAll('tbody tr');
+        tableRows.forEach(row => {
+            row.style.display = '';
+        });
+    }
+
+    // 页面加载完成后的初始化
+    document.addEventListener('DOMContentLoaded', function() {
+        // 添加表格行悬停效果
+        const tableRows = document.querySelectorAll('tbody tr');
+        tableRows.forEach(row => {
+            row.addEventListener('mouseenter', function() {
+                this.style.backgroundColor = '#f8f9fa';
+            });
+            row.addEventListener('mouseleave', function() {
+                this.style.backgroundColor = '';
+            });
+        });
+     });
 </script>
 {% endblock %}

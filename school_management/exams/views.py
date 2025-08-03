@@ -12,7 +12,7 @@ import io
 import json
 from collections import defaultdict
 
-from .models import Exam, ExamSubject, Score, SUBJECT_CHOICES, SUBJECT_DEFAULT_MAX_SCORES
+from .models import Exam, ExamSubject, Score, SUBJECT_CHOICES, SUBJECT_DEFAULT_MAX_SCORES, ACADEMIC_YEAR_CHOICES
 from .forms import ExamCreateForm, ExamSubjectFormSet, ScoreForm, ScoreBatchUploadForm, ScoreQueryForm, ScoreAddForm, ScoreAnalysisForm
 from school_management.students.models import CLASS_NAME_CHOICES, Student, Class, GRADE_LEVEL_CHOICES
 
@@ -20,7 +20,12 @@ from school_management.students.models import CLASS_NAME_CHOICES, Student, Class
 # 考試列表 (Read)
 def exam_list(request):
     exams = Exam.objects.all()
-    return render(request, 'exams/exam_list.html', {'exams': exams})
+    context = {
+        'exams': exams,
+        'grade_level_choices': GRADE_LEVEL_CHOICES,
+        'academic_year_choices': ACADEMIC_YEAR_CHOICES,
+    }
+    return render(request, 'exams/exam_list.html', context)
 
     if request.method == 'POST':
         form = ExamForm(request.POST)
@@ -54,7 +59,28 @@ def exam_create_step1(request):
             }
             return redirect('exam_create_step2')
         else:
-            messages.error(request, "请检查表单数据。")
+            # 收集详细的错误信息
+            error_messages = []
+            
+            # 收集非字段错误
+            if form.non_field_errors():
+                for error in form.non_field_errors():
+                    error_messages.append(str(error))
+            
+            # 收集各个字段的错误
+            for field, errors in form.errors.items():
+                if field != '__all__':  # 跳过非字段错误，已在上面处理
+                    field_label = form.fields[field].label or field
+                    for error in errors:
+                        error_messages.append(f"{field_label}：{error}")
+            
+            # 如果没有具体错误信息，使用默认消息
+            if not error_messages:
+                error_messages.append("请检查表单数据。")
+            
+            # 将所有错误信息合并为一个详细的错误消息
+            detailed_error = "考试基本信息填写有误，请修正以下问题：\n" + "\n".join([f"• {msg}" for msg in error_messages])
+            messages.error(request, detailed_error)
     else:
         form = ExamCreateForm()
     
@@ -112,7 +138,35 @@ def exam_create_step2(request):
             except Exception as e:
                 messages.error(request, f"创建考试失败：{str(e)}")
         else:
-            messages.error(request, "请检查科目配置数据。")
+            # 收集详细的错误信息
+            error_messages = []
+            
+            # 收集非字段错误（如重复科目等）
+            if formset.non_form_errors():
+                for error in formset.non_form_errors():
+                    error_messages.append(str(error))
+            
+            # 收集各个表单的字段错误
+            for i, form in enumerate(formset):
+                if form.errors:
+                    for field, errors in form.errors.items():
+                        if field == '__all__':
+                            # 非字段错误
+                            for error in errors:
+                                error_messages.append(f"第 {i+1} 个科目配置：{error}")
+                        else:
+                            # 字段错误
+                            field_label = form.fields[field].label or field
+                            for error in errors:
+                                error_messages.append(f"第 {i+1} 个科目配置的{field_label}：{error}")
+            
+            # 如果没有具体错误信息，使用默认消息
+            if not error_messages:
+                error_messages.append("请检查科目配置数据。")
+            
+            # 将所有错误信息合并为一个详细的错误消息
+            detailed_error = "考试创建失败，请修正以下问题：\n" + "\n".join([f"• {msg}" for msg in error_messages])
+            messages.error(request, detailed_error)
     else:
         # 创建空的表单集，通过前端JavaScript动态添加默认科目
         formset = ExamSubjectFormSet(
@@ -174,8 +228,28 @@ def exam_edit_step1(request, pk):
             }
             return redirect('exam_edit_step2', pk=pk)
         else:
-            # 添加表单验证错误的调试信息
-            messages.error(request, f"表单验证失败：{form.errors}")
+            # 收集详细的错误信息
+            error_messages = []
+            
+            # 收集非字段错误
+            if form.non_field_errors():
+                for error in form.non_field_errors():
+                    error_messages.append(str(error))
+            
+            # 收集各个字段的错误
+            for field, errors in form.errors.items():
+                if field != '__all__':  # 跳过非字段错误，已在上面处理
+                    field_label = form.fields[field].label or field
+                    for error in errors:
+                        error_messages.append(f"{field_label}：{error}")
+            
+            # 如果没有具体错误信息，使用默认消息
+            if not error_messages:
+                error_messages.append("请检查表单数据。")
+            
+            # 将所有错误信息合并为一个详细的错误消息
+            detailed_error = "考试信息修改失败，请修正以下问题：\n" + "\n".join([f"• {msg}" for msg in error_messages])
+            messages.error(request, detailed_error)
     else:
         # 使用instance参数预填充现有数据
         form = ExamCreateForm(instance=exam)
@@ -249,7 +323,35 @@ def exam_edit_step2(request, pk):
             except Exception as e:
                 messages.error(request, f"更新考试失败：{str(e)}")
         else:
-            messages.error(request, "表单验证失败，请检查输入数据。")
+            # 收集详细的错误信息
+            error_messages = []
+            
+            # 收集非字段错误（如重复科目等）
+            if formset.non_form_errors():
+                for error in formset.non_form_errors():
+                    error_messages.append(str(error))
+            
+            # 收集各个表单的字段错误
+            for i, form in enumerate(formset):
+                if form.errors:
+                    for field, errors in form.errors.items():
+                        if field == '__all__':
+                            # 非字段错误
+                            for error in errors:
+                                error_messages.append(f"第 {i+1} 个科目配置：{error}")
+                        else:
+                            # 字段错误
+                            field_label = form.fields[field].label or field
+                            for error in errors:
+                                error_messages.append(f"第 {i+1} 个科目配置的{field_label}：{error}")
+            
+            # 如果没有具体错误信息，使用默认消息
+            if not error_messages:
+                error_messages.append("请检查科目配置数据。")
+            
+            # 将所有错误信息合并为一个详细的错误消息
+            detailed_error = "考试更新失败，请修正以下问题：\n" + "\n".join([f"• {msg}" for msg in error_messages])
+            messages.error(request, detailed_error)
             # 表单验证失败时，保持用户提交的数据，不重新加载数据库数据
     else:
         # 预填充现有科目数据，按照SUBJECT_CHOICES的顺序排列
