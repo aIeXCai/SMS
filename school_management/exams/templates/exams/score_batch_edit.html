@@ -98,7 +98,13 @@
     
     <div class="student-info">
         <p><strong>学生：</strong>{{ student.name }} ({{ student.student_id }})</p>
-        <p><strong>年级班级：</strong>{{ student.get_grade_level_display }} {{ student.current_class.class_name|default:"未分班" }}</p>
+        <p><strong>年级班级：</strong>
+                                {% if student.current_class %}
+                                    {{ student.current_class.get_grade_level_display }} {{ student.current_class.class_name }}
+                                {% else %}
+                                    {{ student.get_grade_level_display|default:"未设置" }} 未分班
+                                {% endif %}
+                            </p>
         <p><strong>考试：</strong>{{ exam.name }} ({{ exam.academic_year }})</p>
         <p><strong>考试日期：</strong>{{ exam.date|date:"Y年m月d日" }}</p>
     </div>

@@ -197,7 +197,13 @@
                                     {{ result.student.name }}
                                 </a>
                             </td>
-                            <td>{{ result.student.get_grade_level_display|default:"N/A" }}</td>
+                            <td>
+                                    {% if result.student.current_class %}
+                                        {{ result.student.current_class.get_grade_level_display }}
+                                    {% else %}
+                                        {{ result.student.get_grade_level_display|default:"N/A" }}
+                                    {% endif %}
+                                </td>
                             <td>{{ result.class_obj.class_name|default:"N/A" }}</td>
                             <td>{{ result.exam.name }}</td>
                             {% for subject in result.all_subjects %}

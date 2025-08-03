@@ -1,82 +1,314 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>{{ title }}</title>
-    <style>
-        .errorlist {
-            color: red;
-        }
-    </style>
-</head>
-<body>
-    <h1>{{ title }}</h1>
+{% extends 'base.html' %}
+{% load static %}
 
+{% block title %}{{ title }} - 学校管理系统{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+<style>
+.page-header {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: white;
+    padding: 2rem 0;
+    margin-bottom: 2rem;
+    border-radius: 10px;
+}
+
+.page-header h1 {
+    margin: 0;
+    font-weight: 600;
+}
+
+.form-card {
+    border: none;
+    border-radius: 15px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.form-card .card-header {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-bottom: 1px solid #dee2e6;
+    padding: 1.5rem;
+}
+
+.form-card .card-body {
+    padding: 2rem;
+}
+
+.form-floating {
+    margin-bottom: 1.5rem;
+}
+
+.form-floating > .form-control,
+.form-floating > .form-select {
+    height: calc(3.5rem + 2px);
+    line-height: 1.25;
+}
+
+.form-floating > label {
+    padding: 1rem 0.75rem;
+}
+
+.invalid-feedback {
+    display: block;
+    width: 100%;
+    margin-top: 0.25rem;
+    font-size: 0.875rem;
+    color: #dc3545;
+}
+
+.btn-group-custom {
+    gap: 1rem;
+}
+
+.btn-custom {
+    padding: 0.75rem 2rem;
+    font-weight: 500;
+    border-radius: 25px;
+    transition: all 0.3s ease;
+}
+
+.btn-custom:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.required-field::after {
+    content: ' *';
+    color: #dc3545;
+}
+
+.help-text {
+    font-size: 0.875rem;
+    color: #6c757d;
+    margin-top: 0.25rem;
+}
+
+@media (max-width: 768px) {
+    .page-header {
+        padding: 1rem 0;
+        margin-bottom: 1rem;
+    }
+    
+    .form-card .card-body {
+        padding: 1rem;
+    }
+    
+    .btn-group-custom {
+        flex-direction: column;
+    }
+    
+    .btn-custom {
+        width: 100%;
+        margin-bottom: 0.5rem;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- 页面头部 -->
+<div class="page-header">
+    <div class="container-fluid">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1>
+                    <i class="fas fa-user-edit me-3"></i>{{ title }}
+                </h1>
+                <p class="mb-0 opacity-75">填写学生基本信息，带 * 号的字段为必填项</p>
+            </div>
+            <div class="col-md-4 text-end">
+                <a href="{% url 'student_list' %}" class="btn btn-outline-light">
+                    <i class="fas fa-arrow-left me-1"></i>返回列表
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container-fluid">
+    <!-- 消息提示 -->
     {% if messages %}
-        <ul class="messages">
-            {% for message in messages %}
-                <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
-            {% endfor %}
-        </ul>
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">
+                <i class="fas fa-info-circle me-2"></i>
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
     {% endif %}
 
-    <form method="post">
-        {% csrf_token %}
-        
-        {# 渲染除了 grade_level 和 class_name 以外的字段 #}
-        {# 确保你的 StudentForm 结构正确，我们现在手动渲染年级和班级 #}
-        {% for field in form %}
-            {% if field.name != 'grade_level' and field.name != 'class_name' %}
-                <p>
-                    {{ field.label_tag }} {{ field }}
-                    {% if field.help_text %}
-                        <small style="color: gray;">{{ field.help_text }}</small>
-                    {% endif %}
-                    {% if field.errors %}
-                        <ul class="errorlist">
-                            {% for error in field.errors %}
-                                <li>{{ error }}</li>
+    <!-- 表单卡片 -->
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card form-card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-user-plus me-2"></i>学生信息
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="studentForm">
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <!-- 基本信息字段 -->
+                            {% for field in form %}
+                                {% if field.name != 'grade_level' and field.name != 'class_name' %}
+                                    <div class="col-md-6">
+                                        <div class="form-floating">
+                                            {% if field.field.widget.input_type == 'select' %}
+                                                <select class="form-select{% if field.errors %} is-invalid{% endif %}" 
+                                                        id="{{ field.id_for_label }}" 
+                                                        name="{{ field.html_name }}"
+                                                        {% if field.field.required %}required{% endif %}>
+                                                    {% for choice in field.field.choices %}
+                                                        <option value="{{ choice.0 }}" {% if field.value == choice.0 %}selected{% endif %}>{{ choice.1 }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                            {% else %}
+                                                <input type="{{ field.field.widget.input_type|default:'text' }}" 
+                                                       class="form-control{% if field.errors %} is-invalid{% endif %}" 
+                                                       id="{{ field.id_for_label }}" 
+                                                       name="{{ field.html_name }}" 
+                                                       value="{{ field.value|default:'' }}"
+                                                       {% if field.field.required %}required{% endif %}
+                                                       placeholder=" ">
+                                            {% endif %}
+                                            <label for="{{ field.id_for_label }}" class="{% if field.field.required %}required-field{% endif %}">
+                                                {{ field.label }}
+                                            </label>
+                                            {% if field.errors %}
+                                                <div class="invalid-feedback">
+                                                    {% for error in field.errors %}
+                                                        {{ error }}
+                                                    {% endfor %}
+                                                </div>
+                                            {% endif %}
+                                            {% if field.help_text %}
+                                                <div class="help-text">{{ field.help_text }}</div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                {% endif %}
                             {% endfor %}
-                        </ul>
-                    {% endif %}
-                </p>
-            {% endif %}
-        {% endfor %}
+                            
+                            <!-- 年级选择 -->
+                            <div class="col-md-6">
+                                <div class="form-floating">
+                                    <select class="form-select{% if form.grade_level.errors %} is-invalid{% endif %}" 
+                                            id="{{ form.grade_level.id_for_label }}" 
+                                            name="{{ form.grade_level.html_name }}" 
+                                            required>
+                                        <option value="">请选择年级</option>
+                                        {% for value, label in grade_level_choices %}
+                                            <option value="{{ value }}" {% if form.grade_level.value == value %}selected{% endif %}>{{ label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <label for="{{ form.grade_level.id_for_label }}" class="required-field">
+                                        <i class="fas fa-layer-group me-1"></i>年级
+                                    </label>
+                                    {% if form.grade_level.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.grade_level.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <!-- 班级选择 -->
+                            <div class="col-md-6">
+                                <div class="form-floating">
+                                    <select class="form-select{% if form.class_name.errors %} is-invalid{% endif %}" 
+                                            id="{{ form.class_name.id_for_label }}" 
+                                            name="{{ form.class_name.html_name }}" 
+                                            required>
+                                        <option value="">请选择班级</option>
+                                        {% for value, label in class_name_choices %}
+                                            <option value="{{ value }}" {% if form.class_name.value == value %}selected{% endif %}>{{ label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <label for="{{ form.class_name.id_for_label }}" class="required-field">
+                                        <i class="fas fa-users me-1"></i>班级名称
+                                    </label>
+                                    {% if form.class_name.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.class_name.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 操作按钮 -->
+                        <div class="d-flex justify-content-center btn-group-custom mt-4">
+                            <button type="submit" class="btn btn-success btn-custom">
+                                <i class="fas fa-save me-2"></i>保存学生信息
+                            </button>
+                            <a href="{% url 'student_list' %}" class="btn btn-outline-secondary btn-custom">
+                                <i class="fas fa-times me-2"></i>取消
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
 
-        {# 手动渲染年级和班级选择框 #}
-        <p>
-            <label for="{{ form.grade_level.id_for_label }}">年级:</label>
-            <select id="{{ form.grade_level.id_for_label }}" name="{{ form.grade_level.html_name }}" required>
-                {% for value, label in grade_level_choices %}
-                    <option value="{{ value }}" {% if form.grade_level.value == value %}selected{% endif %}>{{ label }}</option>
-                {% endfor %}
-            </select>
-            {% if form.grade_level.errors %}
-                <ul class="errorlist">
-                    {% for error in form.grade_level.errors %}
-                        <li>{{ error }}</li>
-                    {% endfor %}
-                </ul>
-            {% endif %}
-        </p>
-
-        <p>
-            <label for="{{ form.class_name.id_for_label }}">班级名称:</label>
-            <select id="{{ form.class_name.id_for_label }}" name="{{ form.class_name.html_name }}" required>
-                {% for value, label in class_name_choices %}
-                    <option value="{{ value }}" {% if form.class_name.value == value %}selected{% endif %}>{{ label }}</option>
-                {% endfor %}
-            </select>
-            {% if form.class_name.errors %}
-                <ul class="errorlist">
-                    {% for error in form.class_name.errors %}
-                        <li>{{ error }}</li>
-                    {% endfor %}
-                </ul>
-            {% endif %}
-        </p>
+{% block extra_js %}
+<script>
+// 表单验证和交互
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('studentForm');
+    const gradeSelect = document.getElementById('{{ form.grade_level.id_for_label }}');
+    const classSelect = document.getElementById('{{ form.class_name.id_for_label }}');
+    
+    // 年级变化时更新班级选项（如果需要的话）
+    if (gradeSelect && classSelect) {
+        gradeSelect.addEventListener('change', function() {
+            // 这里可以添加根据年级动态加载班级的逻辑
+            console.log('年级已选择:', this.value);
+        });
+    }
+    
+    // 表单提交前验证
+    form.addEventListener('submit', function(e) {
+        const requiredFields = form.querySelectorAll('[required]');
+        let isValid = true;
         
-        <button type="submit">保存</button>
-        <a href="{% url 'student_list' %}">取消</a>
-    </form>
-</body>
-</html>
+        requiredFields.forEach(field => {
+            if (!field.value.trim()) {
+                field.classList.add('is-invalid');
+                isValid = false;
+            } else {
+                field.classList.remove('is-invalid');
+            }
+        });
+        
+        if (!isValid) {
+            e.preventDefault();
+            alert('请填写所有必填字段！');
+        }
+    });
+    
+    // 实时验证
+    const inputs = form.querySelectorAll('input, select');
+    inputs.forEach(input => {
+        input.addEventListener('blur', function() {
+            if (this.hasAttribute('required') && !this.value.trim()) {
+                this.classList.add('is-invalid');
+            } else {
+                this.classList.remove('is-invalid');
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

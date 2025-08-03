@@ -126,7 +126,13 @@
             </div>
             <div class="info-item">
                 <span class="info-label">年级</span>
-                <span class="info-value">{{ student.get_grade_level_display|default:"未设置" }}</span>
+                <span class="info-value">
+                    {% if student.current_class %}
+                        {{ student.current_class.get_grade_level_display }}
+                    {% else %}
+                        {{ student.get_grade_level_display|default:"未设置" }}
+                    {% endif %}
+                </span>
             </div>
             <div class="info-item">
                 <span class="info-label">班级</span>

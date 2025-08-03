@@ -92,7 +92,7 @@ class BatchUpdateStatusForm(forms.Form):
 class BatchPromoteGradeForm(forms.Form):
     # 從哪個年級升級 (可以是空，表示不篩選)
     current_grade_level = forms.ChoiceField(
-        choices=[('', '--- 选择当前年级 (可选) ---')] + GRADE_LEVEL_CHOICES,
+        choices=[('', '当前年级')] + GRADE_LEVEL_CHOICES,
         required=False,
         label="当前年级"
     )
