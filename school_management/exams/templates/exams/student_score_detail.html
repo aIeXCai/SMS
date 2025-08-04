@@ -125,16 +125,6 @@
                 <span class="info-value">{{ student.get_gender_display }}</span>
             </div>
             <div class="info-item">
-                <span class="info-label">年级</span>
-                <span class="info-value">
-                    {% if student.current_class %}
-                        {{ student.current_class.get_grade_level_display }}
-                    {% else %}
-                        {{ student.get_grade_level_display|default:"未设置" }}
-                    {% endif %}
-                </span>
-            </div>
-            <div class="info-item">
                 <span class="info-label">班级</span>
                 <span class="info-value">
                     {% if student.current_class %}
@@ -165,7 +155,7 @@
                             📝 {{ exam_result.exam.academic_year }} {{ exam_result.exam.name }} 
                             ({{ exam_result.exam.date|date:"Y年m月d日" }})
                             {% if exam_result.grade_rank %}
-                                - 年级排名：第{{ exam_result.grade_rank }}名/{{ exam_result.total_students }}人
+                                - 排名：第{{ exam_result.grade_rank }}名/{{ exam_result.total_students }}人
                             {% endif %}
                         </td>
                     </tr>
@@ -183,7 +173,6 @@
                             <td class="score-cell">
                                 {% if exam_result.scores|get_item:subject %}
                                     {{ exam_result.scores|get_item:subject }}
-                                {% else %}
                                     -
                                 {% endif %}
                             </td>

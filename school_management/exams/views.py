@@ -28,19 +28,6 @@ def exam_list(request):
     }
     return render(request, 'exams/exam_list.html', context)
 
-    if request.method == 'POST':
-        form = ExamForm(request.POST)
-        if form.is_valid():
-            form.save()
-            messages.success(request, "考試新增成功！")
-            return redirect('exam_list')
-        else:
-            messages.error(request, "新增考試失敗，請檢查表單數據。")
-    else:
-        form = ExamForm()
-    
-    return render(request, 'exams/exam_form.html', {'form': form, 'title': '新增考試'})
-
 # 两步考试创建流程
 @require_http_methods(["GET", "POST"])
 def exam_create_step1(request):
@@ -393,6 +380,55 @@ def exam_delete(request, pk):
     return redirect('exam_list')
 
 
+# 更新指定考试的年级排名
+# 如果指定了grade_level，只更新该年级的排名
+# 如果没有指定，更新该考试所有年级的排名
+def update_grade_rankings(exam_id, grade_level=None):
+    exam = get_object_or_404(Exam, pk=exam_id)
+    
+    # 获取需要更新排名的年级
+    if grade_level:
+        grade_levels = [grade_level]
+    else:
+        # 获取该考试涉及的所有年级
+        grade_levels = Score.objects.filter(exam=exam).values_list(
+            'student__grade_level', flat=True
+        ).distinct()
+    
+    for current_grade in grade_levels:
+        # 获取该年级该考试的所有学生成绩
+        students_scores = Score.objects.filter(
+            exam=exam,
+            student__grade_level=current_grade
+        ).values(
+            'student_id',
+            'student__name'
+        ).annotate(
+            total_score=Sum('score_value')
+        ).order_by('-total_score')
+        
+        # 正确的排名逻辑：处理并列排名
+        current_rank = 1
+        previous_score = None
+        students_with_same_rank = 0
+        
+        for i, student_data in enumerate(students_scores):
+            student_id = student_data['student_id']
+            total_score = float(student_data['total_score'])
+            
+            # 如果当前分数与前一个分数不同，更新排名
+            if previous_score is not None and total_score != previous_score:
+                current_rank = i + 1  # 跳过并列的位次
+            
+            # 更新该学生在该考试中所有科目的排名
+            Score.objects.filter(
+                exam=exam,
+                student_id=student_id
+            ).update(total_score_rank_in_grade=current_rank)
+            
+            previous_score = total_score
+
+
 # --- 成績管理 Views ---
 # 成績列表 (Read)
 def score_list(request):
@@ -518,7 +554,13 @@ def score_add(request):
                             )
                             created_count += 1
                     
-                    messages.success(request, f"成功添加 {created_count} 个科目的成绩！")
+                    # 添加排名更新逻辑
+                    try:
+                        update_grade_rankings(exam.pk, student.grade_level)
+                        messages.success(request, f"成功添加 {created_count} 个科目的成绩，并已更新年级排名！")
+                    except Exception as e:
+                        messages.warning(request, f'成绩添加成功，但排名更新失败: {e}')
+                    
                     return redirect('score_list')
             except Exception as e:
                 messages.error(request, f"添加成绩失败：{e}")
@@ -551,8 +593,15 @@ def score_edit(request, pk):
         form = ScoreForm(request.POST, instance=score)
         if form.is_valid():
             try:
-                form.save()
+                updated_score = form.save()
                 messages.success(request, "成绩信息更新成功！")
+                
+                # 更新年级排名
+                try:
+                    update_grade_rankings(updated_score.exam.pk, updated_score.student.grade_level)
+                except Exception as e:
+                    messages.warning(request, f'成绩更新成功，但排名更新失败: {e}')
+                    
                 return redirect('score_list')
             except Exception as e:
                 messages.error(request, f"更新成绩失败：{e}。请检查是否已存在该学生在该考试该科目的成绩。")
@@ -677,6 +726,14 @@ def score_batch_import_ajax(request):
         # 计算最终的学生数量统计
         imported_count = len(successful_students)
         failed_count = len(failed_students)
+        
+        # 更新年级排名
+        if imported_count > 0:
+            try:
+                update_grade_rankings(selected_exam.pk)
+            except Exception as e:
+                # 排名更新失败不影响成绩导入的成功状态
+                print(f"排名更新失败: {e}")
         
         # 返回简化的结果
         if imported_count > 0:
@@ -1141,7 +1198,13 @@ def score_batch_edit(request):
                     ).delete()
         
         if created_count > 0 or updated_count > 0:
-            messages.success(request, f'成功保存成绩：新增 {created_count} 条，更新 {updated_count} 条')
+            # messages.success(request, f'成功修改成绩：新增 {created_count} 条，更新 {updated_count} 条')
+            messages.success(request, f'成功修改成绩！')
+            # 更新年级排名
+            try:
+                update_grade_rankings(exam.pk, student.grade_level)
+            except Exception as e:
+                messages.warning(request, f'成绩保存成功，但排名更新失败: {e}')
         else:
             messages.info(request, '没有检测到任何更改')
         
@@ -1168,9 +1231,6 @@ def get_existing_scores(student, exam):
 
 # 成绩查询主页面
 def score_query(request):
-    """
-    成绩查询主页面，显示查询表单
-    """
     form = ScoreQueryForm()
     
     context = {
@@ -1181,10 +1241,8 @@ def score_query(request):
     return render(request, 'exams/score_query.html', context)
 
 # 成绩查询结果页面
+# 处理查询请求并显示结果，包含排名计算和科目排序
 def score_query_results(request):
-    """
-    处理查询请求并显示结果，包含排名计算和科目排序
-    """
     form = ScoreQueryForm(request.GET)
     results = []
     total_count = 0
@@ -1265,10 +1323,8 @@ def score_query_results(request):
     return render(request, 'exams/score_query_results.html', context)
 
 # 计算成绩和排名的辅助函数
+# 计算成绩总分和年级排名，支持按科目、总分和排名排序
 def calculate_scores_with_ranking(queryset, sort_by=None, subject_sort=None, sort_order='desc'):
-    """
-    计算成绩总分和年级排名，支持按科目、总分和排名排序
-    """
     # 获取科目顺序
     def get_subject_order(subject_name):
         subject_dict = dict(SUBJECT_CHOICES)
@@ -1310,27 +1366,23 @@ def calculate_scores_with_ranking(queryset, sort_by=None, subject_sort=None, sor
     # 按SUBJECT_CHOICES顺序排列科目
     all_subjects = sorted(all_subjects, key=get_subject_order)
     
-    # 转换为列表并添加排名
+    # 转换为列表并使用数据库中的排名
     results = []
     for data in student_exam_data.values():
         data['all_subjects'] = all_subjects
-        results.append(data)
-    
-    # 计算年级排名
-    grade_totals = defaultdict(list)
-    for result in results:
-        grade_level = result['student'].grade_level
-        exam_id = result['exam'].pk
-        grade_totals[(grade_level, exam_id)].append(result)
-    
-    # 为每个年级-考试组合计算排名
-    for grade_exam_results in grade_totals.values():
-        # 按总分降序排序
-        grade_exam_results.sort(key=lambda x: x['total_score'], reverse=True)
         
-        # 分配排名
-        for rank, result in enumerate(grade_exam_results, 1):
-            result['grade_rank'] = rank
+        # 从数据库中获取排名（取该学生该考试任意一条成绩记录的排名）
+        sample_score = queryset.filter(
+            student=data['student'],
+            exam=data['exam']
+        ).first()
+        
+        if sample_score and sample_score.total_score_rank_in_grade:
+            data['grade_rank'] = sample_score.total_score_rank_in_grade
+        else:
+            data['grade_rank'] = None
+            
+        results.append(data)
     
     # 应用排序
     if subject_sort:
@@ -1370,9 +1422,6 @@ def calculate_scores_with_ranking(queryset, sort_by=None, subject_sort=None, sor
 
 # 学生详细成绩页面
 def student_score_detail(request, student_id):
-    """
-    显示单个学生的所有考试成绩详情
-    """
     student = get_object_or_404(Student, pk=student_id)
     
     # 获取该学生的所有成绩，按考试日期降序排列
@@ -1448,9 +1497,6 @@ def student_score_detail(request, student_id):
 
 # 成绩查询结果导出
 def score_query_export(request):
-    """
-    导出查询结果为Excel文件
-    """
     # 重用查询逻辑
     from .forms import ScoreQueryForm
     

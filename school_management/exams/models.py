@@ -188,12 +188,15 @@ class Score(models.Model):
         verbose_name="科目"
     )
     score_value = models.DecimalField(
-        max_digits=6, # 增加到6位，支持更大的分数值
+        max_digits=6,
         decimal_places=2,
         verbose_name="分數"
     )
     
-    # 自動時間戳，有助於追蹤
+    # 添加排名字段
+    grade_rank_in_subject = models.IntegerField(null=True, blank=True, verbose_name="学科年级排名")
+    total_score_rank_in_grade = models.IntegerField(null=True, blank=True, verbose_name="总分年级排名")
+    
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="創建時間")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新時間")
 
