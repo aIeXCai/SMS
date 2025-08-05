@@ -302,12 +302,13 @@ class ScoreQueryForm(forms.Form):
         widget=forms.Select(attrs={'class': 'form-select'})
     )
     
-    # 科目筛选
-    subject = forms.ChoiceField(
-        choices=[('', '--- 所有科目 ---')] + SUBJECT_CHOICES,
+    # 科目筛选 - 改为多选
+    subject = forms.MultipleChoiceField(
+        choices=SUBJECT_CHOICES,
         required=False,
         label="科目",
-        widget=forms.Select(attrs={'class': 'form-select'})
+        widget=forms.MultipleHiddenInput(),
+        help_text="可选择多个科目进行查询"
     )
     
     # 日期范围筛选

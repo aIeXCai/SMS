@@ -163,6 +163,187 @@
         justify-content: center;
         margin-right: 1rem;
     }
+
+    /* 科目多选下拉样式 */
+    .subject-dropdown {
+        position: relative;
+        width: 100%;
+        color: #495057;
+    }
+
+    .subject-dropdown-toggle {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border: 1px solid #ced4da;
+        border-radius: 0.5rem;
+        background-color: #fff;
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        transition: all 0.3s ease;
+    }
+
+    .subject-dropdown-toggle:hover {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+
+    .subject-dropdown-toggle.active {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+
+    .subject-dropdown-arrow {
+        transition: transform 0.3s ease;
+        color: #6c757d;
+    }
+
+    .subject-dropdown-toggle.active .subject-dropdown-arrow {
+        transform: rotate(180deg);
+    }
+
+    .subject-dropdown-menu {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid var(--border-color);
+        border-radius: var(--border-radius-small);
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        z-index: 1000;
+        max-height: 250px;
+        overflow-y: auto;
+        display: none;
+        margin-top: 2px;
+    }
+
+    .subject-dropdown-menu.show {
+        display: block;
+    }
+
+    .subject-dropdown-header {
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid #e9ecef;
+        background-color: #f8f9fa;
+    }
+
+    .subject-dropdown-item {
+        padding: 0.5rem 1rem;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+        display: flex;
+        align-items: center;
+    }
+
+    .subject-dropdown-item:hover {
+        background-color: #f8f9fa;
+    }
+
+    .subject-dropdown-item input[type="checkbox"] {
+        margin-right: 0.5rem;
+    }
+
+    .subject-dropdown-item.checked {
+        background-color: #e3f2fd;
+        color: var(--primary-color);
+        font-weight: 500;
+    }
+
+    .subject-selected-count {
+        color: #6c757d;
+        font-size: 0.85rem;
+    }
+
+    /* 隐藏原始的多选框样式 */
+    .subject-dropdown-items .form-check {
+        margin-bottom: 0;
+        padding: 0.5rem 1rem;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+        display: flex;
+        align-items: center;
+        white-space: nowrap; /* 防止文字换行 */
+        min-width: 0; /* 允许flex项目收缩 */
+    }
+
+    .subject-dropdown-items .form-check:hover {
+        background-color: #f8f9fa;
+    }
+
+    .subject-dropdown-items .form-check-input {
+        margin-right: 0.5rem;
+        margin-left: 0;
+        flex-shrink: 0; /* 防止复选框被压缩 */
+    }
+
+    .subject-dropdown-items .form-check-label {
+        font-size: 0.9rem;
+        color: var(--text-color);
+        cursor: pointer;
+        margin-bottom: 0;
+        white-space: nowrap; /* 防止标签文字换行 */
+        overflow: hidden; /* 隐藏溢出文字 */
+        text-overflow: ellipsis; /* 用省略号显示溢出文字 */
+        flex: 1; /* 占据剩余空间 */
+    }
+
+    /* 确保下拉菜单有足够宽度 */
+    .subject-dropdown-menu {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid var(--border-color);
+        border-radius: var(--border-radius-small);
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        z-index: 1000;
+        max-height: 250px;
+        overflow-y: auto;
+        display: none;
+        margin-top: 2px;
+        min-width: 200px; /* 设置最小宽度 */
+        width: 100%; /* 确保宽度充足 */
+    }
+
+    /* 为了更好的显示效果，可以设置下拉项的最小高度 */
+    .subject-dropdown-item {
+        padding: 0.5rem 1rem;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+        display: flex;
+        align-items: center;
+        white-space: nowrap; /* 防止文字换行 */
+        min-height: 36px; /* 设置最小高度 */
+    }
+
+    .subject-dropdown-item:hover {
+        background-color: #f8f9fa;
+    }
+
+    .subject-dropdown-item input[type="checkbox"] {
+        margin-right: 0.5rem;
+    }
+
+    .subject-dropdown-item.checked {
+        background-color: #e3f2fd;
+        color: var(--primary-color);
+        font-weight: 500;
+    }
+
+    .subject-selected-count {
+        color: #6c757d;
+        font-size: 0.85rem;
+    }
+
+    /* 响应式设计 */
+    @media (max-width: 768px) {
+        .subject-dropdown-menu {
+            max-height: 200px;
+        }
+    }
 </style>
 {% endblock %}
 
@@ -191,61 +372,98 @@
         </div>
         <div class="card-body">
             <form method="get" action="{% url 'score_query_results' %}" id="queryForm">
+                <!-- 第一行：学年、年级、开始日期、结束日期、考试、排序方式 -->
                 <div class="row g-3">
+                    <!-- 学年-->
                     <div class="col-md-2">
                         <div class="form-group-vertical">
                             <label for="{{ form.academic_year.id_for_label }}" class="form-label">学年</label>
                             {{ form.academic_year }}
                         </div>
                     </div>
+                    <!-- 年级-->
                     <div class="col-md-2">
                         <div class="form-group-vertical">
                             <label for="{{ form.grade_level.id_for_label }}" class="form-label">年级</label>
                             {{ form.grade_level }}
                         </div>
                     </div>
+                    <!-- 开始日期-->
                     <div class="col-md-2">
                         <div class="form-group-vertical">
                             <label for="{{ form.date_from.id_for_label }}" class="form-label">开始日期</label>
                             {{ form.date_from }}
                         </div>
                     </div>
+                    <!-- 结束日期-->
                     <div class="col-md-2">
                         <div class="form-group-vertical">
                             <label for="{{ form.date_to.id_for_label }}" class="form-label">结束日期</label>
                             {{ form.date_to }}
                         </div>
                     </div>
+                    <!-- 考试-->
                     <div class="col-md-2">
                         <div class="form-group-vertical">
                             <label for="{{ form.exam.id_for_label }}" class="form-label">考试</label>
                             {{ form.exam }}
                         </div>
                     </div>
+                    <!-- 排序方式-->
                     <div class="col-md-2">
                         <div class="form-group-vertical">
-                            <label for="{{ form.subject.id_for_label }}" class="form-label">科目</label>
-                            {{ form.subject }}
+                            <label for="{{ form.sort_by.id_for_label }}" class="form-label">排序方式</label>
+                            {{ form.sort_by }}
                         </div>
                     </div>
                 </div>
+                <!-- 第二行：班级、姓名、科目 -->
                 <div class="row g-3 mt-2">
+                    <!-- 班级 -->
                     <div class="col-md-2">
                         <div class="form-group-vertical">
                             <label for="{{ form.class_name.id_for_label }}" class="form-label">班级</label>
                             {{ form.class_name }}
                         </div>
                     </div>
+                    <!-- 姓名 -->
                     <div class="col-md-2">
                         <div class="form-group-vertical">
                             <label for="{{ form.student_name.id_for_label }}" class="form-label">姓名</label>
                             {{ form.student_name }}
                         </div>
                     </div>
-                    <div class="col-md-2">
+                    <!-- 科目 -->
+                    <div class="col-md-4">
                         <div class="form-group-vertical">
-                            <label for="{{ form.sort_by.id_for_label }}" class="form-label">排序方式</label>
-                            {{ form.sort_by }}
+                            <label for="{{ form.subject.id_for_label }}" class="form-label">科目</label>
+                            <div class="subject-dropdown">
+                                <div class="subject-dropdown-toggle" id="subjectDropdownToggle">
+                                    <span class="subject-dropdown-text">请选择科目</span>
+                                    <i class="fas fa-chevron-down subject-dropdown-arrow"></i>
+                                </div>
+                                <div class="subject-dropdown-menu" id="subjectDropdownMenu">
+                                    <div class="subject-dropdown-header">
+                                        <label class="form-check mb-0">
+                                            <input type="checkbox" class="form-check-input" id="select-all-subjects">
+                                            <span class="form-check-label">全选/取消全选</span>
+                                        </label>
+                                    </div>
+                                    <div class="subject-dropdown-items">
+                                        {% for value, label in form.subject.field.choices %}
+                                            <div class="form-check">
+                                                <input class="form-check-input subject-checkbox" 
+                                                    type="checkbox" 
+                                                    name="subject" 
+                                                    value="{{ value }}" 
+                                                    id="subject_{{ value }}">
+                                                <label class="form-check-label" for="subject_{{ value }}">
+                                                    {{ label }}
+                                                </label>
+                                            </div>
+                                        {% endfor %}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -295,7 +513,7 @@
                 </div>
                 <div>
                     <h6 class="mb-1">科目筛选</h6>
-                    <p class="mb-0 text-muted">可查询特定科目或全部科目的成绩信息</p>
+                    <p class="mb-0 text-muted">支持多选科目进行查询，可查询特定科目组合或全部科目的成绩信息</p>
                 </div>
             </div>
         </div>
@@ -338,6 +556,104 @@
     document.addEventListener('DOMContentLoaded', function() {
         const form = document.getElementById('queryForm');
         const inputs = form.querySelectorAll('input, select');
+        const selectAllCheckbox = document.getElementById('select-all-subjects');
+        const subjectCheckboxes = document.querySelectorAll('.subject-checkbox');
+        
+        // 科目下拉菜单功能
+        const subjectDropdownToggle = document.getElementById('subjectDropdownToggle');
+        const subjectDropdownMenu = document.getElementById('subjectDropdownMenu');
+        const subjectDropdownText = subjectDropdownToggle.querySelector('.subject-dropdown-text');
+        
+        // 点击切换下拉菜单
+        subjectDropdownToggle.addEventListener('click', function(e) {
+            e.stopPropagation();
+            subjectDropdownMenu.classList.toggle('show');
+            subjectDropdownToggle.classList.toggle('active');
+        });
+        
+        // 点击外部关闭下拉菜单
+        document.addEventListener('click', function(e) {
+            if (!subjectDropdownToggle.contains(e.target) && !subjectDropdownMenu.contains(e.target)) {
+                subjectDropdownMenu.classList.remove('show');
+                subjectDropdownToggle.classList.remove('active');
+            }
+        });
+        
+        // 阻止下拉菜单内部点击事件冒泡
+        subjectDropdownMenu.addEventListener('click', function(e) {
+            e.stopPropagation();
+        });
+        
+        // 更新选中文本显示
+        function updateSelectedText() {
+            const checkedBoxes = document.querySelectorAll('.subject-checkbox:checked');
+            const checkedCount = checkedBoxes.length;
+            const totalCount = subjectCheckboxes.length;
+            
+            if (checkedCount === 0) {
+                subjectDropdownText.innerHTML = '请选择科目';
+            } else if (checkedCount === totalCount) {
+                subjectDropdownText.innerHTML = '全部科目 <span class="subject-selected-count">(' + checkedCount + ')</span>';
+            } else if (checkedCount === 1) {
+                const checkedLabel = checkedBoxes[0].nextElementSibling.textContent;
+                subjectDropdownText.innerHTML = checkedLabel;
+            } else {
+                subjectDropdownText.innerHTML = '已选择 <span class="subject-selected-count">' + checkedCount + ' 个科目</span>';
+            }
+        }
+        
+        // 为每个科目选项添加样式类
+        subjectCheckboxes.forEach(checkbox => {
+            const item = checkbox.closest('.subject-dropdown-item') || checkbox.parentElement;
+            if (!item.classList.contains('subject-dropdown-item')) {
+                item.classList.add('subject-dropdown-item');
+            }
+            
+            checkbox.addEventListener('change', function() {
+                if (this.checked) {
+                    item.classList.add('checked');
+                } else {
+                    item.classList.remove('checked');
+                }
+                updateSelectedText();
+                updateSelectAllState();
+            });
+        });
+        
+        // 更新全选状态
+        function updateSelectAllState() {
+            const checkedCount = document.querySelectorAll('.subject-checkbox:checked').length;
+            const totalCount = subjectCheckboxes.length;
+            
+            if (checkedCount === 0) {
+                selectAllCheckbox.indeterminate = false;
+                selectAllCheckbox.checked = false;
+            } else if (checkedCount === totalCount) {
+                selectAllCheckbox.indeterminate = false;
+                selectAllCheckbox.checked = true;
+            } else {
+                selectAllCheckbox.indeterminate = true;
+                selectAllCheckbox.checked = false;
+            }
+        }
+        
+        // 全选/取消全选
+        selectAllCheckbox.addEventListener('change', function() {
+            subjectCheckboxes.forEach(checkbox => {
+                checkbox.checked = this.checked;
+                const item = checkbox.closest('.subject-dropdown-item') || checkbox.parentElement;
+                if (this.checked) {
+                    item.classList.add('checked');
+                } else {
+                    item.classList.remove('checked');
+                }
+            });
+            updateSelectedText();
+        });
+        
+        // 初始化
+        updateSelectedText();
+        updateSelectAllState();
         
         // 添加表单验证提示
         inputs.forEach(input => {
@@ -360,7 +676,14 @@
                 inputs.forEach(input => {
                     input.parentElement.classList.remove('focused');
                 });
-
+                // 重置科目选择
+                subjectCheckboxes.forEach(checkbox => {
+                    checkbox.checked = false;
+                    const item = checkbox.closest('.subject-dropdown-item') || checkbox.parentElement;
+                    item.classList.remove('checked');
+                });
+                updateSelectedText();
+                updateSelectAllState();
             }
         });
         
@@ -373,7 +696,6 @@
                 return false;
             }
         });
-
     });
 </script>
 {% endblock %}

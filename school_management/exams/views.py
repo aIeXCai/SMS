@@ -2,6 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.views.decorators.http import require_http_methods, require_POST
 from django.db import transaction
+from django.core.exceptions import ValidationError
 from django.db.models import Sum, Count, Q, F, Case, When, IntegerField, Avg, Max, Min, Count
 from django.db.models.functions import Rank
 from django.core.paginator import Paginator
@@ -1163,42 +1164,63 @@ def score_batch_edit(request):
         # 处理表单提交
         updated_count = 0
         created_count = 0
+        validation_errors = []  # 收集验证错误
         
-        with transaction.atomic():
-            for subject_code, subject_name in SUBJECT_CHOICES:
-                score_value = request.POST.get(f'score_{subject_code}')
-                
-                if score_value and score_value.strip():  # 如果有输入分数
-                    try:
-                        score_value = float(score_value)
-                        score_obj, created = Score.objects.update_or_create(
+        try:
+            with transaction.atomic():
+                for subject_code, subject_name in SUBJECT_CHOICES:
+                    score_value = request.POST.get(f'score_{subject_code}')
+                    
+                    if score_value and score_value.strip():  # 如果有输入分数
+                        try:
+                            score_value = float(score_value)
+                            score_obj, created = Score.objects.update_or_create(
+                                student=student,
+                                exam=exam,
+                                subject=subject_code,
+                                defaults={'score_value': score_value}
+                            )
+                            # 手动调用clean方法进行验证
+                            try:
+                                score_obj.clean()
+                            except ValidationError as e:
+                                # 收集验证错误信息
+                                error_msg = str(e.message) if hasattr(e, 'message') else str(e)
+                                validation_errors.append(f"{subject_name}：{error_msg}")
+                                continue
+                            
+                            if created:
+                                created_count += 1
+                            else:
+                                updated_count += 1
+                        except ValueError:
+                            validation_errors.append(f'{subject_name} 的分数格式不正确')
+                            continue
+                    else:
+                        # 如果分数为空，删除已存在的成绩记录
+                        Score.objects.filter(
                             student=student,
                             exam=exam,
-                            subject=subject_code,
-                            defaults={'score_value': score_value}
-                        )
-                        if created:
-                            created_count += 1
-                        else:
-                            updated_count += 1
-                    except ValueError:
-                        messages.error(request, f'{subject_name} 的分数格式不正确')
-                        return render(request, 'exams/score_batch_edit.html', {
-                            'student': student,
-                            'exam': exam,
-                            'existing_scores': get_existing_scores(student, exam),
-                            'subjects': SUBJECT_CHOICES
-                        })
-                else:
-                    # 如果分数为空，删除已存在的成绩记录
-                    Score.objects.filter(
-                        student=student,
-                        exam=exam,
-                        subject=subject_code
-                    ).delete()
+                            subject=subject_code
+                        ).delete()
+                
+                # 如果有验证错误，抛出异常回滚事务
+                if validation_errors:
+                    raise ValidationError(validation_errors)
+        
+        except ValidationError:
+            # 将验证错误信息合并为一个消息
+            error_message = "\n".join(validation_errors)
+            messages.error(request, error_message)
+            return render(request, 'exams/score_batch_edit.html', {
+                'student': student,
+                'exam': exam,
+                'existing_scores': get_existing_scores(student, exam),
+                'subjects': SUBJECT_CHOICES,
+                'subject_max_scores': get_subject_max_scores(exam)  # 添加满分信息
+            })
         
         if created_count > 0 or updated_count > 0:
-            # messages.success(request, f'成功修改成绩：新增 {created_count} 条，更新 {updated_count} 条')
             messages.success(request, f'成功修改成绩！')
             # 更新年级排名
             try:
@@ -1217,7 +1239,8 @@ def score_batch_edit(request):
         'student': student,
         'exam': exam,
         'existing_scores': existing_scores,
-        'subjects': SUBJECT_CHOICES
+        'subjects': SUBJECT_CHOICES,
+        'subject_max_scores': get_subject_max_scores(exam)  # 添加满分信息
     }
     return render(request, 'exams/score_batch_edit.html', context)
 
@@ -1228,6 +1251,26 @@ def get_existing_scores(student, exam):
     for score in scores:
         score_dict[score.subject] = score.score_value
     return score_dict
+
+# 新增辅助函数：获取考试中每个科目的满分
+def get_subject_max_scores(exam):
+    """
+    获取指定考试中每个科目的满分配置
+    返回格式：{'chinese': 150, 'math': 150, 'english': 120, ...}
+    """
+    exam_subjects = ExamSubject.objects.filter(exam=exam)
+    max_scores = {}
+    
+    for exam_subject in exam_subjects:
+        max_scores[exam_subject.subject_code] = exam_subject.max_score
+    
+    # 对于没有配置的科目，使用默认满分
+    for subject_code, subject_name in SUBJECT_CHOICES:
+        if subject_code not in max_scores:
+            default_config = SUBJECT_DEFAULT_MAX_SCORES.get(exam.grade_level, {})
+            max_scores[subject_code] = default_config.get(subject_code, 100)
+    
+    return max_scores
 
 # 成绩查询主页面
 def score_query(request):
@@ -1255,7 +1298,7 @@ def score_query_results(request):
         class_name = form.cleaned_data.get('class_name')
         exam = form.cleaned_data.get('exam')
         academic_year = form.cleaned_data.get('academic_year')
-        subject = form.cleaned_data.get('subject')
+        subjects = form.cleaned_data.get('subject')  # 现在是列表
         date_from = form.cleaned_data.get('date_from')
         date_to = form.cleaned_data.get('date_to')
         sort_by = form.cleaned_data.get('sort_by')
@@ -1288,8 +1331,10 @@ def score_query_results(request):
         if academic_year:
             queryset = queryset.filter(exam__academic_year=academic_year)
         
-        if subject:
-            queryset = queryset.filter(subject=subject)
+        # 科目筛选 - 支持多选
+        subjects = form.cleaned_data.get('subject')  # 现在是列表
+        if subjects:
+            queryset = queryset.filter(subject__in=subjects)
         
         if date_from:
             queryset = queryset.filter(exam__date__gte=date_from)
@@ -1420,80 +1465,6 @@ def calculate_scores_with_ranking(queryset, sort_by=None, subject_sort=None, sor
     
     return results
 
-# 学生详细成绩页面
-def student_score_detail(request, student_id):
-    student = get_object_or_404(Student, pk=student_id)
-    
-    # 获取该学生的所有成绩，按考试日期降序排列
-    scores = Score.objects.filter(student=student).select_related(
-        'exam', 'student__current_class'
-    ).order_by('-exam__date', 'subject')
-    
-    # 按考试分组成绩
-    exam_scores = defaultdict(lambda: {
-        'exam': None,
-        'scores': {},
-        'total_score': 0,
-        'subject_count': 0,
-        'grade_rank': None,
-    })
-    
-    for score in scores:
-        exam_id = score.exam.pk
-        if exam_scores[exam_id]['exam'] is None:
-            exam_scores[exam_id]['exam'] = score.exam
-        
-        exam_scores[exam_id]['scores'][score.subject] = score.score_value
-        exam_scores[exam_id]['total_score'] += float(score.score_value)
-        exam_scores[exam_id]['subject_count'] += 1
-    
-    # 计算每次考试的年级排名
-    for exam_id, exam_data in exam_scores.items():
-        exam = exam_data['exam']
-        total_score = exam_data['total_score']
-        
-        # 获取同年级同考试的所有学生总分
-        same_grade_scores = Score.objects.filter(
-            exam=exam,
-            student__grade_level=student.grade_level
-        ).values('student').annotate(
-            student_total=Sum('score_value')
-        ).order_by('-student_total')
-        
-        # 计算排名
-        rank = 1
-        for i, score_data in enumerate(same_grade_scores):
-            if score_data['student'] == student.pk:
-                rank = i + 1
-                break
-        
-        exam_scores[exam_id]['grade_rank'] = rank
-        exam_scores[exam_id]['total_students'] = same_grade_scores.count()
-    
-    # 转换为列表格式
-    exam_results = []
-    for exam_id, data in exam_scores.items():
-        result = type('ExamResult', (object,), {
-            'exam': data['exam'],
-            'scores': data['scores'],
-            'total_score': data['total_score'],
-            'subject_count': data['subject_count'],
-            'grade_rank': data['grade_rank'],
-            'total_students': data.get('total_students', 0),
-            'all_subjects': sorted(set(data['scores'].keys())),
-        })
-        exam_results.append(result)
-    
-    # 按考试日期降序排列
-    exam_results.sort(key=lambda x: x.exam.date, reverse=True)
-    
-    context = {
-        'student': student,
-        'exam_results': exam_results,
-        'page_title': f'{student.name} 的成绩详情',
-    }
-    
-    return render(request, 'exams/student_score_detail.html', context)
 
 # 成绩查询结果导出
 def score_query_export(request):
@@ -1539,10 +1510,11 @@ def score_query_export(request):
         queryset = queryset.filter(exam=exam)
     
     if academic_year:
-        queryset = queryset.filter(exam__academic_year=academic_year)
-    
-    if subject:
-        queryset = queryset.filter(subject=subject)
+            queryset = queryset.filter(exam__academic_year=academic_year)
+        
+    # 科目筛选 - 支持多选
+    if subjects:  # subjects 现在是一个列表
+        queryset = queryset.filter(subject__in=subjects)
     
     if date_from:
         queryset = queryset.filter(exam__date__gte=date_from)

@@ -32,7 +32,8 @@ urlpatterns = [
     # 成绩查询功能URLs
     path('scores/query/', views.score_query, name='score_query'),
     path('scores/query/results/', views.score_query_results, name='score_query_results'),
-    path('scores/student/<int:student_id>/', views.student_score_detail, name='student_score_detail'),
+    # 删除这一行
+    # path('scores/student/<int:student_id>/', views.student_score_detail, name='student_score_detail'),
     path('scores/query/export/', views.score_query_export, name='score_query_export'),
 
     # 成绩分析功能URLs

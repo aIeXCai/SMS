@@ -1,156 +1,641 @@
+{% extends 'base.html' %}
 {% load exam_filters %}
 {% load score_filters %}
-<!DOCTYPE html>
-<html>
-<head>
-    <title>成绩编辑</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        h1 { color: #333; }
-        .student-info {
-            background-color: #f8f9fa;
-            padding: 15px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-        }
+{% load static %}
+
+{% block title %}成绩编辑 - 学校管理系统{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        color: white;
+        padding: 2rem 0;
+        margin-bottom: 2rem;
+        border-radius: 15px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    }
+
+    .page-header h1 {
+        margin: 0;
+        font-weight: 600;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .student-info-card {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        margin-bottom: 2rem;
+        overflow: hidden;
+    }
+
+    .student-info-header {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        color: white;
+        padding: 1rem 1.5rem;
+        margin: 0;
+    }
+
+    .student-info-body {
+        padding: 1.5rem;
+    }
+
+    .info-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 0.8rem;
+        padding: 0.5rem;
+        background: rgba(255, 255, 255, 0.7);
+        border-radius: 8px;
+        transition: all 0.3s ease;
+    }
+
+    .info-item:hover {
+        background: rgba(255, 255, 255, 0.9);
+        transform: translateY(-1px);
+    }
+
+    .info-icon {
+        width: 40px;
+        height: 40px;
+        background: linear-gradient(135deg, #007bff, #0056b3);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        margin-right: 1rem;
+        font-size: 0.9rem;
+    }
+
+    .score-form-card {
+        background: white;
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+    }
+
+    .score-form-header {
+        background: linear-gradient(135deg, #6f42c1 0%, #e83e8c 100%);
+        color: white;
+        padding: 1rem 1.5rem;
+        margin: 0;
+    }
+
+    .score-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 1.5rem;
+        padding: 2rem;
+    }
+
+    .score-item {
+        background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+        border: 2px solid #e9ecef;
+        border-radius: 12px;
+        padding: 1.5rem;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .score-item::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 4px;
+        background: linear-gradient(90deg, #007bff, #28a745);
+        transform: scaleX(0);
+        transition: transform 0.3s ease;
+    }
+
+    .score-item:hover {
+        border-color: #007bff;
+        box-shadow: 0 8px 25px rgba(0, 123, 255, 0.15);
+        transform: translateY(-2px);
+    }
+
+    .score-item:hover::before {
+        transform: scaleX(1);
+    }
+
+    .score-item:focus-within {
+        border-color: #007bff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+
+    .score-label {
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 0.8rem;
+        display: flex;
+        align-items: center;
+        font-size: 1rem;
+    }
+
+    .subject-icon {
+        width: 24px;
+        height: 24px;
+        background: linear-gradient(135deg, #17a2b8, #138496);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        margin-right: 0.5rem;
+        font-size: 0.7rem;
+    }
+
+    .score-input {
+        width: 100%;
+        padding: 0.8rem 1rem;
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        font-size: 1.1rem;
+        text-align: center;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        background: white;
+    }
+
+    .score-input:focus {
+        border-color: #007bff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+        outline: none;
+        background: #f8f9ff;
+    }
+
+    .score-input:valid {
+        border-color: #28a745;
+    }
+
+    .score-input::placeholder {
+        color: #adb5bd;
+        font-weight: normal;
+    }
+
+    .help-alert {
+        background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%);
+        border: none;
+        border-radius: 12px;
+        border-left: 4px solid #17a2b8;
+        margin-bottom: 2rem;
+    }
+
+    .action-buttons {
+        background: #f8f9fa;
+        padding: 1.5rem 2rem;
+        border-top: 1px solid #e9ecef;
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+    }
+
+    .btn-save {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        border: none;
+        color: white;
+        padding: 0.8rem 2rem;
+        border-radius: 25px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+    }
+
+    .btn-save:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+        color: white;
+    }
+
+    .btn-cancel {
+        background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+        border: none;
+        color: white;
+        padding: 0.8rem 2rem;
+        border-radius: 25px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        box-shadow: 0 4px 15px rgba(108, 117, 125, 0.3);
+    }
+
+    .btn-cancel:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(108, 117, 125, 0.4);
+        color: white;
+        text-decoration: none;
+    }
+
+    /* 自定义模态框样式 */
+    .custom-modal {
+        display: none;
+        position: fixed;
+        z-index: 1050;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(5px);
+    }
+
+    .custom-modal.show {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        animation: fadeIn 0.3s ease;
+    }
+
+    .modal-content {
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        max-width: 500px;
+        width: 90%;
+        overflow: hidden;
+        animation: slideInDown 0.3s ease;
+    }
+
+    .modal-header {
+        color: white;
+        padding: 1.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .modal-header.success {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    }
+
+    .modal-header.error {
+        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+    }
+
+    .modal-header h5 {
+        margin: 0;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+    }
+
+    .modal-header .close {
+        background: none;
+        border: none;
+        color: white;
+        font-size: 1.5rem;
+        cursor: pointer;
+        opacity: 0.8;
+        transition: opacity 0.3s ease;
+    }
+
+    .modal-header .close:hover {
+        opacity: 1;
+    }
+
+    .modal-body {
+        padding: 2rem;
+        text-align: center;
+    }
+
+    .modal-body .icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.5rem;
+        margin: 0 auto 1rem;
+    }
+
+    .modal-body .icon.success {
+        background: linear-gradient(135deg, #28a745, #20c997);
+    }
+
+    .modal-body .icon.error {
+        background: linear-gradient(135deg, #dc3545, #c82333);
+    }
+
+    .modal-body h6 {
+        color: #495057;
+        margin-bottom: 1rem;
+        font-weight: 600;
+    }
+
+    .modal-body p {
+        color: #6c757d;
+        margin-bottom: 0;
+        line-height: 1.6;
+    }
+
+    .modal-footer {
+        background: #f8f9fa;
+        padding: 1rem 2rem;
+        display: flex;
+        justify-content: center;
+        gap: 1rem;
+    }
+
+    .btn-modal {
+        padding: 0.6rem 1.5rem;
+        border: none;
+        border-radius: 20px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+
+    .btn-modal.btn-primary {
+        background: linear-gradient(135deg, #007bff, #0056b3);
+        color: white;
+    }
+
+    .btn-modal.btn-primary:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3);
+    }
+
+    .btn-modal.btn-success {
+        background: linear-gradient(135deg, #28a745, #20c997);
+        color: white;
+    }
+
+    .btn-modal.btn-success:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+    }
+
+    @media (max-width: 768px) {
         .score-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            max-width: 600px;
+            grid-template-columns: 1fr;
+            padding: 1rem;
         }
-        .score-item {
-            display: flex;
-            align-items: center;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            background-color: #fff;
-        }
-        .score-item label {
-            font-weight: bold;
-            min-width: 80px;
-            margin-right: 10px;
-        }
-        .score-item input {
-            flex: 1;
-            padding: 8px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            text-align: center;
-        }
-        .score-item input:focus {
-            border-color: #007bff;
-            outline: none;
-        }
-        .buttons {
-            margin-top: 20px;
-        }
-        .btn {
-            padding: 10px 20px;
-            margin-right: 10px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            text-decoration: none;
-            display: inline-block;
-        }
-        .btn-primary {
-            background-color: #007bff;
-            color: white;
-        }
-        .btn-secondary {
-            background-color: #6c757d;
-            color: white;
-        }
-        .btn:hover {
-            opacity: 0.9;
-        }
-        .messages {
-            list-style: none;
-            padding: 0;
-        }
-        .messages li {
-            padding: 10px;
-            margin-bottom: 10px;
-            border-radius: 5px;
-        }
-        .messages .success { background-color: #d4edda; color: #155724; }
-        .messages .error { background-color: #f8d7da; color: #721c24; }
-        .messages .info { background-color: #d1ecf1; color: #0c5460; }
-        .help-text {
-            color: #6c757d;
-            font-size: 14px;
-            margin-bottom: 15px;
-        }
-    </style>
-</head>
-<body>
-    <h1>成绩编辑</h1>
-    
-    {% if messages %}
-        <ul class="messages">
-            {% for message in messages %}
-                <li class="{{ message.tags }}">{{ message }}</li>
-            {% endfor %}
-        </ul>
-    {% endif %}
-    
-    <div class="student-info">
-        <p><strong>学生：</strong>{{ student.name }} ({{ student.student_id }})</p>
-        <p><strong>年级班级：</strong>
-                                {% if student.current_class %}
-                                    {{ student.current_class.get_grade_level_display }} {{ student.current_class.class_name }}
-                                {% else %}
-                                    {{ student.get_grade_level_display|default:"未设置" }} 未分班
-                                {% endif %}
-                            </p>
-        <p><strong>考试：</strong>{{ exam.name }} ({{ exam.academic_year }})</p>
-        <p><strong>考试日期：</strong>{{ exam.date|date:"Y年m月d日" }}</p>
-    </div>
-    
-    <div class="help-text">
-        💡 提示：输入分数后点击保存，留空表示删除该科目成绩
-    </div>
-    
-    <form method="post">
-        {% csrf_token %}
-        <div class="score-grid">
-            {% for subject_code, subject_name in subjects %}
-            <div class="score-item">
-                <label for="score_{{ subject_code }}">{{ subject_name }}：</label>
-                <input type="number" 
-                       id="score_{{ subject_code }}" 
-                       name="score_{{ subject_code }}" 
-                       value="{{ existing_scores|get_item:subject_code|default_if_none:'' }}"
-                       step="0.01" 
-                       min="0" 
-                       max="150"
-                       placeholder="请输入分数">
-            </div>
-            {% endfor %}
-        </div>
         
-        <div class="buttons">
-            <button type="submit" class="btn btn-primary">保存所有成绩</button>
-            <a href="{% url 'score_list' %}" class="btn btn-secondary">取消</a>
+        .action-buttons {
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .modal-content {
+            width: 95%;
+            margin: 1rem;
+        }
+    }
+
+    .animate-in {
+        animation: slideInUp 0.6s ease-out;
+    }
+
+    @keyframes slideInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+        to {
+            opacity: 1;
+        }
+    }
+
+    @keyframes slideInDown {
+        from {
+            opacity: 0;
+            transform: translateY(-30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- 页面头部 -->
+<div class="page-header animate-in">
+    <div class="container-fluid">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1><i class="fas fa-edit me-3"></i>成绩编辑</h1>
+                <nav aria-label="breadcrumb" class="mt-2">
+                    <ol class="breadcrumb mb-0">
+                        <li class="breadcrumb-item"><a href="{% url 'score_list' %}" class="text-white-50">成绩管理</a></li>
+                        <li class="breadcrumb-item active text-white">编辑成绩</li>
+                    </ol>
+                </nav>
+            </div>
+            <div class="col-md-4 text-end">
+                <a href="{% url 'score_list' %}" class="btn btn-light border me-2">
+                    <i class="fas fa-arrow-left me-2"></i>返回列表
+                </a>
+            </div>
         </div>
-    </form>
-    
-    <script>
-        // 自动聚焦到第一个空的输入框
-        document.addEventListener('DOMContentLoaded', function() {
-            const inputs = document.querySelectorAll('input[type="number"]');
-            for (let input of inputs) {
-                if (!input.value) {
-                    input.focus();
-                    break;
-                }
-            }
+    </div>
+</div>
+
+<div class="container-fluid">
+    <!-- 操作提示 -->
+    <div class="alert help-alert animate-in" role="alert">
+        <i class="fas fa-lightbulb me-2"></i>
+        <strong>操作提示：</strong>输入分数后点击保存，留空表示删除该科目成绩。支持键盘快捷操作，按回车键可快速跳转到下一个输入框。
+    </div>
+
+    <!-- 学生信息卡片 -->
+    <div class="card student-info-card animate-in">
+        <h5 class="student-info-header">
+            <i class="fas fa-user-graduate me-2"></i>学生信息
+        </h5>
+        <div class="student-info-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="info-item">
+                        <div class="info-icon">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <div>
+                            <strong>学生姓名：</strong>{{ student.name }}
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-icon">
+                            <i class="fas fa-id-card"></i>
+                        </div>
+                        <div>
+                            <strong>学号：</strong>{{ student.student_id }}
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="info-item">
+                        <div class="info-icon">
+                            <i class="fas fa-graduation-cap"></i>
+                        </div>
+                        <div>
+                            <strong>年级班级：</strong>
+                            {% if student.current_class %}
+                                {{ student.current_class.get_grade_level_display }} {{ student.current_class.class_name }}
+                            {% else %}
+                                {{ student.get_grade_level_display|default:"未设置" }} 未分班
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-icon">
+                            <i class="fas fa-clipboard-list"></i>
+                        </div>
+                        <div>
+                            <strong>考试：</strong>{{ exam.name }} ({{ exam.academic_year }})
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="info-item mt-2">
+                <div class="info-icon">
+                    <i class="fas fa-calendar-alt"></i>
+                </div>
+                <div>
+                    <strong>考试日期：</strong>{{ exam.date|date:"Y年m月d日" }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 成绩编辑表单 -->
+    <div class="card score-form-card animate-in">
+        <h5 class="score-form-header">
+            <i class="fas fa-pencil-alt me-2"></i>成绩录入
+        </h5>
+        
+        <form method="post" id="scoreForm">
+            {% csrf_token %}
+            <div class="score-grid">
+                {% for subject_code, subject_name in subjects %}
+                <div class="score-item" data-subject="{{ subject_code }}">
+                    <label class="score-label" for="score_{{ subject_code }}">
+                        <div class="subject-icon">
+                            {% if subject_code == 'chinese' %}
+                                <i class="fas fa-book"></i>
+                            {% elif subject_code == 'math' %}
+                                <i class="fas fa-calculator"></i>
+                            {% elif subject_code == 'english' %}
+                                <i class="fas fa-globe"></i>
+                            {% elif subject_code == 'physics' %}
+                                <i class="fas fa-atom"></i>
+                            {% elif subject_code == 'chemistry' %}
+                                <i class="fas fa-flask"></i>
+                            {% elif subject_code == 'biology' %}
+                                <i class="fas fa-dna"></i>
+                            {% elif subject_code == 'history' %}
+                                <i class="fas fa-landmark"></i>
+                            {% elif subject_code == 'geography' %}
+                                <i class="fas fa-globe-americas"></i>
+                            {% elif subject_code == 'politics' %}
+                                <i class="fas fa-balance-scale"></i>
+                            {% else %}
+                                <i class="fas fa-book-open"></i>
+                            {% endif %}
+                        </div>
+                        {{ subject_name }}
+                    </label>
+                    <input type="number" 
+                           class="score-input"
+                           id="score_{{ subject_code }}" 
+                           name="score_{{ subject_code }}" 
+                           value="{{ existing_scores|get_item:subject_code|default_if_none:'' }}"
+                           step="0.5" 
+                           min="0" 
+                           data-subject-name="{{ subject_name }}">
+                </div>
+                {% endfor %}
+            </div>
+            
+            <div class="action-buttons">
+                <button type="submit" class="btn btn-save">
+                    <i class="fas fa-save me-2"></i>保存所有成绩
+                </button>
+                <a href="{% url 'score_list' %}" class="btn btn-cancel">
+                    <i class="fas fa-times me-2"></i>取消
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 结果提示模态框 -->
+<div class="custom-modal" id="resultModal">
+    <div class="modal-content">
+        <div class="modal-header" id="modalHeader">
+            <h5 id="modalTitle"><i class="fas fa-check me-2"></i>操作结果</h5>
+            <button type="button" class="close" onclick="closeResultModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="icon" id="modalIcon">
+                <i class="fas fa-check"></i>
+            </div>
+            <h6 id="modalSubtitle">操作成功</h6>
+            <p id="modalMessage">成绩已成功保存并更新排名。</p>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-modal btn-success" id="modalBtn" onclick="closeResultModal()">
+                <i class="fas fa-check me-2"></i>确定
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const inputs = document.querySelectorAll('.score-input');
+        const form = document.getElementById('scoreForm');
+        
+        // 获取每个科目的满分配置
+        const subjectMaxScores = {{ subject_max_scores|safe }};
+
+        // 禁用鼠标滚轮控制数字输入框的step
+        document.querySelectorAll('input[type="number"]').forEach(function(input) {
+            input.addEventListener('wheel', function(e) {
+                e.preventDefault();
+            });
+            
+            // 当输入框获得焦点时也禁用滚轮
+            input.addEventListener('focus', function() {
+                this.addEventListener('wheel', function(e) {
+                    e.preventDefault();
+                });
+            });
         });
         
+        // 自动聚焦到第一个空的输入框
+        for (let input of inputs) {
+            if (!input.value) {
+                input.focus();
+                break;
+            }
+        }
+        
         // 回车键自动跳转到下一个输入框
-        document.querySelectorAll('input[type="number"]').forEach((input, index, inputs) => {
+        inputs.forEach((input, index) => {
             input.addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') {
                     e.preventDefault();
@@ -159,11 +644,131 @@
                         inputs[nextIndex].focus();
                     } else {
                         // 最后一个输入框，提交表单
-                        document.querySelector('form').submit();
+                        form.submit();
                     }
                 }
             });
         });
-    </script>
-</body>
-</html>
+        
+        // 添加动画效果
+        const scoreItems = document.querySelectorAll('.score-item');
+        scoreItems.forEach((item, index) => {
+            setTimeout(() => {
+                item.style.animation = 'slideInUp 0.6s ease-out';
+            }, index * 100);
+        });
+        
+        // 显示结果模态框
+        function showResultModal(type, title, subtitle, message) {
+            const modal = document.getElementById('resultModal');
+            const header = document.getElementById('modalHeader');
+            const icon = document.getElementById('modalIcon');
+            const titleEl = document.getElementById('modalTitle');
+            const subtitleEl = document.getElementById('modalSubtitle');
+            const messageEl = document.getElementById('modalMessage');
+            const btn = document.getElementById('modalBtn');
+            
+            if (type === 'success') {
+                header.className = 'modal-header success';
+                icon.className = 'icon success';
+                icon.innerHTML = '<i class="fas fa-check"></i>';
+                titleEl.innerHTML = '<i class="fas fa-check me-2"></i>' + title;
+                btn.className = 'btn-modal btn-success';
+                btn.innerHTML = '<i class="fas fa-check me-2"></i>确定';
+            } else {
+                header.className = 'modal-header error';
+                icon.className = 'icon error';
+                icon.innerHTML = '<i class="fas fa-exclamation-triangle"></i>';
+                titleEl.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i>' + title;
+                btn.className = 'btn-modal btn-primary';
+                btn.innerHTML = '<i class="fas fa-redo me-2"></i>重试';
+            }
+            
+            subtitleEl.textContent = subtitle;
+            messageEl.textContent = message;
+            modal.classList.add('show');
+        }
+        
+        // 关闭结果模态框
+        window.closeResultModal = function() {
+            document.getElementById('resultModal').classList.remove('show');
+        }
+        
+        // 表单提交前验证
+        form.addEventListener('submit', function(e) {
+            const filledInputs = Array.from(inputs).filter(input => input.value.trim() !== '');
+            
+            if (filledInputs.length === 0) {
+                e.preventDefault();
+                showResultModal(
+                    'error',
+                    '输入错误',
+                    '请输入成绩',
+                    '请至少输入一门科目的成绩后再保存。'
+                );
+                return;
+            }
+            
+            // 验证分数范围 - 使用实际满分
+            for (let input of filledInputs) {
+                const value = parseFloat(input.value);
+                const subjectCode = input.name.replace('score_', ''); // 从name属性获取科目代码
+                const maxScore = subjectMaxScores[subjectCode] || 100; // 获取该科目的满分
+                
+                if (isNaN(value) || value < 0 || value > maxScore) {
+                    e.preventDefault();
+                    const subjectName = input.dataset.subjectName;
+                    showResultModal(
+                        'error',
+                        '分数输入错误',
+                        `${subjectName}分数超出范围`,
+                        `${subjectName}的分数必须在0-${maxScore}分之间，请检查并修正后重新提交。`
+                    );
+                    input.focus();
+                    return;
+                }
+            }
+            
+            // 显示提交动画
+            const submitBtn = document.querySelector('.btn-save');
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>保存中...';
+            submitBtn.disabled = true;
+        });
+        
+        // 点击模态框背景关闭
+        document.getElementById('resultModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeResultModal();
+            }
+        });
+        
+        // ESC键关闭模态框
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeResultModal();
+            }
+        });
+        
+        // 检查是否有成功消息需要显示
+        {% if messages %}
+            {% for message in messages %}
+                {% if message.tags == 'success' %}
+                    showResultModal(
+                        'success',
+                        '保存成功',
+                        '成绩已更新',
+                        '{{ message|escapejs }}'
+                    );
+                {% elif message.tags == 'error' %}
+                    showResultModal(
+                        'error',
+                        '保存失败',
+                        '操作未完成',
+                        '{{ message|escapejs }}'
+                    );
+                {% endif %}
+            {% endfor %}
+        {% endif %}
+    });
+</script>
+{% endblock %}
