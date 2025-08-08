@@ -331,7 +331,7 @@
             
             // 检查学年筛选
             if (academicYear) {
-                const rowAcademicYear = row.cells[1].textContent.trim();
+                const rowAcademicYear = row.cells[0].textContent.trim();
                 if (!rowAcademicYear.includes(academicYear)) {
                     showRow = false;
                 }

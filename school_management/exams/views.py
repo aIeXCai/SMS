@@ -1877,15 +1877,30 @@ def _analyze_single_class(scores, target_class, exam):
                 'count': stats['count']
             }
             
-            # 成绩分布统计（按分数段）
-            score_ranges = {
-                '90-100': subject_scores.filter(score_value__gte=90).count(),
-                '80-89': subject_scores.filter(score_value__gte=80, score_value__lt=90).count(),
-                '70-79': subject_scores.filter(score_value__gte=70, score_value__lt=80).count(),
-                '60-69': subject_scores.filter(score_value__gte=60, score_value__lt=70).count(),
-                '0-59': subject_scores.filter(score_value__lt=60).count(),
+            # 获取该科目的满分
+            subject_max_score = 100  # 默认满分
+            try:
+                exam_subject = exam.exam_subjects.filter(subject=subject_code).first()
+                if exam_subject:
+                    subject_max_score = exam_subject.max_score
+                else:
+                    # 如果ExamSubject不存在，从SUBJECT_DEFAULT_MAX_SCORES中获取默认满分
+                    grade_config = SUBJECT_DEFAULT_MAX_SCORES.get(exam.grade_level, {})
+                    subject_max_score = grade_config.get(subject_code, 100)
+            except:
+                # 异常情况下，尝试从默认配置获取
+                grade_config = SUBJECT_DEFAULT_MAX_SCORES.get(exam.grade_level, {})
+                subject_max_score = grade_config.get(subject_code, 100)
+            
+            # 成绩分布统计（按等级百分比）
+            grade_ranges = {
+                '特优(95%+)': subject_scores.filter(score_value__gte=subject_max_score * 0.95).count(),
+                '优秀(85%-95%)': subject_scores.filter(score_value__gte=subject_max_score * 0.85, score_value__lt=subject_max_score * 0.95).count(),
+                '良好(70%-85%)': subject_scores.filter(score_value__gte=subject_max_score * 0.70, score_value__lt=subject_max_score * 0.85).count(),
+                '及格(60%-70%)': subject_scores.filter(score_value__gte=subject_max_score * 0.60, score_value__lt=subject_max_score * 0.70).count(),
+                '不及格(<60%)': subject_scores.filter(score_value__lt=subject_max_score * 0.60).count(),
             }
-            score_distribution[subject_code] = score_ranges
+            score_distribution[subject_code] = grade_ranges
     
     # 学生总分排名 - 使用Django ORM聚合查询避免重复
     student_total_scores = []
@@ -1896,14 +1911,23 @@ def _analyze_single_class(scores, target_class, exam):
         subject_count=Count('subject')
     ).order_by('-total_score')
     
-    # 转换为列表格式并添加排名
+    # 转换为列表格式并添加排名和年级排名
     for i, student_data in enumerate(student_scores):
+        student_id = student_data['student__id']
+        
+        # 获取该学生的年级排名（从数据库中的total_score_rank_in_grade字段获取）
+        grade_rank = None
+        sample_score = scores.filter(student_id=student_id).first()
+        if sample_score:
+            grade_rank = sample_score.total_score_rank_in_grade
+        
         student_total_scores.append({
-            'student_id': student_data['student__id'],
+            'student_id': student_id,
             'student_name': student_data['student__name'],
             'total_score': float(student_data['total_score']),
             'subject_count': student_data['subject_count'],
-            'rank': i + 1
+            'rank': i + 1,
+            'grade_rank': grade_rank
         })
     
     # 班级总体统计
@@ -1913,6 +1937,36 @@ def _analyze_single_class(scores, target_class, exam):
         class_min_total = min([s['total_score'] for s in student_total_scores])
     else:
         class_avg_total = class_max_total = class_min_total = 0
+    
+    # 计算总分满分
+    total_max_score = 0
+    exam_subjects = exam.exam_subjects.all()
+    for exam_subject in exam_subjects:
+        total_max_score += exam_subject.max_score
+    
+    # 计算等级分布（基于总分百分比）
+    grade_distribution = {
+        '特优(95%+)': 0,
+        '优秀(85%-95%)': 0,
+        '良好(70%-85%)': 0,
+        '及格(60%-70%)': 0,
+        '不及格(<60%)': 0
+    }
+    
+    # 统计各等级人数
+    for student_data in student_total_scores:
+        if total_max_score > 0:
+            percentage = student_data['total_score'] / total_max_score
+            if percentage >= 0.95:
+                grade_distribution['特优(95%+)'] += 1
+            elif percentage >= 0.85:
+                grade_distribution['优秀(85%-95%)'] += 1
+            elif percentage >= 0.70:
+                grade_distribution['良好(70%-85%)'] += 1
+            elif percentage >= 0.60:
+                grade_distribution['及格(60%-70%)'] += 1
+            else:
+                grade_distribution['不及格(<60%)'] += 1
     
     # 准备图表数据
     chart_data = {
@@ -1926,8 +1980,11 @@ def _analyze_single_class(scores, target_class, exam):
             'student_name': s['student_name'],
             'total_score': float(s['total_score']),
             'subject_count': s['subject_count'],
-            'rank': s['rank']
-        } for s in student_total_scores[:10]]  # 只显示前10名
+            'rank': s['rank'],
+            'grade_rank': s['grade_rank']
+        } for s in student_total_scores[:10]],  # 只显示前10名
+        'total_max_score': total_max_score,
+        'grade_distribution': grade_distribution
     }
     
     return {

@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 <style>
     .page-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
         color: white;
         padding: 2rem 0;
         margin-bottom: 2rem;
@@ -100,6 +100,23 @@
         opacity: 0.8;
     }
 
+    .section-header {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+
+    .section-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 0.5rem;
+    }
+
+    .section-subtitle {
+        font-size: 1rem;
+        margin-bottom: 0;
+    }
+
     .class-analysis .analysis-icon {
         color: #007bff;
     }
@@ -108,121 +125,7 @@
         color: #28a745;
     }
 
-    .custom-multiselect {
-        position: relative;
-        flex: 1;
-        min-width: 200px;
-    }
 
-    .multiselect-display {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        cursor: pointer;
-        background-color: #fff;
-        background-clip: padding-box;
-        border: 1px solid #ced4da;
-        border-radius: 8px;
-        transition: all 0.15s ease-in-out;
-        padding: 0.75rem 1rem;
-        font-size: 1rem;
-        font-weight: 400;
-        line-height: 1.5;
-        color: #495057;
-        min-height: calc(1.5em + 1.5rem + 2px);
-        box-sizing: border-box;
-    }
-
-    .multiselect-display:hover {
-        border-color: #80bdff;
-        box-shadow: 0 0 0 0.1rem rgba(0, 123, 255, 0.1);
-    }
-
-    .multiselect-display:focus,
-    .multiselect-display.dropdown-open {
-        color: #495057;
-        background-color: #fff;
-        border-color: #80bdff;
-        outline: 0;
-        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
-    }
-
-    .placeholder-text {
-        color: #6c757d !important;
-        font-style: italic;
-    }
-
-    .selected-text {
-        color: #495057 !important;
-        font-weight: 500;
-    }
-
-    .dropdown-arrow {
-        color: #6c757d;
-        font-size: 12px;
-        transition: transform 0.2s;
-        margin-left: 8px;
-    }
-
-    .dropdown-open .dropdown-arrow {
-        transform: rotate(180deg);
-    }
-
-    .multiselect-dropdown {
-        display: none;
-        position: absolute;
-        top: 100%;
-        left: 0;
-        right: 0;
-        background-color: white;
-        border: 1px solid #ced4da;
-        border-top: none;
-        border-radius: 0 0 8px 8px;
-        max-height: 250px;
-        overflow-y: auto;
-        z-index: 1000;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    }
-
-    .multiselect-option {
-        padding: 0.75rem 1rem;
-        cursor: pointer;
-        border-bottom: 1px solid #f8f9fa;
-        transition: all 0.15s ease-in-out;
-        color: #495057;
-        font-size: 1rem;
-        line-height: 1.5;
-    }
-
-    .multiselect-option:hover {
-        background-color: #f8f9fa;
-        color: #16181b;
-    }
-
-    .multiselect-option.selected {
-        background-color: #007bff;
-        color: white;
-    }
-
-    .multiselect-option.selected:hover {
-        background-color: #0056b3;
-        color: white;
-    }
-
-    .multiselect-option:last-child {
-        border-bottom: none;
-    }
-
-    .selected-tags-container {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        min-height: 20px;
-        flex: 1;
-        align-items: flex-start;
-        margin-top: 0;
-        padding-top: 10px;
-    }
 
     .class-selection-container {
         display: flex;
@@ -231,58 +134,105 @@
         flex-wrap: wrap;
     }
 
-    .class-tag {
-        display: inline-flex;
+    /* 班级多选下拉样式 */
+    .class-dropdown {
+        position: relative;
+        width: 100%;
+        color: #495057;
+    }
+
+    .class-dropdown-toggle {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border: 1px solid #ced4da;
+        border-radius: 0.5rem;
+        background-color: #fff;
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
         align-items: center;
-        background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
-        color: #1976d2;
-        padding: 6px 12px;
-        border-radius: 20px;
-        font-size: 0.875rem;
-        border: 1px solid #bbdefb;
-        animation: fadeIn 0.3s ease-in;
+        transition: all 0.3s ease;
+    }
+
+    .class-dropdown-toggle:hover {
+        border-color: #007bff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+
+    .class-dropdown-toggle.active {
+        border-color: #007bff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+
+    .class-dropdown-arrow {
+        transition: transform 0.3s ease;
+        color: #6c757d;
+    }
+
+    .class-dropdown-toggle.active .class-dropdown-arrow {
+        transform: rotate(180deg);
+    }
+
+    .class-dropdown-menu {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid #ced4da;
+        border-radius: 0.5rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        z-index: 1000;
+        max-height: 250px;
+        overflow-y: auto;
+        display: none;
+        margin-top: 2px;
+    }
+
+    .class-dropdown-menu.show {
+        display: block;
+    }
+
+    .class-dropdown-header {
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid #e9ecef;
+        background-color: #f8f9fa;
+    }
+
+    .class-dropdown-item {
+        padding: 0.5rem 1rem;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+        display: flex;
+        align-items: center;
+    }
+
+    .class-dropdown-item:hover {
+        background-color: #f8f9fa;
+    }
+
+    .class-dropdown-item input[type="checkbox"] {
+        margin-right: 0.5rem;
+    }
+
+    .class-dropdown-item.checked {
+        background-color: #e3f2fd;
+        color: #007bff;
         font-weight: 500;
     }
 
-    .class-tag.all-classes-tag {
-        background: linear-gradient(135deg, #e8f5e8 0%, #c8e6c9 100%);
-        color: #2e7d32;
-        border-color: #c8e6c9;
+    .class-selected-count {
+        color: #6c757d;
+        font-size: 0.85rem;
     }
 
-    .tag-remove {
-        background: none;
-        border: none;
-        color: inherit;
-        margin-left: 8px;
-        cursor: pointer;
-        font-size: 16px;
-        font-weight: bold;
-        padding: 0;
-        width: 18px;
-        height: 18px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.2s;
-    }
-
-    .tag-remove:hover {
-        background-color: rgba(0,0,0,0.1);
-        transform: scale(1.1);
-    }
-
-    @keyframes fadeIn {
-        from {
-            opacity: 0;
-            transform: scale(0.8);
-        }
-        to {
-            opacity: 1;
-            transform: scale(1);
+    /* 响应式设计 */
+    @media (max-width: 768px) {
+        .class-dropdown-menu {
+            max-height: 200px;
         }
     }
+
 
     .form-floating {
         position: relative;
@@ -299,18 +249,6 @@
         transform-origin: 0 0;
         transition: opacity 0.1s ease-in-out, transform 0.1s ease-in-out;
         color: #6c757d;
-    }
-
-    .quick-actions {
-        background: #f8f9fa;
-        border-radius: 10px;
-        padding: 1rem;
-        margin-bottom: 1rem;
-    }
-
-    .quick-actions .btn {
-        margin-right: 0.5rem;
-        margin-bottom: 0.5rem;
     }
 
     @media (max-width: 768px) {
@@ -345,13 +283,6 @@
                     </ol>
                 </nav>
             </div>
-            <div class="col-md-6 text-end">
-                <div class="quick-actions d-none d-md-block">
-                    <a href="{% url 'score_list' %}" class="btn btn-outline-light btn-sm">
-                        <i class="fas fa-arrow-left me-1"></i>返回成绩管理
-                    </a>
-                </div>
-            </div>
         </div>
     </div>
 </div>
@@ -370,21 +301,19 @@
                     <div class="col-lg-3 col-md-6">
                         <div class="form-group">
                             <label class="form-label fw-semibold"><i class="fas fa-calendar-alt me-2 text-primary"></i>学年</label>
-                            <div class="class-selection-container">
-                                <div class="custom-multiselect">
-                                    <div class="multiselect-display" onclick="toggleDropdown('academicYearDropdown', 'selectedAcademicYearDisplay')">
-                                        <span id="selectedAcademicYearDisplay" class="placeholder-text">请选择学年</span>
-                                        <span class="dropdown-arrow"><i class="fas fa-chevron-down"></i></span>
-                                    </div>
-                                    <div class="multiselect-dropdown" id="academicYearDropdown">
-                                        {% for year_value, year_label in form.academic_year.field.choices %}
-                                            {% if year_value %}
-                                                <div class="multiselect-option" data-value="{{ year_value }}" onclick="selectSingleOption(this, 'selectedAcademicYearDisplay', 'selectedAcademicYear')">
-                                                    <i class="fas fa-calendar me-2"></i>{{ year_label }}
-                                                </div>
-                                            {% endif %}
-                                        {% endfor %}
-                                    </div>
+                            <div class="class-dropdown">
+                                <div class="class-dropdown-toggle" onclick="toggleAcademicYearDropdown()">
+                                    <span id="academicYearDropdownText">请选择学年</span>
+                                    <i class="fas fa-chevron-down class-dropdown-arrow"></i>
+                                </div>
+                                <div class="class-dropdown-menu" id="academicYearDropdownMenu">
+                                    {% for year_value, year_label in form.academic_year.field.choices %}
+                                        {% if year_value %}
+                                            <div class="class-dropdown-item" onclick="selectAcademicYear('{{ year_value }}', '{{ year_label }}')">
+                                                <i class="fas fa-calendar me-2"></i>{{ year_label }}
+                                            </div>
+                                        {% endif %}
+                                    {% endfor %}
                                 </div>
                                 <input type="hidden" name="academic_year" id="selectedAcademicYear">
                             </div>
@@ -394,19 +323,17 @@
                     <div class="col-lg-3 col-md-6">
                         <div class="form-group">
                             <label class="form-label fw-semibold"><i class="fas fa-clipboard-list me-2 text-success"></i>考试</label>
-                            <div class="class-selection-container">
-                                <div class="custom-multiselect">
-                                    <div class="multiselect-display" onclick="toggleDropdown('examDropdown', 'selectedExamDisplay')">
-                                        <span id="selectedExamDisplay" class="placeholder-text">请选择考试</span>
-                                        <span class="dropdown-arrow"><i class="fas fa-chevron-down"></i></span>
-                                    </div>
-                                    <div class="multiselect-dropdown" id="examDropdown">
-                                        {% for exam in exams %}
-                                            <div class="multiselect-option" data-value="{{ exam.pk }}" onclick="selectSingleOption(this, 'selectedExamDisplay', 'selectedExam')">
-                                                <i class="fas fa-file-alt me-2"></i>{{ exam.name }} <span class="text-muted">({{ exam.get_grade_level_display }})</span>
-                                            </div>
-                                        {% endfor %}
-                                    </div>
+                            <div class="class-dropdown">
+                                <div class="class-dropdown-toggle" onclick="toggleExamDropdown()">
+                                    <span id="examDropdownText">请选择考试</span>
+                                    <i class="fas fa-chevron-down class-dropdown-arrow"></i>
+                                </div>
+                                <div class="class-dropdown-menu" id="examDropdownMenu">
+                                    {% for exam in exams %}
+                                        <div class="class-dropdown-item" onclick="selectExam('{{ exam.pk }}', '{{ exam.name }}', '{{ exam.get_grade_level_display }}')">
+                                            <i class="fas fa-file-alt me-2"></i>{{ exam.name }} <span class="text-muted">({{ exam.get_grade_level_display }})</span>
+                                        </div>
+                                    {% endfor %}
                                 </div>
                                 <input type="hidden" name="exam" id="selectedExam">
                             </div>
@@ -416,21 +343,19 @@
                     <div class="col-lg-3 col-md-6">
                         <div class="form-group">
                             <label class="form-label fw-semibold"><i class="fas fa-layer-group me-2 text-warning"></i>年级</label>
-                            <div class="class-selection-container">
-                                <div class="custom-multiselect">
-                                    <div class="multiselect-display" onclick="toggleDropdown('gradeDropdown', 'selectedGradeDisplay')">
-                                        <span id="selectedGradeDisplay" class="placeholder-text">请选择年级</span>
-                                        <span class="dropdown-arrow"><i class="fas fa-chevron-down"></i></span>
-                                    </div>
-                                    <div class="multiselect-dropdown" id="gradeDropdown">
-                                        {% for grade_value, grade_label in form.grade_level.field.choices %}
-                                            {% if grade_value %}
-                                                <div class="multiselect-option" data-value="{{ grade_value }}" onclick="selectGradeAndFilterClasses(this, 'selectedGradeDisplay', 'selectedGrade')">
-                                                    <i class="fas fa-graduation-cap me-2"></i>{{ grade_label }}
-                                                </div>
-                                            {% endif %}
-                                        {% endfor %}
-                                    </div>
+                            <div class="class-dropdown">
+                                <div class="class-dropdown-toggle" onclick="toggleGradeDropdown()">
+                                    <span id="gradeDropdownText">请选择年级</span>
+                                    <i class="fas fa-chevron-down class-dropdown-arrow"></i>
+                                </div>
+                                <div class="class-dropdown-menu" id="gradeDropdownMenu"> 
+                                    {% for grade_value, grade_label in form.grade_level.field.choices %}
+                                        {% if grade_value %}
+                                            <div class="class-dropdown-item" onclick="selectGrade('{{ grade_value }}', '{{ grade_label }}')">
+                                                <i class="fas fa-graduation-cap me-2"></i>{{ grade_label }}
+                                            </div>
+                                        {% endif %}
+                                    {% endfor %}
                                 </div>
                                 <input type="hidden" name="grade_level" id="selectedGrade">
                             </div>
@@ -442,25 +367,28 @@
                             <label class="form-label fw-semibold"><i class="fas fa-users me-2 text-info"></i>班级</label>
                             <div class="class-selection-container">
                                 <!-- 自定义多选下拉菜单 -->
-                                <div class="custom-multiselect">
-                                    <div class="multiselect-display" onclick="toggleDropdown('classDropdown', 'selectedDisplay')">
-                                        <span id="selectedDisplay" class="placeholder-text">请选择班级</span>
-                                        <span class="dropdown-arrow"><i class="fas fa-chevron-down"></i></span>
+                                <div class="class-dropdown">
+                                    <div class="class-dropdown-toggle" onclick="toggleClassDropdown()">
+                                        <span id="classDropdownText">请选择班级</span>
+                                        <i class="fas fa-chevron-down class-dropdown-arrow"></i>
                                     </div>
-                                    <div class="multiselect-dropdown" id="classDropdown">
-                                        <div class="multiselect-option" data-value="all" onclick="selectOption(this)">
-                                            <i class="fas fa-globe me-2"></i>所有班级
+                                    <div class="class-dropdown-menu" id="classDropdownMenu">
+                                        <div class="class-dropdown-header">
+                                            <small class="text-muted"> (<span id="selectedClassCount">0</span> 个已选择)</small>
+                                        </div>
+                                        <div class="class-dropdown-item">
+                                            <input type="checkbox" id="allClassesCheckbox" class="form-check-input" onchange="toggleAllClasses()">
+                                            <label class="form-check-label" for="allClassesCheckbox">所有班级</label>
                                         </div>
                                         {% for class in all_classes %}
-                                        <div class="multiselect-option" data-value="{{ class.id }}" data-class-name="{{ class.class_name }}" data-grade="{{ class.grade_level }}" onclick="selectOption(this)">
-                                            <i class="fas fa-users me-2"></i>{{ class.grade_level }}{{ class.class_name }}
+                                        <div class="class-dropdown-item">
+                                            <input type="checkbox" id="class_{{ class.id }}" class="form-check-input class-checkbox" data-grade="{{ class.grade_level }}" onchange="toggleClass('{{ class.id }}', '{{ class.grade_level }}{{ class.class_name }}', '{{ class.grade_level }}')">
+                                            <label class="form-check-label" for="class_{{ class.id }}">{{ class.grade_level }}{{ class.class_name }}</label>
                                         </div>
                                         {% endfor %}
                                     </div>
                                 </div>
-                                        <div id="selectedTags" class="selected-tags-container"></div>
-                                    </div>
-                                    <div id="selectedTags" class="selected-tags-container"></div>
+
                                 <input type="hidden" name="class_name" id="selectedClassesInput">
                             </div>
                         </div>
@@ -469,19 +397,34 @@
             </div>
         </div>
         
-        <!-- 分析选项 -->
-        <div class="row">
+        <!-- 使用提示区域 -->
+        <div class="row mt-4">
             <div class="col-12">
-                <div class="d-flex align-items-center mb-4">
-                    <h4 class="mb-0 me-3"><i class="fas fa-chart-bar me-2 text-primary"></i>分析类型选择</h4>
-                    <div class="flex-grow-1">
-                        <hr class="my-0">
+                <div class="alert alert-info border-0" style="background: linear-gradient(135deg, #e8f5e8 0%, #c8e6c9 100%); border-radius: 12px;">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-info-circle fa-2x me-3 text-success"></i>
+                        <div>
+                            <h6 class="alert-heading mb-1 text-success"><i class="fas fa-lightbulb me-1"></i>操作指南</h6>
+                            <p class="mb-0 small text-success">请按照以下步骤进行操作：<strong>1. 选择学年</strong> → <strong>2. 选择考试</strong> → <strong>3. 选择年级</strong> → <strong>4. 选择班级</strong> → <strong>5. 选择分析类型</strong></p>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
+
+        <!-- 分析类型选择区域 -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="section-header mb-4">
+                    <h4 class="section-title">
+                        <i class="fas fa-chart-bar me-2 text-primary"></i>选择分析类型
+                    </h4>
+                    <p class="section-subtitle text-muted">根据您的需求选择合适的成绩分析方式</p>
+                </div>
+            </div>
+        </div>
         
-        <div class="row g-4">
+        <div class="row">
             <div class="col-lg-6">
                 <div class="analysis-card card class-analysis">
                     <div class="card-body">
@@ -525,362 +468,327 @@
                 </div>
             </div>
         </div>
-        
-        <!-- 快速提示 -->
-        <div class="row mt-4">
-            <div class="col-12">
-                <div class="alert alert-info border-0" style="background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);">
-                    <div class="d-flex align-items-center">
-                        <i class="fas fa-lightbulb fa-2x me-3 text-primary"></i>
-                        <div>
-                            <h6 class="alert-heading mb-1">使用提示</h6>
-                            <p class="mb-0 small">请先完成上方的筛选条件设置（学年、考试、年级），然后选择相应的分析类型。班级分析需要选择具体班级，个人分析将在下一步选择具体学生。</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
     </div>
 </div>
 
 <script>
-let selectedClasses = [];
-let classIdToNameMap = {}; // 存储班级ID到班级名称的映射
+    let selectedClasses = [];
 
-// 初始化班级映射
-document.addEventListener('DOMContentLoaded', function() {
-    const classOptions = document.querySelectorAll('#classDropdown .multiselect-option[data-class-name]');
-    classOptions.forEach(option => {
-        const classId = option.getAttribute('data-value');
-        const className = option.getAttribute('data-class-name');
-        const gradeLevel = option.textContent.trim().replace(className, '');
-        classIdToNameMap[classId] = {
-            name: className,
-            fullName: gradeLevel + className
-        };
-    });
-});
+    // 切换学年下拉菜单
+     function toggleAcademicYearDropdown() {
+         const menu = document.getElementById('academicYearDropdownMenu');
+         const toggle = menu.previousElementSibling;
+         
+         closeAllDropdowns();
+         
+         if (menu.classList.contains('show')) {
+             menu.classList.remove('show');
+             toggle.classList.remove('active');
+         } else {
+             menu.classList.add('show');
+             toggle.classList.add('active');
+         }
+     }
 
-// 通用的下拉菜单切换函数
-function toggleDropdown(dropdownId, displayId) {
-    const dropdown = document.getElementById(dropdownId);
-    const display = document.getElementById(displayId).closest('.multiselect-display');
-    
-    // 如果当前下拉菜单已打开，则关闭
-    if (dropdown.style.display === 'block') {
-        dropdown.style.display = 'none';
-        display.classList.remove('dropdown-open');
-        return;
-    }
+     // 切换考试下拉菜单
+     function toggleExamDropdown() {
+         const menu = document.getElementById('examDropdownMenu');
+         const toggle = menu.previousElementSibling;
+         
+         closeAllDropdowns();
+         
+         if (menu.classList.contains('show')) {
+             menu.classList.remove('show');
+             toggle.classList.remove('active');
+         } else {
+             menu.classList.add('show');
+             toggle.classList.add('active');
+         }
+     }
 
-    // 关闭所有其他下拉菜单
-    document.querySelectorAll('.multiselect-dropdown').forEach(d => {
-        d.style.display = 'none';
-    });
-    document.querySelectorAll('.multiselect-display').forEach(d => {
-        d.classList.remove('dropdown-open');
-    });
+     // 切换年级下拉菜单
+     function toggleGradeDropdown() {
+         const menu = document.getElementById('gradeDropdownMenu');
+         const toggle = menu.previousElementSibling;
+         
+         closeAllDropdowns();
+         
+         if (menu.classList.contains('show')) {
+             menu.classList.remove('show');
+             toggle.classList.remove('active');
+         } else {
+             menu.classList.add('show');
+             toggle.classList.add('active');
+         }
+     }
 
-    // 打开当前下拉菜单
-    dropdown.style.display = 'block';
-    display.classList.add('dropdown-open');
-}
+     // 切换班级下拉菜单
+     function toggleClassDropdown() {
+         const menu = document.getElementById('classDropdownMenu');
+         const toggle = document.querySelector('.class-dropdown-toggle');
+         
+         closeAllDropdowns();
+         
+         if (menu.classList.contains('show')) {
+             menu.classList.remove('show');
+             toggle.classList.remove('active');
+         } else {
+             menu.classList.add('show');
+             toggle.classList.add('active');
+         }
+     }
 
-// 专门用于班级（多选）的选项选择函数
-function selectOption(element) {
-    const value = element.getAttribute('data-value');
-    
-    // 如果选择"所有班级"，清空其他选择
-    if (value === 'all') {
-        selectedClasses = ['all'];
-        document.querySelectorAll('#classDropdown .multiselect-option').forEach(opt => {
-            opt.classList.remove('selected');
-        });
-        element.classList.add('selected');
-    } else {
-        // 如果选择具体班级，移除"所有班级"的选择
-        const allOption = document.querySelector('#classDropdown [data-value="all"]');
-        if (allOption) {
-            allOption.classList.remove('selected');
-        }
-        selectedClasses = selectedClasses.filter(cls => cls !== 'all');
+     // 关闭所有下拉菜单
+     function closeAllDropdowns() {
+         const menus = document.querySelectorAll('.class-dropdown-menu');
+         const toggles = document.querySelectorAll('.class-dropdown-toggle');
+         
+         menus.forEach(menu => menu.classList.remove('show'));
+         toggles.forEach(toggle => toggle.classList.remove('active'));
+     }
+
+     // 选择学年
+     function selectAcademicYear(value, label) {
+         document.getElementById('academicYearDropdownText').textContent = label;
+         document.getElementById('selectedAcademicYear').value = value;
+         closeAllDropdowns();
+     }
+
+     // 选择考试
+     function selectExam(value, name, grade) {
+         document.getElementById('examDropdownText').textContent = name + ' (' + grade + ')';
+         document.getElementById('selectedExam').value = value;
+         closeAllDropdowns();
+     }
+
+     // 选择年级
+     function selectGrade(value, label) {
+         document.getElementById('gradeDropdownText').textContent = label;
+         document.getElementById('selectedGrade').value = value;
+         
+         // 过滤班级选项
+         filterClassesByGrade(value);
+         
+         closeAllDropdowns();
+     }
+
+    // 切换所有班级选择
+    function toggleAllClasses() {
+        const allCheckbox = document.getElementById('allClassesCheckbox');
+        const classCheckboxes = document.querySelectorAll('.class-checkbox');
         
-        // 切换当前选项的选中状态
-        if (selectedClasses.includes(value)) {
-            selectedClasses = selectedClasses.filter(cls => cls !== value);
-            element.classList.remove('selected');
+        if (allCheckbox.checked) {
+            selectedClasses = ['all'];
+            classCheckboxes.forEach(checkbox => {
+                checkbox.checked = false;
+            });
         } else {
-            selectedClasses.push(value);
-            element.classList.add('selected');
-        }
-    }
-    
-    updateClassDisplayAndTags();
-}
-
-// 通用单选选项的函数
-function selectSingleOption(element, displayId, hiddenInputId) {
-    const value = element.getAttribute('data-value');
-    const text = element.textContent.trim();
-    
-    const dropdown = element.closest('.multiselect-dropdown');
-    
-    // 移除所有选项的选中状态
-    dropdown.querySelectorAll('.multiselect-option').forEach(opt => {
-        opt.classList.remove('selected');
-    });
-    
-    // 添加当前选项的选中状态
-    element.classList.add('selected');
-    
-    // 更新显示文本和隐藏字段的值
-    const display = document.getElementById(displayId);
-    display.textContent = text;
-    display.className = 'selected-text';
-    
-    const hiddenInput = document.getElementById(hiddenInputId);
-    hiddenInput.value = (value === 'all') ? '' : value;
-    
-    // 关闭下拉菜单
-    dropdown.style.display = 'none';
-    display.closest('.multiselect-display').classList.remove('dropdown-open');
-}
-
-// 选择年级并过滤班级的函数
-function selectGradeAndFilterClasses(element, displayId, hiddenInputId) {
-    // 先执行通用的单选逻辑
-    selectSingleOption(element, displayId, hiddenInputId);
-    
-    // 获取选中的年级
-    const selectedGrade = element.getAttribute('data-value');
-    
-    // 过滤班级选项
-    filterClassesByGrade(selectedGrade);
-    
-    // 清空已选择的班级
-    selectedClasses = [];
-    updateClassDisplayAndTags();
-}
-
-// 根据年级过滤班级选项
-function filterClassesByGrade(selectedGrade) {
-    const classOptions = document.querySelectorAll('#classDropdown .multiselect-option[data-grade]');
-    const allOption = document.querySelector('#classDropdown .multiselect-option[data-value="all"]');
-    
-    // 显示"所有班级"选项
-    if (allOption) {
-        allOption.style.display = 'block';
-    }
-    
-    // 根据年级显示/隐藏班级选项
-    classOptions.forEach(option => {
-        const optionGrade = option.getAttribute('data-grade');
-        if (selectedGrade && optionGrade === selectedGrade) {
-            option.style.display = 'block';
-        } else if (selectedGrade) {
-            option.style.display = 'none';
-            // 如果该班级已被选中，从选中列表中移除
-            const optionValue = option.getAttribute('data-value');
-            selectedClasses = selectedClasses.filter(cls => cls !== optionValue);
-            option.classList.remove('selected');
-        } else {
-            // 如果没有选择年级，显示所有班级
-            option.style.display = 'block';
-        }
-    });
-}
-
-// 删除指定班级
-function removeClass(value) {
-    selectedClasses = selectedClasses.filter(cls => cls !== value);
-    const option = document.querySelector(`#classDropdown [data-value="${value}"]`);
-    if (option) {
-        option.classList.remove('selected');
-    }
-    updateClassDisplayAndTags();
-}
-
-// 更新班级下拉菜单的显示和标签
-function updateClassDisplayAndTags() {
-    const display = document.getElementById('selectedDisplay');
-    const hiddenInput = document.getElementById('selectedClassesInput');
-    const tagsContainer = document.getElementById('selectedTags');
-    
-    // 更新显示文本
-    if (selectedClasses.length === 0) {
-        display.textContent = '请选择班级';
-        display.className = 'placeholder-text';
-        hiddenInput.value = '';
-    } else if (selectedClasses.includes('all')) {
-        display.textContent = '所有班级';
-        display.className = 'selected-text';
-        hiddenInput.value = 'all';
-    } else {
-        const count = selectedClasses.length;
-        display.textContent = `已选择 ${count} 个班级`;
-        display.className = 'selected-text';
-        hiddenInput.value = selectedClasses.join(',');
-    }
-
-    // 更新标签显示
-    tagsContainer.innerHTML = '';
-    if (selectedClasses.length === 0) return;
-    
-    if (selectedClasses.includes('all')) {
-        const tag = document.createElement('span');
-        tag.className = 'class-tag all-classes-tag';
-        tag.innerHTML = `所有班级 <button type="button" class="tag-remove" onclick="removeClass('all')" title="移除">×</button>`;
-        tagsContainer.appendChild(tag);
-        return;
-    }
-    
-    selectedClasses.forEach(classId => {
-        const tag = document.createElement('span');
-        tag.className = 'class-tag';
-        const displayName = classIdToNameMap[classId] ? classIdToNameMap[classId].fullName : classId;
-        tag.innerHTML = `${displayName} <button type="button" class="tag-remove" onclick="removeClass('${classId}')" title="移除">×</button>`;
-        tagsContainer.appendChild(tag);
-    });
-}
-
-// 阻止点击表单内的元素时关闭下拉菜单
-document.addEventListener('click', function(event) {
-    const customMultiselects = document.querySelectorAll('.custom-multiselect');
-    let isInsideMultiselect = false;
-    customMultiselects.forEach(ms => {
-        if (ms.contains(event.target)) {
-            isInsideMultiselect = true;
-        }
-    });
-
-    if (!isInsideMultiselect) {
-        document.querySelectorAll('.multiselect-dropdown').forEach(d => {
-            d.style.display = 'none';
-        });
-        document.querySelectorAll('.multiselect-display').forEach(d => {
-            d.classList.remove('dropdown-open');
-        });
-    }
-});
-
-// 表单验证和跳转函数保持不变
-function validateForm() {
-    const academicYear = document.querySelector('#analysisForm [name="academic_year"]').value;
-    const exam = document.querySelector('#analysisForm [name="exam"]').value;
-    const gradeLevel = document.querySelector('#analysisForm [name="grade_level"]').value;
-    
-    if (!academicYear || !exam || !gradeLevel) {
-        alert('请先选择学年、考试和年级！');
-        return false;
-    }
-    return true;
-}
-
-function goToClassAnalysis() {
-    if (validateForm()) {
-        // 验证是否选择了班级
-        if (selectedClasses.length === 0) {
-            alert('请先选择要分析的班级！');
-            return;
+            selectedClasses = [];
+            classCheckboxes.forEach(checkbox => {
+                checkbox.checked = false;
+            });
         }
         
-        const form = document.getElementById('analysisForm');
-        const formData = new FormData(form);
-        const params = new URLSearchParams(formData);
+        updateClassDisplay();
+    }
+
+    // 切换单个班级选择
+    function toggleClass(classId, className, gradeLevel) {
+        const checkbox = document.getElementById(`class_${classId}`);
+        const allCheckbox = document.getElementById('allClassesCheckbox');
         
-        // 添加选中的班级信息
+        // 如果当前选择了"所有班级"，先取消选择
         if (selectedClasses.includes('all')) {
-            params.append('selected_classes', 'all');
-        } else {
-            selectedClasses.forEach(className => {
-                params.append('selected_classes', className);
-            });
+            selectedClasses = [];
+            allCheckbox.checked = false;
         }
         
-        window.location.href = '{% url "score_analysis_class" %}?' + params.toString();
-    }
-}
-
-function goToStudentAnalysis() {
-    if (validateForm()) {
-        const form = document.getElementById('analysisForm');
-        const formData = new FormData(form);
-        const params = new URLSearchParams(formData);
-        window.location.href = '{% url "score_analysis_student" %}?' + params.toString();
-    }
-}
-</script>
-
-{% endblock %}
-
-{% block extra_js %}
-<script>
-// 页面加载完成后的初始化
-document.addEventListener('DOMContentLoaded', function() {
-    // 添加页面加载动画
-    const cards = document.querySelectorAll('.analysis-card');
-    cards.forEach((card, index) => {
-        card.style.opacity = '0';
-        card.style.transform = 'translateY(20px)';
-        setTimeout(() => {
-            card.style.transition = 'all 0.5s ease';
-            card.style.opacity = '1';
-            card.style.transform = 'translateY(0)';
-        }, index * 200);
-    });
-    
-    // 添加表单验证提示
-    const form = document.getElementById('analysisForm');
-    if (form) {
-        const inputs = form.querySelectorAll('input[type="hidden"]');
-        inputs.forEach(input => {
-            input.addEventListener('change', function() {
-                validateFormFields();
-            });
-        });
-    }
-});
-
-// 表单字段验证
-function validateFormFields() {
-    const academicYear = document.getElementById('selectedAcademicYear').value;
-    const exam = document.getElementById('selectedExam').value;
-    const grade = document.getElementById('selectedGrade').value;
-    
-    const analysisButtons = document.querySelectorAll('.analysis-card .btn');
-    
-    if (academicYear && exam && grade) {
-        analysisButtons.forEach(btn => {
-            btn.classList.remove('disabled');
-            btn.removeAttribute('disabled');
-        });
-    } else {
-        analysisButtons.forEach(btn => {
-            btn.classList.add('disabled');
-            btn.setAttribute('disabled', 'disabled');
-        });
-    }
-}
-
-// 增强的提示消息
-function showEnhancedAlert(message, type = 'warning') {
-    const alertDiv = document.createElement('div');
-    alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
-    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
-    alertDiv.innerHTML = `
-        <i class="fas fa-exclamation-triangle me-2"></i>
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    `;
-    
-    document.body.appendChild(alertDiv);
-    
-    // 自动移除
-    setTimeout(() => {
-        if (alertDiv.parentNode) {
-            alertDiv.remove();
+        if (checkbox.checked) {
+            // 检查年级筛选
+            const selectedGrade = document.getElementById('selectedGrade').value;
+            if (selectedGrade && gradeLevel !== selectedGrade) {
+                checkbox.checked = false; // 阻止选择不同年级的班级
+                return;
+            }
+            
+            selectedClasses.push(classId);
+        } else {
+            selectedClasses = selectedClasses.filter(id => id !== classId);
         }
-    }, 5000);
-}
+        
+        updateClassDisplay();
+    }
+
+
+
+    // 根据年级过滤班级选项
+    function filterClassesByGrade(selectedGrade) {
+        const classItems = document.querySelectorAll('.class-dropdown-item');
+        const classCheckboxes = document.querySelectorAll('.class-checkbox');
+        
+        // 根据年级显示/隐藏班级选项
+        classItems.forEach(item => {
+            const checkbox = item.querySelector('.class-checkbox');
+            if (checkbox) {
+                const optionGrade = checkbox.getAttribute('data-grade');
+                if (selectedGrade && optionGrade === selectedGrade) {
+                    item.style.display = 'flex';
+                } else if (selectedGrade) {
+                    item.style.display = 'none';
+                    // 如果该班级已被选中，从选中列表中移除
+                    const classId = checkbox.id.replace('class_', '');
+                    selectedClasses = selectedClasses.filter(cls => cls !== classId);
+                    checkbox.checked = false;
+                } else {
+                    // 如果没有选择年级，显示所有班级
+                    item.style.display = 'flex';
+                }
+            }
+        });
+        
+        updateClassDisplay();
+    }
+
+    // 更新班级显示
+    function updateClassDisplay() {
+        const dropdownText = document.getElementById('classDropdownText');
+        const countSpan = document.getElementById('selectedClassCount');
+        const hiddenInput = document.getElementById('selectedClassesInput');
+        
+        // 更新计数
+        if (selectedClasses.includes('all')) {
+            // 计算当前可见的班级数量
+            const visibleClasses = document.querySelectorAll('.class-checkbox:not([style*="display: none"])');
+            const visibleClassCount = Array.from(visibleClasses).filter(checkbox => {
+                const item = checkbox.closest('.class-dropdown-item');
+                return item && item.style.display !== 'none';
+            }).length;
+            
+            countSpan.textContent = visibleClassCount;
+            dropdownText.textContent = '所有班级';
+            hiddenInput.value = 'all';
+        } else {
+            countSpan.textContent = selectedClasses.length;
+            if (selectedClasses.length === 0) {
+                dropdownText.textContent = '请选择班级';
+                hiddenInput.value = '';
+            } else {
+                dropdownText.textContent = `已选择 ${selectedClasses.length} 个班级`;
+                hiddenInput.value = selectedClasses.join(',');
+            }
+        }
+    }
+
+    // 阻止点击表单内的元素时关闭下拉菜单
+    document.addEventListener('click', function(event) {
+         const dropdowns = document.querySelectorAll('.class-dropdown');
+         let isInsideDropdown = false;
+         
+         dropdowns.forEach(dropdown => {
+             if (dropdown.contains(event.target)) {
+                 isInsideDropdown = true;
+             }
+         });
+
+         if (!isInsideDropdown) {
+             closeAllDropdowns();
+         }
+     });
+
+    
+     // 表单验证和跳转函数保持不变
+    function validateForm() {
+        const academicYear = document.querySelector('#analysisForm [name="academic_year"]').value;
+        const exam = document.querySelector('#analysisForm [name="exam"]').value;
+        const gradeLevel = document.querySelector('#analysisForm [name="grade_level"]').value;
+        
+        if (!academicYear || !exam || !gradeLevel) {
+            alert('请先选择学年、考试和年级！');
+            return false;
+        }
+        return true;
+    }
+
+    function goToClassAnalysis() {
+        if (validateForm()) {
+            // 验证是否选择了班级
+            if (selectedClasses.length === 0) {
+                alert('请先选择要分析的班级！');
+                return;
+            }
+            
+            const form = document.getElementById('analysisForm');
+            const formData = new FormData(form);
+            const params = new URLSearchParams(formData);
+            
+            // 添加选中的班级信息
+            if (selectedClasses.includes('all')) {
+                params.append('selected_classes', 'all');
+            } else {
+                selectedClasses.forEach(className => {
+                    params.append('selected_classes', className);
+                });
+            }
+            
+            window.location.href = '{% url "score_analysis_class" %}?' + params.toString();
+        }
+    }
+
+    function goToStudentAnalysis() {
+        if (validateForm()) {
+            const form = document.getElementById('analysisForm');
+            const formData = new FormData(form);
+            const params = new URLSearchParams(formData);
+            window.location.href = '{% url "score_analysis_student" %}?' + params.toString();
+        }
+    }
+
+    // 页面加载完成后的初始化
+    document.addEventListener('DOMContentLoaded', function() {
+        // 添加页面加载动画
+        const cards = document.querySelectorAll('.analysis-card');
+        cards.forEach((card, index) => {
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(20px)';
+            setTimeout(() => {
+                card.style.transition = 'all 0.5s ease';
+                card.style.opacity = '1';
+                card.style.transform = 'translateY(0)';
+            }, index * 200);
+        });
+        
+        // 添加表单验证提示
+        const form = document.getElementById('analysisForm');
+        if (form) {
+            const inputs = form.querySelectorAll('input[type="hidden"]');
+            inputs.forEach(input => {
+                input.addEventListener('change', function() {
+                    validateFormFields();
+                });
+            });
+        }
+    });
+
+    // 表单字段验证
+    function validateFormFields() {
+        const academicYear = document.getElementById('selectedAcademicYear').value;
+        const exam = document.getElementById('selectedExam').value;
+        const grade = document.getElementById('selectedGrade').value;
+        
+        const analysisButtons = document.querySelectorAll('.analysis-card .btn');
+        
+        if (academicYear && exam && grade) {
+            analysisButtons.forEach(btn => {
+                btn.classList.remove('disabled');
+                btn.removeAttribute('disabled');
+            });
+        } else {
+            analysisButtons.forEach(btn => {
+                btn.classList.add('disabled');
+                btn.setAttribute('disabled', 'disabled');
+            });
+        }
+    }
+
 </script>
 {% endblock %}
