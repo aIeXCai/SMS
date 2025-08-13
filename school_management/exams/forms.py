@@ -508,9 +508,9 @@ class ScoreAnalysisForm(forms.Form):
                     f"选择的班级中有不属于{grade_level}的班级。"
                 )
         
-        # 限制班级数量
-        if selected_classes and selected_classes.count() > 6:
-            raise forms.ValidationError("最多只能选择6个班级进行对比分析。")
+        # 限制班级数量（可选择更多班级进行对比分析）
+        if selected_classes and selected_classes.count() > 20:
+            raise forms.ValidationError("最多只能选择20个班级进行对比分析。")
         
         return cleaned_data
 

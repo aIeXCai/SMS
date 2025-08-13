@@ -2099,19 +2099,26 @@ def _analyze_multiple_classes(selected_classes, exam):
         if avg_total > highest_avg:
             highest_avg = avg_total
         
-        # 成绩分布统计
-        score_dist = [0, 0, 0, 0, 0]  # 优秀(90+), 良好(80-89), 中等(70-79), 及格(60-69), 不及格(<60)
+        # 等级分布统计（基于百分比）
+        score_dist = [0, 0, 0, 0, 0]  # 特优(95%+), 优秀(85%-95%), 良好(70%-85%), 及格(60%-70%), 不及格(<60%)
+        
+        # 计算满分
+        exam_subjects = exam.exam_subjects.all()
+        total_max_score = sum(es.max_score for es in exam_subjects)
+        
         for total in total_scores_list:
-            if total >= 90:
-                score_dist[0] += 1
-            elif total >= 80:
-                score_dist[1] += 1
-            elif total >= 70:
-                score_dist[2] += 1
-            elif total >= 60:
-                score_dist[3] += 1
-            else:
-                score_dist[4] += 1
+            if total_max_score > 0:
+                percentage = (total / total_max_score) * 100
+                if percentage >= 95:
+                    score_dist[0] += 1  # 特优(95%+)
+                elif percentage >= 85:
+                    score_dist[1] += 1  # 优秀(85%-95%)
+                elif percentage >= 70:
+                    score_dist[2] += 1  # 良好(70%-85%)
+                elif percentage >= 60:
+                    score_dist[3] += 1  # 及格(60%-70%)
+                else:
+                    score_dist[4] += 1  # 不及格(<60%)
         
         score_distributions[class_name] = score_dist
         

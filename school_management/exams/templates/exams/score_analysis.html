@@ -5,35 +5,9 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+<link rel="stylesheet" href="{% static 'css/score_analysis.css' %}">
+
 <style>
-    .page-header {
-        background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
-        color: white;
-        padding: 2rem 0;
-        margin-bottom: 2rem;
-        border-radius: 10px;
-    }
-
-    .page-header h1 {
-        margin: 0;
-        font-weight: 600;
-    }
-
-    .page-header .breadcrumb {
-        background: transparent;
-        margin: 0;
-        padding: 0;
-    }
-
-    .page-header .breadcrumb-item a {
-        color: rgba(255, 255, 255, 0.8);
-        text-decoration: none;
-    }
-
-    .page-header .breadcrumb-item.active {
-        color: white;
-    }
-
     .filter-card {
         border: none;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
@@ -124,8 +98,6 @@
     .student-analysis .analysis-icon {
         color: #28a745;
     }
-
-
 
     .class-selection-container {
         display: flex;
@@ -273,15 +245,9 @@
 <div class="page-header">
     <div class="container-fluid">
         <div class="row align-items-center">
-            <div class="col-md-6">
+            <div class="col-md-8">
                 <h1><i class="fas fa-chart-line me-3"></i>{{ page_title }}</h1>
-                <nav aria-label="breadcrumb">
-                    <ol class="breadcrumb">
-                        <li class="breadcrumb-item"><a href="{% url 'student_list' %}">首页</a></li>
-                        <li class="breadcrumb-item"><a href="{% url 'score_list' %}">成绩管理</a></li>
-                        <li class="breadcrumb-item active">成绩分析</li>
-                    </ol>
-                </nav>
+                <p class="mb-0 opacity-75">针对单班级、多班级、年级以及学生个人的成绩分析</p>
             </div>
         </div>
     </div>
