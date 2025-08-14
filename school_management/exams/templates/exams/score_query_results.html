@@ -558,8 +558,7 @@
         text-overflow: ellipsis;
         flex: 1;
     }
-</style>
-
+</style> 
 {% endblock %}
 
 {% block content %}
@@ -570,15 +569,6 @@
             <div class="col-md-8">
                 <h1><i class="fas fa-search-plus me-3"></i>成绩查询结果</h1>
                 <p class="mb-0 opacity-75">查看学生成绩详细信息和统计数据</p>
-            </div>
-            <div class="col-md-4 text-end">
-                <nav aria-label="breadcrumb">
-                    <ol class="breadcrumb mb-0">
-                        <li class="breadcrumb-item"><a href="{% url 'score_list' %}" class="text-white-50">成绩管理</a></li>
-                        <li class="breadcrumb-item"><a href="{% url 'score_query' %}" class="text-white-50">成绩查询</a></li>
-                        <li class="breadcrumb-item active text-white">查询结果</li>
-                    </ol>
-                </nav>
             </div>
         </div>
     </div>
