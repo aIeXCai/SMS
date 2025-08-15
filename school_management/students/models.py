@@ -17,11 +17,11 @@ GRADE_LEVEL_CHOICES = [
 CLASS_NAME_CHOICES = [(f'{i}班', f'{i}班') for i in range(1, 21)]
 
 STATUS_CHOICES = [
-    ('在讀', '在读'),
-    ('轉學', '转学'),
-    ('休學', '休学'),
-    ('復學', '复学'),
-    ('畢業', '毕业'),
+    ('在读', '在读'),
+    ('转学', '转学'),
+    ('休学', '休学'),
+    ('复学', '复学'),
+    ('毕业', '毕业'),
 ]
 
 class Class(models.Model):
@@ -65,7 +65,7 @@ class Student(models.Model):
         blank=True
     )
     current_class = models.ForeignKey(Class, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="当前班级") # 保持與 Class 的外鍵關係
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='在讀', verbose_name="在校状态")
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='在读', verbose_name="在校状态")
     
     id_card_number = models.CharField(
         max_length=18, 

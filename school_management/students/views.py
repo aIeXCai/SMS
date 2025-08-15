@@ -53,9 +53,9 @@ def student_list(request):
     # 計算統計數據
     all_students = Student.objects.all()  # 獲取所有學生用於統計
     total_students = all_students.count()
-    active_students = all_students.filter(status='在讀').count()
-    graduated_students = all_students.filter(status='畢業').count()
-    suspended_students = all_students.filter(status='休學').count()
+    active_students = all_students.filter(status='在读').count()
+    graduated_students = all_students.filter(status='毕业').count()
+    suspended_students = all_students.filter(status='休学').count()
 
     return render(request, 'students/student_list.html', {
         'students': students,  # 傳遞篩選後的學生對象
