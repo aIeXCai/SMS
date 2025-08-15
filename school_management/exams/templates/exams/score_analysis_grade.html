@@ -99,8 +99,8 @@
             </div>
             <div class="col-md-3">
                 <div class="stats-card text-center">
-                    <div class="stats-number">{{ excellent_rate|floatformat:1 }}%</div>
-                    <div class="stats-label">年级优秀率</div>
+                    <div class="stats-number">{{ total_max_score|default:0 }}</div>
+                    <div class="stats-label">本场考试满分</div>
                 </div>
             </div>
         </div>
@@ -141,7 +141,7 @@
             <div class="col-md-12">
                 <div class="chart-card">
                     <div class="card-header">
-                        <h5><i class="fas fa-chart-area"></i> 年级成绩分布箱线图</h5>
+                        <h5><i class="fas fa-chart-area"></i> 年级整体各等级分布</h5>
                     </div>
                     <div class="card-body">
                         <div class="chart-container-large">
@@ -199,9 +199,9 @@
                                         <th>平均总分</th>
                                         <th>最高分</th>
                                         <th>最低分</th>
+                                        <th>特优率(%)</th>
                                         <th>优秀率(%)</th>
-                                        <th>良好率(%)</th>
-                                        <th>及格率(%)</th>
+                                        <th>总及格率(%)</th>
                                         {% for subject in subjects %}
                                         <th>{{ subject.name }}</th>
                                         {% endfor %}
@@ -316,7 +316,7 @@
                         ticks: {
                             color: '#6c757d',
                             font: {
-                                size: 12
+                                size: 14
                             }
                         }
                     }
@@ -367,7 +367,7 @@
                         pointLabels: {
                             color: '#495057',
                             font: {
-                                size: 12,
+                                size: 18,
                                 weight: '500'
                             }
                         }
@@ -440,7 +440,7 @@
                         ticks: {
                             color: '#6c757d',
                             font: {
-                                size: 12
+                                size: 18
                             }
                         }
                     },
@@ -451,7 +451,7 @@
                         ticks: {
                             color: '#6c757d',
                             font: {
-                                size: 12
+                                size: 18
                             }
                         }
                     }
@@ -461,12 +461,13 @@
 
         // 4. 各班级等级分布堆叠柱状图
         const classGradeDistributionCtx = document.getElementById('classGradeDistributionChart').getContext('2d');
-        const gradeLabels = ['优秀', '良好', '及格', '不及格'];
+        const gradeLabels = ['特优(95%+)', '优秀(85%-95%)', '良好(70%-85%)', '及格(60%-70%)', '不及格(<60%)'];
         const gradeColors = [
-            'rgba(16,185,129,0.8)',  // 绿色 - 优秀
-            'rgba(59,130,246,0.8)',  // 蓝色 - 良好
-            'rgba(245,158,11,0.8)',  // 橙色 - 及格
-            'rgba(239,68,68,0.8)'    // 红色 - 不及格
+            'rgba(16,185,129,0.8)',  // 绿色 - 特优
+            'rgba(59,130,246,0.8)',  // 蓝色 - 优秀
+            'rgba(245,158,11,0.8)',  // 橙色 - 良好
+            'rgba(239,68,68,0.8)',   // 红色 - 及格
+            'rgba(107,114,128,0.8)'  // 灰色 - 不及格
         ];
 
         new Chart(classGradeDistributionCtx, {
@@ -478,7 +479,8 @@
                     data: chartData.class_names.map(className => chartData.class_grade_distribution[className][index]),
                     backgroundColor: gradeColors[index],
                     borderColor: gradeColors[index].replace('0.8', '1'),
-                    borderWidth: 1
+                    borderWidth: 1,
+                    borderRadius: 4
                 }))
             },
             options: {
@@ -493,7 +495,7 @@
                         ticks: {
                             color: '#6c757d',
                             font: {
-                                size: 11
+                                size: 14
                             }
                         }
                     },
@@ -506,7 +508,10 @@
                         ticks: {
                             color: '#6c757d',
                             font: {
-                                size: 12
+                                size: 18
+                            },
+                            callback: function(value) {
+                                return Number.isInteger(value) ? value : " ";
                             }
                         }
                     }
@@ -593,7 +598,7 @@
                         ticks: {
                             color: '#6c757d',
                             font: {
-                                size: 12
+                                size: 18
                             },
                             callback: function(value) {
                                 return value.toFixed(2);
@@ -607,7 +612,7 @@
                         ticks: {
                             color: '#6c757d',
                             font: {
-                                size: 12
+                                size: 18
                             }
                         }
                     }

@@ -11,7 +11,7 @@ from django.views.decorators.csrf import csrf_exempt
 import openpyxl
 from datetime import datetime
 from decimal import Decimal
-import io, json, statistics
+import io, json, statistics, re
 from collections import defaultdict
 from .models import Exam, ExamSubject, Score, SUBJECT_CHOICES, SUBJECT_DEFAULT_MAX_SCORES, ACADEMIC_YEAR_CHOICES
 from .forms import ExamCreateForm, ExamSubjectFormSet, ScoreForm, ScoreBatchUploadForm, ScoreQueryForm, ScoreAddForm, ScoreAnalysisForm
@@ -420,7 +420,7 @@ def update_grade_rankings(exam_id, grade_level=None):
             if previous_score is not None and total_score != previous_score:
                 current_rank = i + 1  # 跳过并列的位次
             
-            # 更新该学生在该考试中所有科目的排名
+            # 更新该学生在该考试所有科目的排名
             Score.objects.filter(
                 exam=exam,
                 student_id=student_id
@@ -1566,6 +1566,8 @@ def score_query_export(request):
             result.student.get_grade_level_display() if result.student.grade_level else "N/A",
             result.class_obj.class_name if result.class_obj else "N/A",
             result.exam.name,
+            result.exam.academic_year or "N/A",
+            result.exam.date.strftime('%Y-%m-%d')
         ]
         
         # 添加各科目成绩 - 按照SUBJECT_CHOICES顺序
@@ -1624,7 +1626,6 @@ def score_analysis(request):
     def extract_class_number(class_obj):
         class_name = class_obj.class_name
         # 提取班级编号，例如从'1班'中提取'1'
-        import re
         match = re.search(r'(\d+)', class_name)
         return int(match.group(1)) if match else 0
     
@@ -2216,7 +2217,9 @@ def _analyze_grade(exam, grade_level):
         return value
     
     # 获取该年级的所有班级
-    classes = Class.objects.filter(grade_level=grade_level).order_by('class_name')
+    # 使用自定义排序，按班级名称中的数字排序
+    classes = Class.objects.filter(grade_level=grade_level)
+    classes = sorted(classes, key=lambda x: int(''.join(filter(str.isdigit, x.class_name))) if any(c.isdigit() for c in x.class_name) else 999)
     
     # 获取该年级该考试的所有成绩
     all_scores = Score.objects.filter(
@@ -2230,7 +2233,7 @@ def _analyze_grade(exam, grade_level):
     
     # 基本统计
     total_students = all_scores.values('student').distinct().count()
-    total_classes = classes.count()
+    total_classes = len(classes)
     
     # 按班级分组统计
     class_statistics = []
@@ -2294,16 +2297,17 @@ def _analyze_grade(exam, grade_level):
         
         class_averages.append(decimal_to_float(avg_total))
         
-        # 计算各等级人数和比例
+        # 计算各等级人数和比例（按照新的5级划分）
         student_count = len(class_total_scores)
-        excellent_count = sum(1 for score in class_total_scores if score >= total_max_score * 0.95)
-        good_count = sum(1 for score in class_total_scores if total_max_score * 0.85 <= score < total_max_score * 0.95)
-        pass_count = sum(1 for score in class_total_scores if total_max_score * 0.6 <= score < total_max_score * 0.85)
-        fail_count = sum(1 for score in class_total_scores if score < total_max_score * 0.6)
+        excellent_plus_count = sum(1 for score in class_total_scores if score >= total_max_score * 0.95)  # 特优(95%+)
+        excellent_count = sum(1 for score in class_total_scores if total_max_score * 0.85 <= score < total_max_score * 0.95)  # 优秀(85%-95%)
+        good_count = sum(1 for score in class_total_scores if total_max_score * 0.70 <= score < total_max_score * 0.85)  # 良好(70%-85%)
+        pass_count = sum(1 for score in class_total_scores if total_max_score * 0.60 <= score < total_max_score * 0.70)  # 及格(60%-70%)
+        fail_count = sum(1 for score in class_total_scores if score < total_max_score * 0.60)  # 不及格(<60%)
         
-        excellent_rate = (excellent_count / student_count * 100) if student_count > 0 else 0
-        good_rate = (good_count / student_count * 100) if student_count > 0 else 0
-        pass_rate = ((excellent_count + good_count + pass_count) / student_count * 100) if student_count > 0 else 0
+        excellent_rate = (excellent_plus_count / student_count * 100) if student_count > 0 else 0  # 特优率
+        good_rate = (excellent_count / student_count * 100) if student_count > 0 else 0  # 优秀率
+        pass_rate = ((excellent_plus_count + excellent_count + good_count + pass_count) / student_count * 100) if student_count > 0 else 0  # 总及格率
         
         # 各科目平均分
         subject_averages = []
@@ -2328,22 +2332,24 @@ def _analyze_grade(exam, grade_level):
             'subject_averages': subject_averages
         })
         
-        # 班级等级分布（用于堆叠柱状图）
-        class_grade_distribution[class_name] = [excellent_count, good_count, pass_count, fail_count]
+        # 班级等级分布（用于堆叠柱状图）- 5个等级
+        class_grade_distribution[class_name] = [excellent_plus_count, excellent_count, good_count, pass_count, fail_count]
     
     # 年级成绩分布（总分分段统计）
-    score_ranges = ['优秀(95%+)', '良好(85%-95%)', '及格(60%-85%)', '不及格(<60%)']
-    score_distribution = [0, 0, 0, 0]
+    score_ranges = ['特优(95%+)', '优秀(85%-95%)', '良好(70%-85%)', '及格(60%-70%)', '不及格(<60%)']
+    score_distribution = [0, 0, 0, 0, 0]
     
     for total_score in total_scores_list:
         if total_score >= total_max_score * 0.95:
             score_distribution[0] += 1
         elif total_score >= total_max_score * 0.85:
             score_distribution[1] += 1
-        elif total_score >= total_max_score * 0.6:
+        elif total_score >= total_max_score * 0.70:
             score_distribution[2] += 1
-        else:
+        elif total_score >= total_max_score * 0.60:
             score_distribution[3] += 1
+        else:
+            score_distribution[4] += 1
     
     # 科目难度系数计算（平均分/满分）
     difficulty_coefficients = []
@@ -2381,6 +2387,7 @@ def _analyze_grade(exam, grade_level):
         'excellent_rate': excellent_rate,
         'class_statistics': class_statistics,
         'subjects': subjects,
+        'total_max_score': total_max_score,
         'chart_data_json': json.dumps(chart_data, ensure_ascii=False)
     }
 
