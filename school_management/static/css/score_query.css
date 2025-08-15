@@ -173,7 +173,7 @@ select.form-select option:checked:hover {
     position: relative;
     width: 100%;
     color: var(--text-color);
-    z-index: 1; /* 为容器设置基础层级 */
+    z-index: 1050; /* 提高容器z-index值 */
 }
 
 .subject-dropdown-toggle {
@@ -219,7 +219,7 @@ select.form-select option:checked:hover {
     border: 1px solid var(--border-color);
     border-radius: var(--border-radius-small);
     box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15); /* 增强阴影效果 */
-    z-index: 9999; /* 提高z-index值确保在最上层显示 */
+    z-index: 99999; /* 大幅提高z-index值确保在最上层显示 */
     max-height: 250px;
     overflow-y: auto;
     display: none;
@@ -357,6 +357,8 @@ select.form-select option:checked:hover {
     border-radius: var(--border-radius);
     box-shadow: var(--card-shadow);
     overflow: hidden;
+    position: relative;
+    z-index: 1; /* 确保表格的z-index低于下拉菜单 */
 }
 
 .table {

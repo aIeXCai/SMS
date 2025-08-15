@@ -42,31 +42,37 @@
         </div>
         <div class="card-body">
             <form method="get" action="{% url 'score_query_results' %}" id="quickFilterForm">
+                <!-- 学年、年级、日期 -->
                 <div class="row g-3">
+                    <!-- 学年 -->
                     <div class="col-md-2">
                         <div class="form-group-vertical">
                             <label for="{{ form.academic_year.id_for_label }}" class="form-label">学年</label>
                             {{ form.academic_year }}
                         </div>
                     </div>
+                    <!-- 年级 -->
                     <div class="col-md-2">
                         <div class="form-group-vertical">
                             <label for="{{ form.grade_level.id_for_label }}" class="form-label">年级</label>
                             {{ form.grade_level }}
                         </div>
                     </div>
+                    <!-- 开始日期 -->
                     <div class="col-md-2">
                         <div class="form-group-vertical">
                             <label for="{{ form.date_from.id_for_label }}" class="form-label">开始日期</label>
                             {{ form.date_from }}
                         </div>
                     </div>
+                    <!-- 结束日期 -->
                     <div class="col-md-2">
                         <div class="form-group-vertical">
                             <label for="{{ form.date_to.id_for_label }}" class="form-label">结束日期</label>
                             {{ form.date_to }}
                         </div>
                     </div>
+                    <!-- 考试 -->
                     <div class="col-md-2">
                         <div class="form-group-vertical">
                             <label for="{{ form.exam.id_for_label }}" class="form-label">考试</label>
@@ -121,20 +127,12 @@
                             </div>
                         </div>
                     </div>
-                </div>
-                
-                <!-- 操作按钮单独一行 -->
-                <div class="row mt-3">
-                    <div class="col-12">
-                        <div class="d-flex flex-wrap gap-2">
-                            <button type="submit" class="btn btn-primary">
+                    <div class="col-md-2">
+                        <div class="form-group-vertical">
+                            <label class="form-label" style="visibility: hidden;">查询</label>
+                            <button type="submit" class="btn btn-primary w-100">
                                 <i class="fas fa-search"></i> 查询
                             </button>
-                            {% if has_results %}
-                                <a href="{% url 'score_query_export' %}?{{ request.GET.urlencode }}" class="btn btn-success">
-                                    <i class="fas fa-file-excel"></i> 导出Excel
-                                </a>
-                            {% endif %}
                         </div>
                     </div>
                 </div>
@@ -159,6 +157,11 @@
                             （当前显示第 <strong>{{ results.start_index }}</strong> - <strong>{{ results.end_index }}</strong> 条）
                         {% endif %}
                     </p>
+                </div>
+                <div class="col-auto">
+                    <a href="{% url 'score_query_export' %}?{{ request.GET.urlencode }}" class="btn btn-success">
+                        <i class="fas fa-file-excel"></i> 导出Excel
+                    </a>
                 </div>
             </div>
         </div>
@@ -353,16 +356,39 @@
         const selectAllCheckbox = document.getElementById('select-all-subjects');
         const subjectCheckboxes = document.querySelectorAll('.subject-checkbox');
         
+        // 将下拉菜单移至body底部，避免被其他元素截断
+        document.body.appendChild(subjectDropdownMenu);
+        
+        // 更新下拉菜单位置
+        function updateDropdownPosition() {
+            if (subjectDropdownMenu.classList.contains('show')) {
+                const toggleRect = subjectDropdownToggle.getBoundingClientRect();
+                subjectDropdownMenu.style.position = 'absolute';
+                subjectDropdownMenu.style.top = (toggleRect.bottom + window.scrollY) + 'px';
+                subjectDropdownMenu.style.left = (toggleRect.left + window.scrollX) + 'px';
+                subjectDropdownMenu.style.width = toggleRect.width + 'px';
+            }
+        }
+        
         // 切换下拉菜单显示
         subjectDropdownToggle.addEventListener('click', function(e) {
             e.stopPropagation();
+            const isCurrentlyHidden = !subjectDropdownMenu.classList.contains('show');
             subjectDropdownMenu.classList.toggle('show');
             this.classList.toggle('active');
+            
+            if (isCurrentlyHidden) {
+                updateDropdownPosition();
+            }
         });
+        
+        // 在滚动或调整窗口大小时更新位置
+        window.addEventListener('scroll', updateDropdownPosition);
+        window.addEventListener('resize', updateDropdownPosition);
         
         // 点击外部关闭下拉菜单
         document.addEventListener('click', function(e) {
-            if (!e.target.closest('.subject-dropdown')) {
+            if (!e.target.closest('.subject-dropdown') && !e.target.closest('#subjectDropdownMenu')) {
                 subjectDropdownMenu.classList.remove('show');
                 subjectDropdownToggle.classList.remove('active');
             }
