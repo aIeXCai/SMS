@@ -1,0 +1,623 @@
+/* 
+ * 成绩查询相关页面的共同样式
+ * 用于 score_query.html 和 score_query_results.html
+ */
+
+/* ===== CSS 变量定义 ===== */
+:root {
+    --primary-gradient: rgb(1, 135, 108);
+    --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    --border-radius: 15px;
+    --border-radius-small: 8px;
+    --transition: all 0.3s ease;
+    --table-bg-gradient: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    --primary-color: #007bff;
+    --primary-hover: #0056b3;
+    --text-color: #495057;
+    --border-color: #ced4da;
+    --hover-bg: #f8f9fa;
+    --focus-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    --success-gradient: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    --secondary-gradient: linear-gradient(135deg, #6c757d 0%, #545b62 100%);
+}
+
+/* ===== 页面头部样式 ===== */
+.page-header {
+    background: var(--primary-gradient);
+    color: white;
+    padding: 2rem 0;
+    margin-bottom: 2rem;
+    border-radius: 10px;
+}
+
+.page-header h1 {
+    margin: 0;
+    font-weight: 600;
+}
+
+/* ===== 卡片样式 ===== */
+.query-card,
+.filter-card,
+.results-card {
+    background: white;
+    border-radius: var(--border-radius);
+    box-shadow: var(--card-shadow);
+    border: none;
+    overflow: visible; /* 修改为 visible 以防止下拉菜单被截断 */
+    margin-bottom: 2rem;
+}
+
+.query-card .card-header,
+.filter-card .card-header,
+.results-card .card-header {
+    background: var(--table-bg-gradient);
+    border-bottom: 1px solid #dee2e6;
+    border-radius: var(--border-radius) var(--border-radius) 0 0;
+    padding: 1.5rem;
+    color: var(--text-color);
+    border: none;
+}
+
+.query-card .card-body,
+.filter-card .card-body,
+.results-card .card-body {
+    overflow: visible; /* 确保卡片主体部分也允许下拉菜单溢出 */
+}
+
+/* ===== 表单样式 ===== */
+.form-group-vertical {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 1rem;
+}
+
+.form-group-vertical .form-label {
+    margin-bottom: 0.5rem;
+    color: rgb(0, 0, 0);
+    font-weight: 500;
+}
+
+.form-group-vertical .form-control,
+.form-group-vertical .form-select {
+    width: 100%;
+}
+
+.form-control, .form-select {
+    background-color: #fff;
+    background-clip: padding-box;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-small);
+    transition: var(--transition);
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+    font-weight: 400;
+    line-height: 1.5;
+    color: var(--text-color);
+    min-height: calc(1.5em + 1.5rem + 2px);
+    box-sizing: border-box;
+}
+
+.form-control:hover, .form-select:hover {
+    border-color: #80bdff;
+    box-shadow: 0 0 0 0.1rem rgba(0, 123, 255, 0.1);
+}
+
+.form-control:focus, .form-select:focus {
+    color: var(--text-color);
+    background-color: #fff;
+    border-color: #80bdff;
+    outline: 0;
+    box-shadow: var(--focus-shadow);
+}
+
+/* 下拉菜单选项样式 */
+select.form-control option,
+select.form-select option {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--hover-bg);
+    transition: var(--transition);
+    color: var(--text-color);
+    font-size: 1rem;
+    line-height: 1.5;
+    background-color: #fff;
+}
+
+select.form-control option:hover,
+select.form-select option:hover {
+    background-color: var(--hover-bg);
+    color: #16181b;
+}
+
+select.form-control option:checked,
+select.form-select option:checked {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+select.form-control option:checked:hover,
+select.form-select option:checked:hover {
+    background-color: var(--primary-hover);
+    color: white;
+}
+
+/* ===== 按钮样式 ===== */
+.btn {
+    border-radius: var(--border-radius-small);
+    font-weight: 500;
+    padding: 0.75rem 1.5rem;
+    transition: var(--transition);
+    margin-right: 0.5rem;
+    margin-bottom: 0.5rem;
+    border: none;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.btn-primary {
+    background: var(--primary-gradient);
+}
+
+.btn-success {
+    background: var(--success-gradient);
+}
+
+.btn-secondary {
+    background: var(--secondary-gradient);
+}
+
+/* ===== 科目多选下拉样式 ===== */
+.subject-dropdown {
+    position: relative;
+    width: 100%;
+    color: var(--text-color);
+    z-index: 1; /* 为容器设置基础层级 */
+}
+
+.subject-dropdown-toggle {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-small);
+    background-color: #fff;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: var(--transition);
+    font-size: 1rem;
+    color: var(--text-color);
+}
+
+.subject-dropdown-toggle:hover {
+    border-color: var(--primary-color);
+    box-shadow: var(--focus-shadow);
+}
+
+.subject-dropdown-toggle.active {
+    border-color: var(--primary-color);
+    box-shadow: var(--focus-shadow);
+}
+
+.subject-dropdown-arrow {
+    transition: transform 0.3s ease;
+    color: #6c757d;
+}
+
+.subject-dropdown-toggle.active .subject-dropdown-arrow {
+    transform: rotate(180deg);
+}
+
+.subject-dropdown-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-small);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15); /* 增强阴影效果 */
+    z-index: 9999; /* 提高z-index值确保在最上层显示 */
+    max-height: 250px;
+    overflow-y: auto;
+    display: none;
+    margin-top: 2px;
+    min-width: 200px;
+    width: 100%;
+}
+
+.subject-dropdown-menu.show {
+    display: block;
+}
+
+.subject-dropdown-header {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #e9ecef;
+    background-color: var(--hover-bg);
+}
+
+.subject-dropdown-item {
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    display: flex;
+    align-items: center;
+    white-space: nowrap;
+    min-height: 36px;
+}
+
+.subject-dropdown-item:hover {
+    background-color: var(--hover-bg);
+}
+
+.subject-dropdown-item.checked {
+    background-color: #e3f2fd;
+    color: var(--primary-color);
+    font-weight: 500;
+}
+
+.subject-selected-count {
+    color: #6c757d;
+    font-size: 0.85rem;
+}
+
+.subject-dropdown-items .form-check {
+    margin-bottom: 0;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    display: flex;
+    align-items: center;
+    white-space: nowrap;
+    min-width: 0;
+}
+
+.subject-dropdown-items .form-check:hover {
+    background-color: var(--hover-bg);
+}
+
+.subject-dropdown-items .form-check-input {
+    margin-right: 0.5rem;
+    margin-left: 0;
+    flex-shrink: 0;
+}
+
+.subject-dropdown-items .form-check-label {
+    font-size: 0.9rem;
+    color: var(--text-color);
+    cursor: pointer;
+    margin-bottom: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+}
+
+/* ===== 统计信息样式 ===== */
+.stats-summary {
+    background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    border-left: 4px solid #2196f3;
+}
+
+.stats-summary .stats-icon {
+    width: 50px;
+    height: 50px;
+    background: #2196f3;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.5rem;
+}
+
+/* ===== 使用说明样式 ===== */
+.help-section {
+    background: var(--table-bg-gradient);
+    border-radius: var(--border-radius);
+    padding: 2rem;
+    margin-top: 2rem;
+}
+
+.help-item {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+    padding: 0.75rem;
+    background: white;
+    border-radius: 0.5rem;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.help-item:last-child {
+    margin-bottom: 0;
+}
+
+.help-icon {
+    flex-shrink: 0;
+    width: 2.5rem;
+    height: 2.5rem;
+    background: var(--primary-gradient);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 1rem;
+}
+
+/* ===== 表格样式 ===== */
+.table-container {
+    background: white;
+    border-radius: var(--border-radius);
+    box-shadow: var(--card-shadow);
+    overflow: hidden;
+}
+
+.table {
+    margin-bottom: 0;
+    font-size: 0.8rem;
+    table-layout: fixed;
+    width: 100%;
+}
+
+.table th {
+    background: var(--table-bg-gradient);
+    border: none;
+    font-weight: 600;
+    color: var(--text-color);
+    padding: 0.75rem;
+    text-align: center;
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.table td {
+    padding: 0.75rem;
+    vertical-align: middle;
+    border-color: #f1f3f4;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* 统一的列宽设置 */
+.table th:nth-child(1), .table td:nth-child(1) { min-width: 100px; }
+.table th:nth-child(2), .table td:nth-child(2) { min-width: 120px; }
+.table th:nth-child(3), .table td:nth-child(3) { min-width: 80px; }
+.table th:nth-child(4), .table td:nth-child(4) { min-width: 80px; }
+.table th:nth-child(5), .table td:nth-child(5) { min-width: 150px; }
+
+.score-cell {
+    background-color: var(--hover-bg);
+    font-weight: 500;
+    border-radius: 4px;
+}
+
+.total-score {
+    background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+    font-weight: bold;
+    color: #1976d2;
+    border-radius: 4px;
+    min-width: 80px;
+}
+
+.rank-cell {
+    background: linear-gradient(135deg, #fff3e0 0%, #ffcc02 100%);
+    font-weight: bold;
+    color: #f57c00;
+    border-radius: 4px;
+    min-width: 80px;
+}
+
+.table tbody tr {
+    transition: var(--transition);
+}
+
+.table tbody tr:hover {
+    background-color: var(--hover-bg);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.student-info {
+    text-align: left;
+    font-weight: 500;
+}
+
+.student-link {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: 600;
+    transition: color 0.3s ease;
+}
+
+.student-link:hover {
+    color: var(--primary-hover);
+    text-decoration: underline;
+}
+
+.sort-header {
+    position: relative;
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.3s ease;
+}
+
+.sort-header:hover {
+    background-color: #e9ecef;
+}
+
+.sort-btn {
+    color: #6c757d;
+    text-decoration: none;
+    margin-left: 0.5rem;
+    font-size: 0.8rem;
+    transition: color 0.3s ease;
+}
+
+.sort-btn:hover {
+    color: var(--primary-color);
+}
+
+.sort-btn.active {
+    color: var(--primary-color);
+    font-weight: bold;
+}
+
+/* ===== 分页样式 ===== */
+.pagination {
+    justify-content: center;
+    margin-top: 2rem;
+}
+
+.pagination .page-link {
+    border-radius: var(--border-radius-small);
+    margin: 0 0.25rem;
+    border: 1px solid #dee2e6;
+    color: var(--primary-color);
+    padding: 0.75rem 1rem;
+    transition: var(--transition);
+}
+
+.pagination .page-link:hover {
+    background-color: #e9ecef;
+    transform: translateY(-1px);
+}
+
+.pagination .page-item.active .page-link {
+    background: var(--primary-gradient);
+    border-color: var(--primary-color);
+}
+
+/* ===== 空状态样式 ===== */
+.empty-state {
+    text-align: center;
+    padding: 3rem;
+    background: white;
+    border-radius: var(--border-radius);
+    box-shadow: var(--card-shadow);
+}
+
+.empty-state i {
+    font-size: 4rem;
+    color: #6c757d;
+    margin-bottom: 1rem;
+}
+
+/* ===== 提醒消息样式 ===== */
+.alert {
+    border-radius: 10px;
+    border: none;
+    padding: 1rem 1.5rem;
+}
+
+.alert-info {
+    background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%);
+    color: #0c5460;
+}
+
+.alert-success {
+    background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+    color: #155724;
+}
+
+.alert-danger {
+    background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+    color: #721c24;
+}
+
+/* ===== 加载动画 ===== */
+.loading {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid var(--primary-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* ===== 响应式设计 ===== */
+@media (max-width: 1200px) {
+    .table th, .table td {
+        padding: 0.5rem 0.25rem;
+        font-size: 0.75rem;
+    }
+    
+    .table th:nth-child(1), .table td:nth-child(1) { min-width: 80px; }
+    .table th:nth-child(2), .table td:nth-child(2) { min-width: 100px; }
+    .table th:nth-child(5), .table td:nth-child(5) { min-width: 120px; }
+}
+
+@media (max-width: 768px) {
+    .table-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .btn {
+        width: 100%;
+        margin-bottom: 0.5rem;
+        margin-right: 0;
+        padding: 0.5rem 1rem;
+    }
+    
+    .stats-summary {
+        text-align: center;
+    }
+    
+    .form-group-vertical {
+        margin-bottom: 0.75rem;
+    }
+    
+    .subject-dropdown-menu {
+        max-height: 200px;
+    }
+    
+    .page-header {
+        margin-bottom: 1rem;
+        padding: 1.5rem 0;
+    }
+    
+    .page-header h1 {
+        font-size: 1.5rem;
+    }
+    
+    .col-md-2 {
+        margin-bottom: 1rem;
+    }
+    
+    .help-section {
+        padding: 1.5rem;
+        margin-top: 1.5rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .page-header h1 {
+        font-size: 1.5rem;
+    }
+    
+    .stats-summary {
+        text-align: center;
+    }
+    
+    .table {
+        font-size: 0.7rem;
+    }
+}
