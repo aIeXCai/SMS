@@ -40,6 +40,7 @@ urlpatterns = [
     path('scores/analysis/', views.score_analysis, name='score_analysis'),
     path('scores/analysis/class/', views.score_analysis_class, name='score_analysis_class'),
     path('scores/analysis/student/', views.score_analysis_student, name='score_analysis_student'),
+    path('scores/analysis/grade/', views.score_analysis_grade, name='score_analysis_grade'),
     
     # AJAX接口URLs
     path('get_classes_by_grade/', views.get_classes_by_grade, name='get_classes_by_grade'),

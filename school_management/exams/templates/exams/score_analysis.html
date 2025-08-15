@@ -687,16 +687,18 @@
             const formData = new FormData(form);
             const params = new URLSearchParams(formData);
             
-            // 添加选中的班级信息
+            // 如果选择了"所有班级"，跳转到年级分析页面
             if (selectedClasses.includes('all')) {
-                params.append('selected_classes', 'all');
+                // 关键：附带class_selection=all，避免表单校验要求选择具体班级
+                params.append('class_selection', 'all');
+                window.location.href = '{% url "score_analysis_grade" %}?' + params.toString();
             } else {
+                // 添加选中的班级信息
                 selectedClasses.forEach(className => {
                     params.append('selected_classes', className);
                 });
+                window.location.href = '{% url "score_analysis_class" %}?' + params.toString();
             }
-            
-            window.location.href = '{% url "score_analysis_class" %}?' + params.toString();
         }
     }
 
