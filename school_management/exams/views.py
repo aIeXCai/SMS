@@ -1946,6 +1946,7 @@ def _analyze_single_class(scores, target_class, exam):
         if sample_score:
             grade_rank = sample_score.total_score_rank_in_grade
         
+
         
         student_total_scores.append({
             'student_id': student_id,
@@ -2369,7 +2370,8 @@ def _analyze_grade(exam, grade_level):
         'score_ranges': score_ranges,
         'score_distribution': score_distribution,
         'class_grade_distribution': class_grade_distribution,
-        'difficulty_coefficients': difficulty_coefficients
+        'difficulty_coefficients': difficulty_coefficients,
+        'total_max_score': total_max_score,
     }
     
     return {
