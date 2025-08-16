@@ -13,7 +13,7 @@
 <style>
     .chart-container {
         position: relative;
-        height: 350px;
+        height: 340px;
         margin-bottom: 5px;
         padding: 10px;
     }
@@ -32,9 +32,9 @@
         border: none;
         border-radius: var(--border-radius-small);
         box-shadow: var(--shadow-light);
-        margin-bottom: 15px;
         border-left: 4px solid var(--primary-color);
         transition: var(--transition);
+        margin-bottom: 15px;
     }
 
     .subject-card:hover {
@@ -195,7 +195,7 @@
                          <h5><i class="fas fa-chart-line"></i> 各科目平均分雷达图</h5>
                      </div>
                      <div class="card-body">
-                         <div class="chart-container" style="height: 450px;">
+                         <div class="chart-container" style="height: 350px;">
                              <canvas id="subjectRadarChart"></canvas>
                          </div>
                      </div>
@@ -207,7 +207,7 @@
                          <h5><i class="fas fa-chart-area"></i> 科目平均分对比图</h5>
                      </div>
                      <div class="card-body">
-                         <div class="chart-container" style="height: 450px;">
+                         <div class="chart-container" style="height: 350px;">
                              <canvas id="subjectComparisonChart"></canvas>
                          </div>
                      </div>
@@ -219,7 +219,7 @@
                          <h5><i class="fas fa-chart-pie"></i> 总分等级分布饼图</h5>
                      </div>
                      <div class="card-body">
-                         <div class="chart-container" style="height: 450px;">
+                         <div class="chart-container" style="height: 350px;">
                              <canvas id="totalScorePieChart"></canvas>
                          </div>
                      </div>
@@ -231,7 +231,7 @@
                          <h5><i class="fas fa-chart-bar"></i> 各科目等级分布柱状图</h5>
                      </div>
                      <div class="card-body">
-                         <div class="chart-container" style="height: 450px;">
+                         <div class="chart-container" style="height: 350px;">
                              <canvas id="scoreDistributionChart"></canvas>
                          </div>
                      </div>
@@ -448,6 +448,9 @@
         
         // 准备分布数据
         const subjects = Object.keys(chartData.score_distribution);
+        // 定义顺序，从特优到不及格
+        const gradeRangesOrder = ['特优(95%+)', '优秀(85%-95%)', '良好(70%-85%)', '及格(60%-70%)', '不及格(<60%)'];
+        // 为堆叠图保持原来的从下到上顺序（不及格到特优）
         const gradeRanges = ['不及格(<60%)', '及格(60%-70%)', '良好(70%-85%)', '优秀(85%-95%)', '特优(95%+)'];
         const distributionColors = [
             { bg: 'rgba(107, 114, 128, 0.8)', border: '#6B7280' },   // 灰色
@@ -522,8 +525,19 @@
                             padding: 15,
                             usePointStyle: true,
                             font: {
-                                size: 14,
+                                size: 12,
                                 weight: '500'
+                            },
+                            // 自定义排序函数，按照gradeRangesOrder的顺序排列
+                            sort: function(a, b) {
+                                // 获取标签文本
+                                const labelA = a.text;
+                                const labelB = b.text;
+                                // 获取在gradeRangesOrder中的索引
+                                const indexA = gradeRangesOrder.indexOf(labelA);
+                                const indexB = gradeRangesOrder.indexOf(labelB);
+                                // 按照索引排序
+                                return indexA - indexB;
                             }
                         }
                     },
