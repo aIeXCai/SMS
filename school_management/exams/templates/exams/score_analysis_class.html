@@ -14,7 +14,7 @@
     .chart-container {
         position: relative;
         height: 350px;
-        margin-bottom: 10px;
+        margin-bottom: 5px;
         padding: 10px;
     }
 
@@ -47,6 +47,10 @@
         font-weight: 600;
         color: black;
         margin-bottom: 1rem;
+    }
+
+    .subject-card .card-body .row {
+        margin-bottom: 0;
     }
 
     .ranking-table {
@@ -116,7 +120,7 @@
         <div class="container-fluid">
             <div class="row align-items-center">
                 <div class="col">
-                    <h1><i class="fas fa-chart-line me-3"></i>{{ page_title }}</h1>
+                    <h1><i class="fas fa-chart-line me-3"></i>班级成绩分析</h1>
                     <nav aria-label="breadcrumb">
                         <ol class="breadcrumb">
                             <li class="breadcrumb-item"><a href="{% url 'score_analysis' %}">成绩分析</a></li>
@@ -411,7 +415,7 @@
                         pointLabels: {
                             color: '#495057',
                             font: {
-                                size: 18,
+                                size: 15,
                                 weight: '500'
                             }
                         }
@@ -444,13 +448,13 @@
         
         // 准备分布数据
         const subjects = Object.keys(chartData.score_distribution);
-        const gradeRanges = ['特优(95%+)', '优秀(85%-95%)', '良好(70%-85%)', '及格(60%-70%)', '不及格(<60%)'];
+        const gradeRanges = ['不及格(<60%)', '及格(60%-70%)', '良好(70%-85%)', '优秀(85%-95%)', '特优(95%+)'];
         const distributionColors = [
-            { bg: 'rgba(16, 185, 129, 0.8)', border: '#10B981' },   // 翠绿色
-            { bg: 'rgba(59, 130, 246, 0.8)', border: '#3B82F6' },   // 蓝色
-            { bg: 'rgba(245, 158, 11, 0.8)', border: '#F59E0B' },   // 橙色
+            { bg: 'rgba(107, 114, 128, 0.8)', border: '#6B7280' },   // 灰色
             { bg: 'rgba(239, 68, 68, 0.8)', border: '#EF4444' },    // 红色
-            { bg: 'rgba(107, 114, 128, 0.8)', border: '#6B7280' }   // 灰色
+            { bg: 'rgba(245, 158, 11, 0.8)', border: '#F59E0B' },   // 橙色
+            { bg: 'rgba(59, 130, 246, 0.8)', border: '#3B82F6' },   // 蓝色
+            { bg: 'rgba(16, 185, 129, 0.8)', border: '#10B981' }    // 翠绿色
         ];
         
         const datasets = gradeRanges.map((range, index) => ({
@@ -459,12 +463,6 @@
             backgroundColor: distributionColors[index].bg,
             borderColor: distributionColors[index].border,
             borderWidth: 2,
-            borderRadius: {
-                topLeft: index === gradeRanges.length - 1 ? 6 : 0,
-                topRight: index === gradeRanges.length - 1 ? 6 : 0,
-                bottomLeft: index === 0 ? 6 : 0,
-                bottomRight: index === 0 ? 6 : 0
-            },
             borderSkipped: false
         }));
         
@@ -494,7 +492,7 @@
                         ticks: {
                             color: '#6c757d',
                             font: {
-                                size: 18,
+                                size: 15,
                                 weight: '500'
                             }
                         }
@@ -508,7 +506,7 @@
                         ticks: {
                             color: '#6c757d',
                             font: {
-                                size: 18
+                                size: 15
                             },
                             stepSize: 1,
                             callback: function(value) {
@@ -567,11 +565,11 @@
         
         // 等级颜色定义 - 高对比度配色
         const gradeColors = {
-            '特优(95%+)': '#10B981',    // 翠绿色
-            '优秀(85%-95%)': '#3B82F6',  // 蓝色
-            '良好(70%-85%)': '#F59E0B',  // 橙色
+            '不及格(<60%)': '#6B7280',   // 灰色
             '及格(60%-70%)': '#EF4444',  // 红色
-            '不及格(<60%)': '#6B7280'   // 灰色
+            '良好(70%-85%)': '#F59E0B',  // 橙色
+            '优秀(85%-95%)': '#3B82F6',  // 蓝色
+            '特优(95%+)': '#10B981'    // 翠绿色
         };
         
         const pieLabels = Object.keys(gradeDistribution);
@@ -606,7 +604,7 @@
                             padding: 20,
                             usePointStyle: true,
                             font: {
-                                size: 18,
+                                size: 15,
                                 weight: '500'
                             }
                         }
@@ -663,7 +661,7 @@
                         ticks: {
                             color: '#6c757d',
                             font: {
-                                size: 18,
+                                size: 15,
                                 weight: '500'
                             }
                         }
