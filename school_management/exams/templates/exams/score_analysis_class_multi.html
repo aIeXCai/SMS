@@ -214,11 +214,20 @@
         const selectedGrade = '{{ selected_grade }}';
         const maxScore = (selectedGrade === '初一' || selectedGrade === '初二' || selectedGrade === '初三') ? 120 : 150;
         
-        // 定义颜色方案
+        // 定义颜色方案 - 以RGB(1,135,108)为主色
         const classColors = [
-            '#667eea', '#764ba2', '#f093fb', '#f5576c',
-            '#4facfe', '#00f2fe', '#43e97b', '#38f9d7',
-            '#fa709a', '#fee140', '#a8edea', '#fed6e3'
+            '#01876c', // 主色 RGB(1,135,108)
+            '#874d5c', // 酒红色（对比色）
+            '#035c7a', // 邻近蓝绿色
+            '#874d35', // 棕色（对比色）
+            '#386b5e', // 深青色变体
+            '#6a5600', // 深金色（对比色）
+            '#025e4b', // 主色深色变体
+            '#2b4079', // 深蓝色（对比色）
+            '#4b874d', // 绿色变体
+            '#57577b',  // 暗紫色（对比色）
+            '#873300', // 主色的补色
+            '#02a583', // 主色浅色变体
         ];
         
         // 1. 分组柱状图：各科目班级平均分对比
@@ -246,7 +255,7 @@
                             padding: 20,
                             usePointStyle: true,
                             font: {
-                                size: 18
+                                size: 15
                             }
                         }
                     },
@@ -266,7 +275,7 @@
                         ticks: {
                             color: '#6c757d',
                             font: {
-                                size: 18
+                                size: 15
                             }
                         },
                     },
@@ -276,7 +285,7 @@
                         grid: { color: 'rgba(0,0,0,0.1)' },
                         ticks: { color: '#6c757d',
                             font: {
-                                size: 18
+                                size: 15
                             }
                         },
                     }
@@ -312,7 +321,7 @@
                             padding: 15,
                             usePointStyle: true,
                             font: {
-                                size: 18
+                                size: 15
                             }
 
                         }
@@ -324,7 +333,7 @@
                         ticks: {
                             color: '#6c757d',
                             font: {
-                                size: 18
+                                size: 15
                             }
                         }
                     },
@@ -335,7 +344,7 @@
                         ticks: {
                             color: '#6c757d',
                             font: {
-                                size: 18
+                                size: 15
                             }
                         }
                     }
@@ -368,7 +377,7 @@
                             padding: 15,
                             usePointStyle: true,
                             font: {
-                                size: 18
+                                size: 15
                             }
                         }
                     }
@@ -379,7 +388,7 @@
                         ticks: {
                             color: '#6c757d',
                             font: {
-                                size: 18
+                                size: 15
                             }
                         },
                     },
@@ -391,13 +400,13 @@
                             text: '学生人数',
                             color: '#6c757d',
                             font: {
-                                size: 18
+                                size: 15
                             }
                         },
                         ticks: {
                             color: '#6c757d',
                             font: {
-                                size: 18
+                                size: 15
                             },
                             callback: function(value) {
                                 return Number.isInteger(value) ? value : '';
