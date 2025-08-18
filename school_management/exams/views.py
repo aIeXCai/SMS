@@ -2378,6 +2378,7 @@ def _analyze_grade(exam, grade_level):
         'class_grade_distribution': class_grade_distribution,
         'difficulty_coefficients': difficulty_coefficients,
         'total_max_score': total_max_score,
+        'total_scores': total_scores_list,  # 添加所有学生的总分数据
     }
     
     return {

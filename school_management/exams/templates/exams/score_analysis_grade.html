@@ -166,8 +166,22 @@
         </div>
 
         <div class="row">
-            <!-- 年级成绩分布箱线图 -->
-            <div class="col-md-12">
+            <!-- 年级成绩分布直方图 -->
+            <div class="col-md-6">
+                <div class="chart-card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-chart-area"></i> 年级总分分布直方图</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container-large">
+                            <canvas id="gradeScoreDistributionChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 年级等级分布箱线图 -->
+            <div class="col-md-6">
                 <div class="chart-card">
                     <div class="card-header">
                         <h5><i class="fas fa-chart-area"></i> 年级整体各等级分布</h5>
@@ -268,6 +282,13 @@
                                     {% endfor %}
                                 </tbody>
                             </table>
+                        </div>
+                        <!-- 计算方式说明 -->
+                        <div class="mt-2 px-3 pb-0">
+                            <small class="text-muted">
+                                <strong>注：</strong></br>
+                                <p>优秀率=(特优人数+优秀人数)/总人数；良好率=(特优人数+优秀人数+良好人数)/总人数；及格率=(特优人数+优秀人数+良好人数+及格人数)/总人数</p>
+                            </small>
                         </div>
                     </div>
                 </div>
@@ -437,7 +458,142 @@
             }
         });
 
-        // 3. 年级成绩分布箱线图（使用柱状图模拟）
+        // 3. 年级总分分布直方图
+        if (chartData.total_scores && chartData.total_scores.length > 0) {
+            const gradeScoreDistributionCtx = document.getElementById('gradeScoreDistributionChart').getContext('2d');
+            
+            // 生成总分分布数据
+            const totalScores = chartData.total_scores;
+            
+            // 计算分数区间和分布
+            const minScore = Math.min(...totalScores);
+            const maxScore = Math.max(...totalScores);
+            const scoreRange = maxScore - minScore;
+            
+            // 动态计算区间数，确保有意义的分布
+            let binCount = Math.min(12, Math.max(6, Math.ceil(Math.sqrt(totalScores.length))));
+            if (scoreRange < binCount) {
+                binCount = Math.max(3, scoreRange);
+            }
+            
+            const binWidth = Math.ceil(scoreRange / binCount);
+            
+            // 创建分数区间标签和统计数据
+            const bins = [];
+            const binCounts = [];
+            
+            for (let i = 0; i < binCount; i++) {
+                const binStart = minScore + (i * binWidth);
+                const binEnd = i === binCount - 1 ? maxScore : binStart + binWidth - 1;
+                
+                // 创建区间标签
+                bins.push(`${binStart}-${binEnd}`);
+                
+                // 统计该区间内的学生数量
+                const count = totalScores.filter(score => {
+                    if (i === binCount - 1) {
+                        return score >= binStart && score <= binEnd;
+                    } else {
+                        return score >= binStart && score < binStart + binWidth;
+                    }
+                }).length;
+                
+                binCounts.push(count);
+            }
+            
+            new Chart(gradeScoreDistributionCtx, {
+                type: 'bar',
+                data: {
+                    labels: bins,
+                    datasets: [{
+                        label: '学生人数',
+                        data: binCounts,
+                        backgroundColor: primaryColorAlpha,
+                        borderColor: primaryColor,
+                        borderWidth: 2,
+                        borderRadius: 6,
+                        borderSkipped: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        title: {
+                            display: true,
+                            text: `年级总分分布 (共${totalScores.length}名学生，平均分${Math.round(totalScores.reduce((a, b) => a + b, 0) / totalScores.length)}分)`,
+                            color: '#495057',
+                            font: {
+                                size: 15,
+                                weight: '500'
+                            },
+                            padding: 10
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(0,0,0,0.8)',
+                            titleColor: '#fff',
+                            bodyColor: '#fff',
+                            borderColor: primaryColor,
+                            borderWidth: 1,
+                            cornerRadius: 8,
+                            callbacks: {
+                                title: function(context) {
+                                    return `分数区间: ${context[0].label}分`;
+                                },
+                                label: function(context) {
+                                    const percentage = ((context.parsed.y / totalScores.length) * 100).toFixed(1);
+                                    return `学生人数: ${context.parsed.y}人 (${percentage}%)`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                display: false
+                            },
+                            ticks: {
+                                color: '#6c757d',
+                                font: {
+                                    size: 15
+                                },
+                                maxRotation: 45
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: '学生人数',
+                                color: '#6c757d',
+                                font: {
+                                    size: 15,
+                                    weight: '500'
+                                }
+                            },
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(0,0,0,0.1)'
+                            },
+                            ticks: {
+                                color: '#6c757d',
+                                font: {
+                                    size: 15
+                                },
+                                callback: function(value) {
+                                    return Number.isInteger(value) ? value : '';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+
+        // 4. 年级成绩分布箱线图（使用柱状图模拟）
         const scoreDistributionCtx = document.getElementById('scoreDistributionChart').getContext('2d');
         new Chart(scoreDistributionCtx, {
             type: 'bar',
@@ -476,6 +632,15 @@
                 },
                 scales: {
                     y: {
+                        title: {
+                                display: true,
+                                text: '学生人数',
+                                color: '#6c757d',
+                                font: {
+                                    size: 15,
+                                    weight: '500'
+                                }
+                            },
                         beginAtZero: true,
                         grid: {
                             color: 'rgba(0,0,0,0.1)'
@@ -483,7 +648,7 @@
                         ticks: {
                             color: '#6c757d',
                             font: {
-                                size: 18
+                                size: 15
                             }
                         }
                     },
@@ -494,7 +659,7 @@
                         ticks: {
                             color: '#6c757d',
                             font: {
-                                size: 18
+                                size: 15
                             }
                         }
                     }
@@ -502,7 +667,7 @@
             }
         });
 
-        // 4. 各班级等级分布堆叠柱状图
+        // 5. 各班级等级分布堆叠柱状图
         const classGradeDistributionCtx = document.getElementById('classGradeDistributionChart').getContext('2d');
         const gradeLabels = ['特优(95%+)', '优秀(85%-95%)', '良好(70%-85%)', '及格(60%-70%)', '不及格(<60%)'];
         const gradeColors = [
@@ -543,6 +708,15 @@
                         }
                     },
                     y: {
+                        title: {
+                                display: true,
+                                text: '学生人数',
+                                color: '#6c757d',
+                                font: {
+                                    size: 15,
+                                    weight: '500'
+                                }
+                            },
                         stacked: true,
                         beginAtZero: true,
                         grid: {
@@ -551,7 +725,7 @@
                         ticks: {
                             color: '#6c757d',
                             font: {
-                                size: 18
+                                size: 15
                             },
                             callback: function(value) {
                                 return Number.isInteger(value) ? value : " ";
@@ -587,7 +761,7 @@
             }
         });
 
-        // 5. 各科目难度系数折线图
+        // 6. 各科目难度系数折线图
         const difficultyCtx = document.getElementById('difficultyChart').getContext('2d');
         new Chart(difficultyCtx, {
             type: 'line',
