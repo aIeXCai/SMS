@@ -3,18 +3,19 @@ from django.contrib import messages
 from django.views.decorators.http import require_http_methods, require_POST
 from django.db import transaction
 from django.core.exceptions import ValidationError
-from django.db.models import Sum, Count, Q, F, Case, When, IntegerField, Avg, Max, Min, Count
+from django.db.models import Sum, Count, Q, F, Case, When, IntegerField, Avg, Max, Min
 from django.db.models.functions import Rank
 from django.core.paginator import Paginator
 from django.http import HttpResponse, JsonResponse
-from django.views.decorators.csrf import csrf_exempt
 import openpyxl
 from datetime import datetime
 from decimal import Decimal
-import io, json, statistics, re
+import io, json, statistics, re, time
+import django_rq
 from collections import defaultdict
 from .models import Exam, ExamSubject, Score, SUBJECT_CHOICES, SUBJECT_DEFAULT_MAX_SCORES, ACADEMIC_YEAR_CHOICES
 from .forms import ExamCreateForm, ExamSubjectFormSet, ScoreForm, ScoreBatchUploadForm, ScoreQueryForm, ScoreAddForm, ScoreAnalysisForm
+from .config import PAGINATION_CONFIG, TABLE_CONFIG, IMPORT_CONFIG
 from school_management.students.models import CLASS_NAME_CHOICES, Student, Class, GRADE_LEVEL_CHOICES
 
 # <!--- 考试管理 Views --->
@@ -493,8 +494,19 @@ def score_list(request):
         row_data_obj = type('obj', (object,), data)
         final_display_rows.append(row_data_obj)
 
-    # 添加分页功能
-    paginator = Paginator(final_display_rows, 50)  # 每页显示50条记录
+    # 添加分页功能 - 使用配置文件设置
+    per_page = request.GET.get('per_page', PAGINATION_CONFIG['DEFAULT_PER_PAGE'])
+    try:
+        per_page = int(per_page)
+        # 使用配置文件中的限制范围
+        if per_page < PAGINATION_CONFIG['MIN_PER_PAGE']:
+            per_page = PAGINATION_CONFIG['MIN_PER_PAGE']
+        elif per_page > PAGINATION_CONFIG['MAX_PER_PAGE']:
+            per_page = PAGINATION_CONFIG['MAX_PER_PAGE']
+    except (ValueError, TypeError):
+        per_page = PAGINATION_CONFIG['DEFAULT_PER_PAGE']
+    
+    paginator = Paginator(final_display_rows, per_page)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
@@ -519,6 +531,8 @@ def score_list(request):
         # 分页信息
         'page_obj': page_obj,
         'is_paginated': page_obj.has_other_pages(),
+        'per_page': per_page,  # 当前每页显示数量
+        'per_page_options': PAGINATION_CONFIG['PER_PAGE_OPTIONS'],  # 使用配置文件中的选项
         
         # 保持筛选状态
         'selected_student_id_filter': student_id_filter,
@@ -615,7 +629,10 @@ def score_edit(request, pk):
 # 批量導入成績 (Excel) - AJAX版本
 @require_POST
 def score_batch_import_ajax(request):
-    """AJAX批量导入成绩接口"""
+    """优化版AJAX批量导入成绩接口"""
+    start_time = time.time()
+    timing_info = {}
+    
     try:
         form = ScoreBatchUploadForm(request.POST, request.FILES)
         if not form.is_valid():
@@ -625,119 +642,202 @@ def score_batch_import_ajax(request):
                 'errors': form.errors
             })
         
+        timing_info['form_validation'] = time.time() - start_time
+        
         excel_file = request.FILES['excel_file']
         selected_exam = form.cleaned_data['exam']
         
+        step_start = time.time()
         workbook = openpyxl.load_workbook(excel_file)
         sheet = workbook.active
         headers = [cell.value for cell in sheet[1]]
+        timing_info['excel_loading'] = time.time() - step_start
         
-        imported_count = 0
-        failed_count = 0
-        error_details = []  # 收集详细错误信息
-        successful_students = set()  # 跟踪成功导入的学生
-        failed_students = set()  # 跟踪失败的学生
+        # 第一步：收集所有学号，进行批量查询
+        step_start = time.time()
+        all_student_ids = set()
+        excel_data = []
         
-        # 預定義標準列頭（非科目列）
-        fixed_headers_mapping = {
-            "学号": "student_id",
-            "学生姓名": "student_name",
-        }
+        for row_idx, row in enumerate(sheet.iter_rows(min_row=2, values_only=True), start=2):
+            row_data = dict(zip(headers, row))
+            student_id = row_data.get("学号")
+            if student_id:
+                all_student_ids.add(str(student_id).strip())
+                excel_data.append((row_idx, row_data))
         
-        # 動態識別科目列
+        timing_info['data_collection'] = time.time() - step_start
+        
+        # 第二步：批量查询所有学生信息 - 性能优化关键点1
+        step_start = time.time()
+        students_dict = {}
+        if all_student_ids:
+            students_qs = Student.objects.filter(
+                student_id__in=all_student_ids
+            ).select_related('current_class')  # 使用select_related减少查询
+            
+            for student in students_qs:
+                students_dict[student.student_id] = student
+        
+        timing_info['student_query'] = time.time() - step_start
+        
+        # 第三步：批量查询现有成绩记录 - 性能优化关键点2
+        step_start = time.time()
+        existing_scores = {}
+        if all_student_ids:
+            existing_scores_qs = Score.objects.filter(
+                student__student_id__in=all_student_ids,
+                exam=selected_exam
+            ).select_related('student')
+            
+            for score in existing_scores_qs:
+                key = (score.student.student_id, score.subject)
+                existing_scores[key] = score
+        
+        timing_info['existing_scores_query'] = time.time() - step_start
+        
+        # 获取科目列表
         all_valid_subjects = {choice[0] for choice in SUBJECT_CHOICES}
         
-        with transaction.atomic():
-            for row_idx, row in enumerate(sheet.iter_rows(min_row=2, values_only=True), start=2):
-                row_data = dict(zip(headers, row))
-                student_id_from_excel = row_data.get("学号")
-                
-                errors_in_row = []
-                student_obj = None
-                
-                # 學生查找和姓名验证
-                if student_id_from_excel:
-                    try:
-                        student_obj = Student.objects.get(student_id=str(student_id_from_excel).strip())
-                        
-                        # 验证姓名是否匹配
-                        student_name_from_excel = row_data.get("学生姓名")
-                        if student_name_from_excel:
-                            student_name_from_excel = str(student_name_from_excel).strip()
-                            if student_obj.name != student_name_from_excel:
-                                errors_in_row.append(f"学号 '{student_id_from_excel}' 对应的学生姓名不匹配")
-                                student_obj = None
-                                
-                    except Student.DoesNotExist:
-                        errors_in_row.append(f"学号 '{student_id_from_excel}' 对应的学生不存在")
-                else:
-                    errors_in_row.append("学号不能为空")
-                
-                # 如果學生不存在，則跳過此行
-                if student_obj is None:
-                    if student_id_from_excel:
-                        failed_students.add(student_id_from_excel)
-                    continue
-                
-                # 遍歷科目分數
-                scores_processed_for_student = 0
-                for col_header, score_value_from_excel in row_data.items():
-                    if col_header in all_valid_subjects:
-                        current_subject = col_header
-                        
-                        # 分數驗證與轉換
-                        if score_value_from_excel is not None and str(score_value_from_excel).strip() != '':
-                            try:
-                                score_value = float(score_value_from_excel)
-                                if not (0 <= score_value <= 200):
-                                    errors_in_row.append(f"分数超出有效范围")
-                                    continue
-                            except ValueError:
-                                errors_in_row.append(f"分数格式不正确")
+        # 数据验证和收集阶段
+        scores_to_create = []
+        scores_to_update = []
+        error_details = []
+        successful_students = set()
+        failed_students = set()
+        
+        # 第四步：处理Excel数据
+        for row_idx, row_data in excel_data:
+            student_id_from_excel = str(row_data.get("学号", "")).strip()
+            student_name_from_excel = str(row_data.get("学生姓名", "")).strip()
+            
+            errors_in_row = []
+            
+            # 验证学生是否存在（使用缓存的查询结果）
+            if student_id_from_excel not in students_dict:
+                errors_in_row.append(f"学号 '{student_id_from_excel}' 对应的学生不存在")
+                failed_students.add(student_id_from_excel)
+                continue
+            
+            student_obj = students_dict[student_id_from_excel]
+            
+            # 验证姓名是否匹配
+            if student_name_from_excel and student_obj.name != student_name_from_excel:
+                errors_in_row.append(f"学号 '{student_id_from_excel}' 对应的学生姓名不匹配")
+                failed_students.add(student_id_from_excel)
+                continue
+            
+            # 处理该学生的所有科目成绩
+            student_has_valid_scores = False
+            for col_header, score_value_from_excel in row_data.items():
+                if col_header in all_valid_subjects:
+                    # 验证分数
+                    if score_value_from_excel is not None and str(score_value_from_excel).strip() != '':
+                        try:
+                            score_value = float(score_value_from_excel)
+                            if not (0 <= score_value <= 200):
+                                errors_in_row.append(f"{col_header}分数超出有效范围(0-200)")
                                 continue
-                        else:
+                        except ValueError:
+                            errors_in_row.append(f"{col_header}分数格式不正确")
                             continue
                         
-                        # 保存成績
-                        if not errors_in_row:
-                            try:
-                                score_obj, created = Score.objects.update_or_create(
-                                    student=student_obj,
-                                    exam=selected_exam,
-                                    subject=current_subject,
-                                    defaults={'score_value': score_value}
-                                )
-                                scores_processed_for_student += 1
-                                successful_students.add(student_obj.student_id)
-                            except Exception as e:
-                                errors_in_row.append(f"数据库操作失败: {str(e)}")
-                
-                # 記錄失敗行
-                if errors_in_row:
-                    if student_id_from_excel:
-                        failed_students.add(student_id_from_excel)
-                    error_details.append({
-                        'row': row_idx,
-                        'student_id': student_id_from_excel,
-                        'student_name': row_data.get("学生姓名", ''),
-                        'errors': errors_in_row
-                    })
+                        # 准备成绩数据 - 性能优化关键点3：批量准备而不是逐个保存
+                        score_key = (student_id_from_excel, col_header)
+                        if score_key in existing_scores:
+                            # 更新现有成绩
+                            existing_score = existing_scores[score_key]
+                            existing_score.score_value = score_value
+                            scores_to_update.append(existing_score)
+                        else:
+                            # 创建新成绩
+                            scores_to_create.append(Score(
+                                student=student_obj,
+                                exam=selected_exam,
+                                subject=col_header,
+                                score_value=score_value
+                            ))
+                        
+                        student_has_valid_scores = True
+            
+            # 记录处理结果
+            if errors_in_row:
+                failed_students.add(student_id_from_excel)
+                error_details.append({
+                    'row': row_idx,
+                    'student_id': student_id_from_excel,
+                    'student_name': student_name_from_excel,
+                    'errors': errors_in_row
+                })
+            elif student_has_valid_scores:
+                successful_students.add(student_id_from_excel)
         
-        # 计算最终的学生数量统计
+        # 第五步：批量数据库操作 - 性能优化关键点4
+        step_start = time.time()
+        with transaction.atomic():
+            # 批量创建新成绩记录
+            if scores_to_create:
+                Score.objects.bulk_create(
+                    scores_to_create, 
+                    batch_size=1000,  # 分批处理，避免内存问题
+                    ignore_conflicts=False
+                )
+            
+            # 批量更新现有成绩记录
+            if scores_to_update:
+                Score.objects.bulk_update(
+                    scores_to_update, 
+                    ['score_value'], 
+                    batch_size=1000
+                )
+        
+        timing_info['database_operations'] = time.time() - step_start
+        
+        # 统计结果
         imported_count = len(successful_students)
         failed_count = len(failed_students)
         
-        # 更新年级排名
+        # 排名更新（异步处理）
         if imported_count > 0:
             try:
-                update_grade_rankings(selected_exam.pk)
+                from .tasks import update_grade_rankings_async, update_subject_rankings_async
+                
+                # 获取异步队列
+                queue = django_rq.get_queue('default')
+                
+                # 提交异步任务：更新总分排名
+                job1 = queue.enqueue(
+                    update_grade_rankings_async, 
+                    selected_exam.pk,
+                    job_timeout=600  # 10分钟超时
+                )
+                
+                # 提交异步任务：更新学科排名  
+                job2 = queue.enqueue(
+                    update_subject_rankings_async,
+                    selected_exam.pk,
+                    job_timeout=600  # 10分钟超时
+                )
+                
+                # 记录异步任务ID（可选择是否输出到日志）
+                # print(f"已提交排名更新任务: {job1.id}, {job2.id}")
+                
             except Exception as e:
-                # 排名更新失败不影响成绩导入的成功状态
-                print(f"排名更新失败: {e}")
+                # 记录异步任务失败（可选择是否输出到日志）
+                # print(f"异步任务提交失败: {e}")
+                # 如果异步任务失败，不影响主要的导入流程
+                pass
         
-        # 返回简化的结果
+        # 计算执行时间
+        execution_time = time.time() - start_time
+        
+        # 生成详细的时间报告
+        timing_report = f"总耗时: {execution_time:.2f}s"
+        for step, duration in timing_info.items():
+            timing_report += f" | {step}: {duration:.2f}s"
+        
+        # 返回结果
         if imported_count > 0:
-            message = f"上传成功！成功导入 {imported_count} 个学生"
+            message = f"上传成功！成功导入 {imported_count} 个学生，{timing_report}"
             if failed_count > 0:
                 message += f"，失败 {failed_count} 个学生"
             return JsonResponse({
@@ -745,43 +845,29 @@ def score_batch_import_ajax(request):
                 'message': message,
                 'imported_count': imported_count,
                 'failed_count': failed_count,
-                'error_details': error_details
+                'execution_time': round(execution_time, 2),
+                'timing_details': timing_info,
+                'error_details': error_details[:20]  # 只返回前20个错误详情，避免响应过大
             })
         else:
             return JsonResponse({
                 'success': False,
-                'message': f"上传失败！失败 {failed_count} 个学生",
+                'message': f"上传失败！失败 {failed_count} 个学生，耗时 {execution_time:.2f} 秒",
                 'imported_count': 0,
                 'failed_count': failed_count,
-                'error_details': error_details
+                'execution_time': round(execution_time, 2),
+                'error_details': error_details[:20]
             })
             
     except Exception as e:
+        execution_time = time.time() - start_time if 'start_time' in locals() else 0
         return JsonResponse({
             'success': False,
-            'message': f"文件处理失败：{str(e)}",
+            'message': f"文件处理失败：{str(e)}，耗时 {execution_time:.2f} 秒",
             'imported_count': 0,
-            'failed_count': 0
+            'failed_count': 0,
+            'execution_time': round(execution_time, 2)
         })
-
-
-# 批量導入成績 (Excel) - 原版本保留用于获取表单
-@require_http_methods(["GET", "POST"])
-def score_batch_import(request):
-    if request.method == 'POST':
-        # 重定向到AJAX版本
-        return score_batch_import_ajax(request)
-            
-    else: # GET 請求
-        form = ScoreBatchUploadForm()
-    
-    download_template_url = request.build_absolute_uri(redirect('download_score_import_template').url)
-
-    return render(request, 'exams/score_batch_import.html', {
-        'form': form,
-        'title': '批量導入成績',
-        'download_template_url': download_template_url,
-    })
 
 # 下載成績導入模板
 def download_score_import_template(request):
@@ -1511,9 +1597,9 @@ def score_query_export(request):
     if academic_year:
             queryset = queryset.filter(exam__academic_year=academic_year)
         
-    # 科目筛选 - 支持多选
-    if subjects:  # subjects 现在是一个列表
-        queryset = queryset.filter(subject__in=subjects)
+    # 科目筛选
+    if subject:
+        queryset = queryset.filter(subject=subject)
     
     if date_from:
         queryset = queryset.filter(exam__date__gte=date_from)

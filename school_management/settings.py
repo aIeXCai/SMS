@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django_rq',  # 添加异步任务支持
     'school_management.students',
     'school_management.exams'
 ]
@@ -74,18 +75,26 @@ TEMPLATES = [
 WSGI_APPLICATION = 'school_management.wsgi.application'
 
 
-# PostgreSQL配置（生产环境使用）
+# SQLite配置（开发环境使用）
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'school_db',
-        'USER': 'postgres',
-        'PASSWORD': '12345',
-        'HOST': 'localhost',
-        'PORT': '5432',
-        'CONN_MAX_AGE': 0,  # 禁用持久连接，避免游标问题
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+
+# PostgreSQL配置（生产环境使用）
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': 'school_db',
+#         'USER': 'postgres',
+#         'PASSWORD': '12345',
+#         'HOST': 'localhost',
+#         'PORT': '5432',
+#         'CONN_MAX_AGE': 0,  # 禁用持久连接，避免游标问题
+#     }
+# }
 
 
 # Password validation
@@ -139,3 +148,27 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Redis和RQ配置（异步任务处理）
+RQ_QUEUES = {
+    'default': {
+        'HOST': 'localhost',
+        'PORT': 6379,
+        'DB': 0,
+        'PASSWORD': '',
+        'DEFAULT_TIMEOUT': 360,
+    },
+    'high': {
+        'HOST': 'localhost',
+        'PORT': 6379,
+        'DB': 0,
+        'PASSWORD': '',
+        'DEFAULT_TIMEOUT': 500,
+    },
+    'low': {
+        'HOST': 'localhost',
+        'PORT': 6379,
+        'DB': 0,
+        'PASSWORD': '',
+    }
+}

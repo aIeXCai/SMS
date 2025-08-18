@@ -19,6 +19,7 @@ from django.urls import path, include
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('django-rq/', include('django_rq.urls')),  # RQ任务管理界面
     path('', include('school_management.students.urls')),
     path('', include('school_management.exams.urls')),
 ]

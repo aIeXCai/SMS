@@ -284,7 +284,7 @@
                             </table>
                         </div>
                         <!-- 计算方式说明 -->
-                        <div class="mt-2 px-3 pb-0">
+                        <div class="mt-0 px-3 pb-0">
                             <small class="text-muted">
                                 <strong>注：</strong></br>
                                 <p>优秀率=(特优人数+优秀人数)/总人数；良好率=(特优人数+优秀人数+良好人数)/总人数；及格率=(特优人数+优秀人数+良好人数+及格人数)/总人数</p>
@@ -521,16 +521,6 @@
                     plugins: {
                         legend: {
                             display: false
-                        },
-                        title: {
-                            display: true,
-                            text: `年级总分分布 (共${totalScores.length}名学生，平均分${Math.round(totalScores.reduce((a, b) => a + b, 0) / totalScores.length)}分)`,
-                            color: '#495057',
-                            font: {
-                                size: 15,
-                                weight: '500'
-                            },
-                            padding: 10
                         },
                         tooltip: {
                             backgroundColor: 'rgba(0,0,0,0.8)',

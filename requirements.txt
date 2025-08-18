@@ -6,6 +6,10 @@ Django>=5.2.4
 # Excel Processing
 openpyxl>=3.1.0
 
+# Async Task Processing
+django-rq>=2.10.0
+redis>=5.0.0
+
 # Database (SQLite is included with Django by default)
 # For production PostgreSQL, uncomment the line below:
 # psycopg2-binary>=2.9.0  # PostgreSQL adapter

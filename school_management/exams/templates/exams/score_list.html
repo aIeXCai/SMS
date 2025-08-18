@@ -352,10 +352,22 @@
             {% endif %}
         </ul>
         
-        <div class="text-center mt-2">
+        <div class="d-flex justify-content-between align-items-center mt-2">
             <small class="text-muted">
                 显示第 {{ page_obj.start_index }} - {{ page_obj.end_index }} 条记录，共 {{ page_obj.paginator.count }} 条
             </small>
+            
+            <!-- 每页显示数量选择器 -->
+            <div class="d-flex align-items-center">
+                <small class="text-muted me-2">每页显示：</small>
+                <select class="form-select form-select-sm" style="width: auto;" onchange="changePerPage(this.value)">
+                    {% for option in per_page_options %}
+                        <option value="{{ option }}" {% if option == per_page %}selected{% endif %}>
+                            {{ option }} 条
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
         </div>
     </nav>
     {% endif %}
@@ -509,6 +521,14 @@
 
 <!-- JavaScript功能 -->
 <script>
+    // 改变每页显示数量
+    function changePerPage(perPage) {
+        const currentUrl = new URL(window.location);
+        currentUrl.searchParams.set('per_page', perPage);
+        currentUrl.searchParams.set('page', '1'); // 重置到第一页
+        window.location.href = currentUrl.toString();
+    }
+    
     // 缓存DOM元素，避免重复查询
     let cachedElements = null;
     
@@ -739,6 +759,21 @@
                     <h5><i class="fas fa-check-circle"></i> 导入成功！</h5>
                     <p>成功导入 <strong>${data.imported_count}</strong> 个学生</p>
                     ${data.failed_count > 0 ? `<p>失败 <strong>${data.failed_count}</strong> 个学生</p>` : ''}
+                    ${data.execution_time ? `<p><i class="fas fa-clock"></i> 执行时间: <strong>${data.execution_time}秒</strong></p>` : ''}
+                    ${data.timing_details ? `
+                        <details class="mt-2">
+                            <summary class="text-muted" style="cursor: pointer;">
+                                <small><i class="fas fa-chart-line"></i> 查看详细性能分析</small>
+                            </summary>
+                            <div class="mt-2 p-2 bg-light rounded">
+                                <small>
+                                    ${Object.entries(data.timing_details).map(([step, time]) => 
+                                        `<div>${step}: <strong>${time.toFixed(3)}s</strong></div>`
+                                    ).join('')}
+                                </small>
+                            </div>
+                        </details>
+                    ` : ''}
                 </div>
             `;
         } else {
