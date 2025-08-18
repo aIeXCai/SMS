@@ -2061,7 +2061,7 @@ def _analyze_multiple_classes(selected_classes, exam):
         
         # 计算各科目平均分
         subject_averages = []
-        class_name = f"{class_obj.grade_level}{class_obj.class_name}"
+        class_name = class_obj.class_name  # 只显示班级名称，不包含年级
         class_subject_averages[class_name] = []
         
         for subject in subjects:
@@ -2279,7 +2279,7 @@ def _analyze_grade(exam, grade_level):
         if not class_scores.exists():
             continue
             
-        class_name = f"{class_obj.grade_level}{class_obj.class_name}"
+        class_name = class_obj.class_name  # 只显示班级名称，不包含年级
         class_names.append(class_name)
         
         # 班级学生总分统计
@@ -2305,10 +2305,10 @@ def _analyze_grade(exam, grade_level):
         pass_count = sum(1 for score in class_total_scores if total_max_score * 0.60 <= score < total_max_score * 0.70)  # 及格(60%-70%)
         fail_count = sum(1 for score in class_total_scores if score < total_max_score * 0.60)  # 不及格(<60%)
         
-        excellent_rate = (excellent_plus_count / student_count * 100) if student_count > 0 else 0  # 特优率
-        good_rate = (excellent_count / student_count * 100) if student_count > 0 else 0  # 优秀率
-        pass_rate = ((excellent_plus_count + excellent_count + good_count + pass_count) / student_count * 100) if student_count > 0 else 0  # 总及格率
-        
+        excellent_rate = ((excellent_plus_count + excellent_count) / student_count * 100) if student_count > 0 else 0  # 优秀率（包含特优+优秀）
+        good_rate = ((good_count + excellent_count + excellent_plus_count) / student_count * 100) if student_count > 0 else 0  # 良好率
+        pass_rate = ((pass_count + good_count + excellent_count + excellent_plus_count) / student_count * 100) if student_count > 0 else 0  # 及格率
+
         # 各科目平均分
         subject_averages = []
         for subject in subjects:
