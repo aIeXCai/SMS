@@ -30,6 +30,30 @@
         padding: 0.5rem;
         height: calc(100% - 60px);
     }
+
+    /* 表格排序样式 */
+    .sortable {
+        cursor: pointer;
+        user-select: none;
+        position: relative;
+        transition: background-color 0.2s ease;
+    }
+
+    .sort-icon {
+        margin-left: 8px;
+        color: #0dd338ff;
+        font-size: 12px;
+    }
+
+    .sortable.sort-asc .sort-icon::before {
+        content: "\f0de";
+        color: #0dd338ff;
+    }
+
+    .sortable.sort-desc .sort-icon::before {
+        content: "\f0dd";
+        color: #0dd338ff;
+    }
 </style>
 {% endblock %}
 
@@ -165,29 +189,41 @@
                     </div>
                     <div class="card-body">
                         <div class="table-responsive">
-                            <table class="table table-modern table-striped table-hover">
+                            <table class="table table-modern table-striped table-hover" id="classComparisonTable">
                                 <thead>
                                     <tr>
-                                        <th>班级</th>
-                                        <th>参考人数</th>
-                                        <th>总分</th>
-                                        <th>最高分</th>
-                                        <th>最低分</th>
+                                        <th>
+                                            班级
+                                        </th>
+                                        <th>
+                                            参考人数
+                                        </th>
+                                        <th class="sortable" data-column="2">
+                                            总分 <i class="fas fa-sort sort-icon"></i>
+                                        </th>
+                                        <th class="sortable" data-column="3">
+                                            最高分 <i class="fas fa-sort sort-icon"></i>
+                                        </th>
+                                        <th class="sortable" data-column="4">
+                                            最低分 <i class="fas fa-sort sort-icon"></i>
+                                        </th>
                                         {% for subject in subjects %}
-                                        <th>{{ subject.name }}</th>
+                                        <th class="sortable" data-column="{{ forloop.counter|add:4 }}">
+                                            {{ subject.name }} <i class="fas fa-sort sort-icon"></i>
+                                        </th>
                                         {% endfor %}
                                     </tr>
                                 </thead>
-                                <tbody>
+                                <tbody id="classTableBody">
                                     {% for class_data in class_statistics %}
                                     <tr>
                                         <td><strong>{{ class_data.class_name }}</strong></td>
                                         <td>{{ class_data.student_count }}</td>
-                                        <td>{{ class_data.avg_total|floatformat:1 }}</td>
-                                        <td>{{ class_data.max_total|floatformat:1 }}</td>
-                                        <td>{{ class_data.min_total|floatformat:1 }}</td>
+                                        <td data-value="{{ class_data.avg_total }}">{{ class_data.avg_total|floatformat:1 }}</td>
+                                        <td data-value="{{ class_data.max_total }}">{{ class_data.max_total|floatformat:1 }}</td>
+                                        <td data-value="{{ class_data.min_total }}">{{ class_data.min_total|floatformat:1 }}</td>
                                         {% for subject_avg in class_data.subject_averages %}
-                                        <td>{{ subject_avg|floatformat:1 }}</td>
+                                        <td data-value="{{ subject_avg }}">{{ subject_avg|floatformat:1 }}</td>
                                         {% endfor %}
                                     </tr>
                                     {% endfor %}
@@ -417,7 +453,67 @@
             }
         });
         {% endif %}
+
+        // 表格排序功能
+        initTableSorting();
     });
+
+    // 表格排序功能实现
+    function initTableSorting() {
+        const table = document.getElementById('classComparisonTable');
+        if (!table) return;
+
+        const headers = table.querySelectorAll('.sortable');
+        let currentSort = { column: -1, direction: 'asc' };
+
+        headers.forEach((header, index) => {
+            header.addEventListener('click', function() {
+                const column = parseInt(this.dataset.column);
+                
+                // 重置所有列的排序样式
+                headers.forEach(h => {
+                    h.classList.remove('sort-asc', 'sort-desc');
+                });
+
+                // 确定排序方向
+                if (currentSort.column === column) {
+                    currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+                } else {
+                    currentSort.direction = 'asc';
+                }
+                currentSort.column = column;
+
+                // 添加当前列的排序样式
+                this.classList.add(currentSort.direction === 'asc' ? 'sort-asc' : 'sort-desc');
+
+                // 执行排序
+                sortTable(column, currentSort.direction);
+            });
+        });
+    }
+
+    function sortTable(columnIndex, direction) {
+        const tbody = document.getElementById('classTableBody');
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+
+        rows.sort((a, b) => {
+            const aCell = a.cells[columnIndex];
+            const bCell = b.cells[columnIndex];
+            
+            // 数值排序
+            const aValue = parseFloat(aCell.dataset.value || aCell.textContent);
+            const bValue = parseFloat(bCell.dataset.value || bCell.textContent);
+            
+            if (direction === 'asc') {
+                return aValue - bValue;
+            } else {
+                return bValue - aValue;
+            }
+        });
+
+        // 重新插入排序后的行
+        rows.forEach(row => tbody.appendChild(row));
+    }
 </script>
 </body>
 </html>
