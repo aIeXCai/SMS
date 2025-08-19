@@ -805,7 +805,7 @@ def score_batch_import_ajax(request):
                 # 检查是否安装了django-rq和Redis可用性
                 try:
                     import django_rq
-                    from .tasks import update_grade_rankings_async, update_subject_rankings_async
+                    from .tasks import update_grade_rankings_async  # update_subject_rankings_async 已注释
                     
                     # 获取异步队列
                     queue = django_rq.get_queue('default')
@@ -820,15 +820,15 @@ def score_batch_import_ajax(request):
                         job_timeout=600  # 10分钟超时
                     )
                     
-                    # 提交异步任务：更新学科排名  
-                    job2 = queue.enqueue(
-                        update_subject_rankings_async,
-                        selected_exam.pk,
-                        job_timeout=600  # 10分钟超时
-                    )
+                    # 提交异步任务：更新学科排名 - 暂时注释掉
+                    # job2 = queue.enqueue(
+                    #     update_subject_rankings_async,
+                    #     selected_exam.pk,
+                    #     job_timeout=600  # 10分钟超时
+                    # )
                     
                     # 记录异步任务ID
-                    print(f"异步排名更新任务已提交: 总分排名={job1.id}, 学科排名={job2.id}")
+                    print(f"异步排名更新任务已提交: 总分排名={job1.id}")  # 学科排名已注释
                     ranking_update_status = "async_submitted"
                     
                 except ImportError:

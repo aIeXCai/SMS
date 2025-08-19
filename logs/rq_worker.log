@@ -1,0 +1,4 @@
+17:21:19 Worker b92c235be1294f9c9b9d7320928e58d2: started with PID 45336, version 2.5.0
+17:21:19 Worker b92c235be1294f9c9b9d7320928e58d2: subscribing to channel rq:pubsub:b92c235be1294f9c9b9d7320928e58d2
+17:21:19 *** Listening on default...
+17:21:19 Worker b92c235be1294f9c9b9d7320928e58d2: cleaning registries for queue: default
