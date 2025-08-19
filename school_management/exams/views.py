@@ -1464,7 +1464,7 @@ def score_query_results(request):
         total_count = len(results)
         
         # 分页处理
-        paginator = Paginator(results, 20)  # 每页20条记录
+        paginator = Paginator(results, 100)  # 每页100条记录
         page_number = request.GET.get('page')
         page_obj = paginator.get_page(page_number)
         

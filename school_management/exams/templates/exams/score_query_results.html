@@ -73,7 +73,7 @@
                         </div>
                     </div>
                     <!-- 考试 -->
-                    <div class="col-md-2">
+                    <div class="col-md-4">
                         <div class="form-group-vertical">
                             <label for="{{ form.exam.id_for_label }}" class="form-label">考试</label>
                             {{ form.exam }}
@@ -168,16 +168,15 @@
 
         <!-- 成绩表格 -->
         {% if results %}
-            <div class="table-container">
+            <div class="table-container-wrapper">
                 <div class="table-responsive">
-                    <table class="table table-hover">
+                    <table class="table table-hover frozen-table">
                         <thead>
                             <tr>
-                                <th>学号</th>
-                                <th>姓名</th>
-                                <th>年级</th>
-                                <th>班级</th>
-                                <th>考试</th>
+                                <th class="frozen-col">姓名</th>
+                                <th class="frozen-col">年级</th>
+                                <th class="frozen-col">班级</th>
+                                <th class="frozen-border"></th>
                                 {% for subject in results.0.all_subjects %}
                                     <th class="score-cell sort-header">
                                         {{ subject }}
@@ -227,19 +226,18 @@
                         <tbody>
                             {% for result in results %}
                                 <tr>
-                                    <td class="student-info">{{ result.student.student_id }}</td>
-                                    <td class="student-info">
+                                    <td class="student-info frozen-col">
                                         {{ result.student.name }}
                                     </td>
-                                    <td>
+                                    <td class="frozen-col">
                                         {% if result.student.current_class %}
                                             {{ result.student.current_class.get_grade_level_display }}
                                         {% else %}
                                             {{ result.student.get_grade_level_display|default:"N/A" }}
                                         {% endif %}
                                     </td>
-                                    <td>{{ result.class_obj.class_name|default:"N/A" }}</td>
-                                    <td>{{ result.exam.name }}</td>
+                                    <td class="frozen-col">{{ result.class_obj.class_name|default:"N/A" }}</td>
+                                    <td class="frozen-border"></td>
                                     {% for subject in result.all_subjects %}
                                         <td class="score-cell">
                                             {% if result.scores|get_item:subject %}

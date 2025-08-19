@@ -6,7 +6,7 @@ PAGINATION_CONFIG = {
     'DEFAULT_PER_PAGE': 100,
     
     # 可选的每页显示条数选项
-    'PER_PAGE_OPTIONS': [50, 100, 200, 500],
+    'PER_PAGE_OPTIONS': [25, 50, 100, 200],
     
     # 最小每页显示条数
     'MIN_PER_PAGE': 5,

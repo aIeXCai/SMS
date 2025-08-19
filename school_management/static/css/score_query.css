@@ -352,37 +352,62 @@ select.form-select option:checked:hover {
 }
 
 /* ===== 表格样式 ===== */
+/* 通用表格容器 */
 .table-container {
     background: white;
     border-radius: var(--border-radius);
     box-shadow: var(--card-shadow);
     overflow: hidden;
     position: relative;
-    z-index: 1; /* 确保表格的z-index低于下拉菜单 */
+    z-index: 1;
 }
 
+/* 冻结表格容器（用于结果页面） */
+.table-container-wrapper {
+    position: relative;
+    overflow: hidden; /* 外层容器不滚动 */
+    border: 1px solid #dee2e6;
+    border-radius: var(--border-radius);
+    background: white;
+    box-shadow: var(--card-shadow);
+}
+
+/* 冻结表格 */
+.frozen-table {
+    margin: 0;
+    width: 100%;
+    table-layout: auto; /* 改为auto以支持不同列宽 */
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+/* 通用表格样式 */
 .table {
     margin-bottom: 0;
-    font-size: 0.8rem;
-    table-layout: fixed;
-    width: 100%;
+    font-size: 0.9rem;
+    border-collapse: separate;
+    border-spacing: 0;
 }
 
-.table th {
+/* 表头通用样式 */
+.table thead th {
     background: var(--table-bg-gradient);
     border: none;
     font-weight: 600;
     color: var(--text-color);
-    padding: 0.75rem;
+    padding: 1rem 0.75rem;
     text-align: center;
     white-space: nowrap;
     position: sticky;
     top: 0;
-    z-index: 10;
+    z-index: 5;
     overflow: hidden;
     text-overflow: ellipsis;
+    vertical-align: middle;
+    border-bottom: 1px solid #dee2e6;
 }
 
+/* 表格单元格通用样式 */
 .table td {
     padding: 0.75rem;
     vertical-align: middle;
@@ -391,63 +416,163 @@ select.form-select option:checked:hover {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    background-color: white;
+    border-bottom: 1px solid #f1f3f4;
 }
 
-/* 统一的列宽设置 */
-.table th:nth-child(1), .table td:nth-child(1) { min-width: 100px; }
-.table th:nth-child(2), .table td:nth-child(2) { min-width: 120px; }
-.table th:nth-child(3), .table td:nth-child(3) { min-width: 80px; }
-.table th:nth-child(4), .table td:nth-child(4) { min-width: 80px; }
-.table th:nth-child(5), .table td:nth-child(5) { min-width: 150px; }
+/* 冻结列样式 */
+.frozen-table .frozen-col {
+    position: sticky;
+    background: #f8f9fa !important;
+    border-right: none; /* 取消冻结列之间的边界线 */
+    z-index: 10;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
 
-.score-cell {
-    background-color: var(--hover-bg);
+/* 只在最后一个冻结列（班级列）添加右边界线 */
+.frozen-table .frozen-col:nth-child(3) {
+    border-right: 2px solid #6c757d !important; /* 班级列与分数区域的分隔线 */
+}
+
+
+/* 冻结列具体定位 */
+.frozen-table .frozen-col:nth-child(1) {
+    left: 0; /* 姓名列固定在最左侧 */
+    min-width: 80px;
+    width: 80px;
+    max-width: 80px;
+}
+
+.frozen-table .frozen-col:nth-child(2) {
+    left: 80px; /* 年级列固定在姓名列右侧 */
+    min-width: 80px;
+    width: 80px;
+    max-width: 80px;
+}
+
+.frozen-table .frozen-col:nth-child(3) {
+    left: 160px; /* 班级列固定在年级列右侧 */
+    min-width: 80px;
+    width: 80px;
+    max-width: 80px;
+}
+
+/* 冻结边界线 */
+.frozen-border {
+    position: sticky;
+    left: 240px; /* 更新位置：3个冻结列总宽度 80*3 = 240px */
+    width: 4px !important;
+    min-width: 4px !important;
+    max-width: 4px !important;
+    background: linear-gradient(to right, #6c757d 0%, #6c757d 50%, transparent 100%);
+    border: none !important;
+    padding: 0 !important;
+    z-index: 9;
+}
+
+/* 冻结表格表头特殊样式 */
+.frozen-table thead th {
+    background: #e9ecef !important;
+    border-bottom: 2px solid #6c757d;
+    z-index: 5;
+}
+
+.frozen-table thead .frozen-col {
+    z-index: 15;
+    background: #e9ecef !important;
+}
+
+/* 分数列样式 */
+.frozen-table .score-cell {
+    min-width: 80px;
+    width: 80px;
+    max-width: 80px;
+    text-align: center;
     font-weight: 500;
+}
+
+.frozen-table .total-score {
+    min-width: 90px;
+    width: 90px;
+    max-width: 90px;
+    background-color: #fff3cd !important;
+    font-weight: 600;
+    color: #856404;
+}
+
+.frozen-table .rank-cell {
+    min-width: 70px;
+    width: 70px;
+    max-width: 70px;
+    background-color: #d1ecf1 !important;
+    font-weight: 600;
+    color: #0c5460;
+}
+
+/* 滚动区域样式 */
+.table-responsive {
+    max-height: 70vh;
+    overflow-x: auto; /* 明确启用水平滚动 */
+    overflow-y: auto; /* 明确启用垂直滚动 */
+    scrollbar-width: thin;
+    scrollbar-color: #6c757d #f8f9fa;
+}
+
+.table-responsive::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.table-responsive::-webkit-scrollbar-track {
+    background: #f8f9fa;
     border-radius: 4px;
 }
 
-.total-score {
-    background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
-    font-weight: bold;
-    color: #1976d2;
+.table-responsive::-webkit-scrollbar-thumb {
+    background: #6c757d;
     border-radius: 4px;
-    min-width: 80px;
 }
 
-.rank-cell {
-    background: linear-gradient(135deg, #fff3e0 0%, #ffcc02 100%);
-    font-weight: bold;
-    color: #f57c00;
-    border-radius: 4px;
-    min-width: 80px;
+.table-responsive::-webkit-scrollbar-thumb:hover {
+    background: #495057;
 }
 
+/* 表格行悬停效果 */
 .table tbody tr {
     transition: var(--transition);
 }
 
 .table tbody tr:hover {
-    background-color: var(--hover-bg);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    background-color: rgba(0, 123, 255, 0.05);
 }
 
+.frozen-table tbody tr:hover {
+    background-color: #f5f5f5 !important;
+}
+
+.frozen-table tbody tr:hover .frozen-col {
+    background-color: #e9ecef !important;
+}
+
+.frozen-table tbody tr:hover .total-score {
+    background-color: #ffeaa7 !important;
+}
+
+.frozen-table tbody tr:hover .rank-cell {
+    background-color: #b8daff !important;
+}
+
+/* 学生信息样式 */
 .student-info {
-    text-align: left;
-    font-weight: 500;
-}
-
-.student-link {
-    color: var(--primary-color);
-    text-decoration: none;
     font-weight: 600;
-    transition: color 0.3s ease;
+    color: var(--text-color);
+    text-align: left !important;
+    padding-left: 1rem !important;
 }
 
-.student-link:hover {
-    color: var(--primary-hover);
-    text-decoration: underline;
-}
-
+/* 排序按钮样式 */
 .sort-header {
     position: relative;
     cursor: pointer;
@@ -462,18 +587,40 @@ select.form-select option:checked:hover {
 .sort-btn {
     color: #6c757d;
     text-decoration: none;
-    margin-left: 0.5rem;
+    margin-left: 0.25rem;
     font-size: 0.8rem;
     transition: color 0.3s ease;
+    display: inline-block;
+    margin-top: 0.25rem;
 }
 
 .sort-btn:hover {
     color: var(--primary-color);
+    text-decoration: none;
 }
 
 .sort-btn.active {
     color: var(--primary-color);
     font-weight: bold;
+}
+
+/* 滚动条样式 */
+.table-scrollable-columns::-webkit-scrollbar {
+    height: 8px;
+}
+
+.table-scrollable-columns::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.table-scrollable-columns::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+.table-scrollable-columns::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
 }
 
 /* ===== 分页样式 ===== */
@@ -556,20 +703,97 @@ select.form-select option:checked:hover {
 
 /* ===== 响应式设计 ===== */
 @media (max-width: 1200px) {
-    .table th, .table td {
-        padding: 0.5rem 0.25rem;
-        font-size: 0.75rem;
+    .frozen-table .frozen-col:nth-child(1) {
+        left: 0;
+        min-width: 80px;
+        width: 80px;
+        max-width: 80px;
     }
     
-    .table th:nth-child(1), .table td:nth-child(1) { min-width: 80px; }
-    .table th:nth-child(2), .table td:nth-child(2) { min-width: 100px; }
-    .table th:nth-child(5), .table td:nth-child(5) { min-width: 120px; }
+    .frozen-table .frozen-col:nth-child(2) {
+        left: 80px;
+        min-width: 60px;
+        width: 60px;
+        max-width: 60px;
+    }
+    
+    .frozen-table .frozen-col:nth-child(3) {
+        left: 140px;
+        min-width: 80px;
+        width: 80px;
+        max-width: 80px;
+    }
+    
+    .frozen-border {
+        left: 220px; /* 更新边界线位置 */
+    }
+    
+    .frozen-table .score-cell {
+        min-width: 70px;
+        width: 70px;
+        max-width: 70px;
+    }
+    
+    .frozen-table .total-score {
+        min-width: 80px;
+        width: 80px;
+        max-width: 80px;
+    }
+    
+    .frozen-table .rank-cell {
+        min-width: 60px;
+        width: 60px;
+        max-width: 60px;
+    }
+    
+    .table th, .table td {
+        padding: 0.5rem 0.25rem;
+        font-size: 0.8rem;
+    }
 }
 
 @media (max-width: 768px) {
-    .table-container {
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
+    .frozen-table .frozen-col:nth-child(1) {
+        left: 0;
+        min-width: 70px;
+        width: 70px;
+        max-width: 70px;
+    }
+    
+    .frozen-table .frozen-col:nth-child(2) {
+        left: 70px;
+        min-width: 50px;
+        width: 50px;
+        max-width: 50px;
+    }
+    
+    .frozen-table .frozen-col:nth-child(3) {
+        left: 120px;
+        min-width: 60px;
+        width: 60px;
+        max-width: 60px;
+    }
+    
+    .frozen-border {
+        left: 180px; /* 更新边界线位置 */
+    }
+    
+    .frozen-table .score-cell {
+        min-width: 60px;
+        width: 60px;
+        max-width: 60px;
+    }
+    
+    .frozen-table .total-score {
+        min-width: 70px;
+        width: 70px;
+        max-width: 70px;
+    }
+    
+    .frozen-table .rank-cell {
+        min-width: 50px;
+        width: 50px;
+        max-width: 50px;
     }
     
     .btn {
@@ -621,5 +845,48 @@ select.form-select option:checked:hover {
     
     .table {
         font-size: 0.7rem;
+    }
+    
+    .frozen-table .frozen-col:nth-child(1) {
+        left: 0;
+        min-width: 60px;
+        width: 60px;
+        max-width: 60px;
+    }
+    
+    .frozen-table .frozen-col:nth-child(2) {
+        left: 60px;
+        min-width: 40px;
+        width: 40px;
+        max-width: 40px;
+    }
+    
+    .frozen-table .frozen-col:nth-child(3) {
+        left: 100px;
+        min-width: 50px;
+        width: 50px;
+        max-width: 50px;
+    }
+    
+    .frozen-border {
+        left: 150px; /* 更新边界线位置 */
+    }
+    
+    .frozen-table .score-cell {
+        min-width: 50px;
+        width: 50px;
+        max-width: 50px;
+    }
+    
+    .frozen-table .total-score {
+        min-width: 60px;
+        width: 60px;
+        max-width: 60px;
+    }
+    
+    .frozen-table .rank-cell {
+        min-width: 45px;
+        width: 45px;
+        max-width: 45px;
     }
 }
