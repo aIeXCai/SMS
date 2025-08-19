@@ -659,13 +659,14 @@
 
         // 5. 各班级等级分布堆叠柱状图
         const classGradeDistributionCtx = document.getElementById('classGradeDistributionChart').getContext('2d');
-        const gradeLabels = ['特优(95%+)', '优秀(85%-95%)', '良好(70%-85%)', '及格(60%-70%)', '不及格(<60%)'];
+        // 标签顺序：从底部到顶部（不及格→及格→良好→优秀→特优）
+        const gradeLabels = ['不及格(<60%)', '及格(60%-70%)', '良好(70%-85%)', '优秀(85%-95%)', '特优(95%+)'];
         const gradeColors = [
-            'rgba(16,185,129,0.8)',  // 绿色 - 特优
-            'rgba(59,130,246,0.8)',  // 蓝色 - 优秀
-            'rgba(245,158,11,0.8)',  // 橙色 - 良好
+            'rgba(107,114,128,0.8)', // 灰色 - 不及格（底部）
             'rgba(239,68,68,0.8)',   // 红色 - 及格
-            'rgba(107,114,128,0.8)'  // 灰色 - 不及格
+            'rgba(245,158,11,0.8)',  // 橙色 - 良好
+            'rgba(59,130,246,0.8)',  // 蓝色 - 优秀
+            'rgba(16,185,129,0.8)'   // 绿色 - 特优（顶部）
         ];
 
         new Chart(classGradeDistributionCtx, {
@@ -726,6 +727,7 @@
                 plugins: {
                     legend: {
                         position: 'top',
+                        reverse: true,  // 反转图例顺序，让特优显示在最上方
                         labels: {
                             padding: 15,
                             usePointStyle: true,

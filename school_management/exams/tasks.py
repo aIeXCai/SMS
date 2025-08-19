@@ -4,7 +4,6 @@
 """
 import time
 from django.db.models import Sum
-from django.shortcuts import get_object_or_404
 from .models import Exam, Score
 
 def update_grade_rankings_async(exam_id, grade_level=None):
@@ -16,7 +15,17 @@ def update_grade_rankings_async(exam_id, grade_level=None):
     start_time = time.time()
     
     try:
-        exam = get_object_or_404(Exam, pk=exam_id)
+        # 在异步任务中不使用get_object_or_404，直接查询
+        try:
+            exam = Exam.objects.get(pk=exam_id)
+        except Exam.DoesNotExist:
+            error_message = f"考试ID {exam_id} 不存在"
+            print(error_message)
+            return {
+                'success': False,
+                'message': error_message,
+                'error': 'Exam not found'
+            }
         
         # 获取需要更新排名的年级
         if grade_level:
@@ -52,7 +61,13 @@ def update_grade_rankings_async(exam_id, grade_level=None):
             
             for i, student_data in enumerate(students_scores):
                 student_id = student_data['student_id']
-                total_score = float(student_data['total_score']) if student_data['total_score'] else 0
+                total_score = student_data['total_score']
+                
+                # 处理空值情况
+                if total_score is None:
+                    total_score = 0.0
+                else:
+                    total_score = float(total_score)
                 
                 # 如果当前分数与前一个分数不同，更新排名
                 if previous_score is not None and total_score != previous_score:
@@ -107,7 +122,17 @@ def update_subject_rankings_async(exam_id, subject=None):
     start_time = time.time()
     
     try:
-        exam = get_object_or_404(Exam, pk=exam_id)
+        # 在异步任务中不使用get_object_or_404，直接查询
+        try:
+            exam = Exam.objects.get(pk=exam_id)
+        except Exam.DoesNotExist:
+            error_message = f"考试ID {exam_id} 不存在"
+            print(error_message)
+            return {
+                'success': False,
+                'message': error_message,
+                'error': 'Exam not found'
+            }
         
         # 确定要更新的科目
         if subject:
@@ -140,12 +165,17 @@ def update_subject_rankings_async(exam_id, subject=None):
                 score_updates = []
                 
                 for i, score in enumerate(subject_scores):
-                    if previous_score is not None and score.score_value != previous_score:
+                    # 处理空值情况
+                    current_score_value = score.score_value
+                    if current_score_value is None:
+                        current_score_value = 0.0
+                    
+                    if previous_score is not None and current_score_value != previous_score:
                         current_rank = i + 1
                     
                     score.grade_rank_in_subject = current_rank
                     score_updates.append(score)
-                    previous_score = score.score_value
+                    previous_score = current_score_value
                 
                 # 批量更新
                 if score_updates:

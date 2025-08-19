@@ -157,6 +157,9 @@ RQ_QUEUES = {
         'DB': 0,
         'PASSWORD': '',
         'DEFAULT_TIMEOUT': 360,
+        'CONNECTION_KWARGS': {
+            'health_check_interval': 30,
+        },
     },
     'high': {
         'HOST': 'localhost',
@@ -170,5 +173,9 @@ RQ_QUEUES = {
         'PORT': 6379,
         'DB': 0,
         'PASSWORD': '',
+        'DEFAULT_TIMEOUT': 1800,  # 30分钟超时
     }
 }
+
+# RQ管理界面配置
+RQ_SHOW_ADMIN_LINK = True  # 在Django admin中显示RQ链接

@@ -11,7 +11,6 @@ import openpyxl
 from datetime import datetime
 from decimal import Decimal
 import io, json, statistics, re, time
-import django_rq
 from collections import defaultdict
 from .models import Exam, ExamSubject, Score, SUBJECT_CHOICES, SUBJECT_DEFAULT_MAX_SCORES, ACADEMIC_YEAR_CHOICES
 from .forms import ExamCreateForm, ExamSubjectFormSet, ScoreForm, ScoreBatchUploadForm, ScoreQueryForm, ScoreAddForm, ScoreAnalysisForm
@@ -796,36 +795,56 @@ def score_batch_import_ajax(request):
         imported_count = len(successful_students)
         failed_count = len(failed_students)
         
-        # 排名更新（异步处理）
+        # 排名更新（异步处理优先，失败时跳过而不是同步处理）
         if imported_count > 0:
+            # 短暂延迟确保数据库事务完全提交
+            time.sleep(0.1)
+            
+            ranking_update_status = "skipped"
             try:
-                from .tasks import update_grade_rankings_async, update_subject_rankings_async
-                
-                # 获取异步队列
-                queue = django_rq.get_queue('default')
-                
-                # 提交异步任务：更新总分排名
-                job1 = queue.enqueue(
-                    update_grade_rankings_async, 
-                    selected_exam.pk,
-                    job_timeout=600  # 10分钟超时
-                )
-                
-                # 提交异步任务：更新学科排名  
-                job2 = queue.enqueue(
-                    update_subject_rankings_async,
-                    selected_exam.pk,
-                    job_timeout=600  # 10分钟超时
-                )
-                
-                # 记录异步任务ID（可选择是否输出到日志）
-                # print(f"已提交排名更新任务: {job1.id}, {job2.id}")
-                
+                # 检查是否安装了django-rq和Redis可用性
+                try:
+                    import django_rq
+                    from .tasks import update_grade_rankings_async, update_subject_rankings_async
+                    
+                    # 获取异步队列
+                    queue = django_rq.get_queue('default')
+                    
+                    # 测试Redis连接
+                    queue.connection.ping()  # 这会抛出异常如果Redis不可用
+                    
+                    # 提交异步任务：更新总分排名
+                    job1 = queue.enqueue(
+                        update_grade_rankings_async, 
+                        selected_exam.pk,
+                        job_timeout=600  # 10分钟超时
+                    )
+                    
+                    # 提交异步任务：更新学科排名  
+                    job2 = queue.enqueue(
+                        update_subject_rankings_async,
+                        selected_exam.pk,
+                        job_timeout=600  # 10分钟超时
+                    )
+                    
+                    # 记录异步任务ID
+                    print(f"异步排名更新任务已提交: 总分排名={job1.id}, 学科排名={job2.id}")
+                    ranking_update_status = "async_submitted"
+                    
+                except ImportError:
+                    # django-rq未安装
+                    print("django-rq未安装，跳过排名更新")
+                    ranking_update_status = "django_rq_not_installed"
+                    
+                except Exception as redis_error:
+                    # Redis连接失败或其他异步任务问题
+                    print(f"Redis/异步任务不可用，跳过排名更新: {redis_error}")
+                    ranking_update_status = "redis_unavailable"
+                    
             except Exception as e:
-                # 记录异步任务失败（可选择是否输出到日志）
-                # print(f"异步任务提交失败: {e}")
-                # 如果异步任务失败，不影响主要的导入流程
-                pass
+                # 任何其他异常都跳过排名更新
+                print(f"排名更新跳过，原因: {e}")
+                ranking_update_status = "error_skipped"
         
         # 计算执行时间
         execution_time = time.time() - start_time
@@ -840,6 +859,18 @@ def score_batch_import_ajax(request):
             message = f"上传成功！成功导入 {imported_count} 个学生，{timing_report}"
             if failed_count > 0:
                 message += f"，失败 {failed_count} 个学生"
+            
+            # 添加排名更新状态信息
+            if 'ranking_update_status' in locals():
+                if ranking_update_status == "async_submitted":
+                    message += "。排名更新任务已提交至后台队列"
+                elif ranking_update_status == "redis_unavailable":
+                    message += "。注意：Redis未运行，排名更新已跳过"
+                elif ranking_update_status == "django_rq_not_installed":
+                    message += "。注意：django-rq未安装，排名更新已跳过"
+                else:
+                    message += "。注意：排名更新已跳过"
+            
             return JsonResponse({
                 'success': True,
                 'message': message,
@@ -847,6 +878,7 @@ def score_batch_import_ajax(request):
                 'failed_count': failed_count,
                 'execution_time': round(execution_time, 2),
                 'timing_details': timing_info,
+                'ranking_update_status': locals().get('ranking_update_status', 'unknown'),
                 'error_details': error_details[:20]  # 只返回前20个错误详情，避免响应过大
             })
         else:
@@ -2138,7 +2170,17 @@ def _analyze_multiple_classes(selected_classes, exam):
     total_students = 0
     highest_avg = 0
     
-    for class_obj in selected_classes:
+    # 首先对班级进行数字排序
+    def extract_class_number(class_obj):
+        """提取班级编号进行数字排序"""
+        class_name = class_obj.class_name
+        match = re.search(r'(\d+)', class_name)
+        return int(match.group(1)) if match else 0
+    
+    # 对传入的班级按数字顺序排序
+    sorted_classes = sorted(selected_classes, key=extract_class_number)
+    
+    for class_obj in sorted_classes:
         class_scores = all_scores.filter(student__current_class=class_obj)
         
         # 基本统计信息
@@ -2215,10 +2257,11 @@ def _analyze_multiple_classes(selected_classes, exam):
             'subject_averages': subject_averages
         })
     
-    # 准备图表数据
+    # 准备图表数据 - 确保班级顺序正确
+    sorted_class_names = [class_obj.class_name for class_obj in sorted_classes]
     chart_data = {
         'subjects': subjects,
-        'classes': list(class_subject_averages.keys()),
+        'classes': sorted_class_names,
         'class_subject_averages': class_subject_averages,
         'score_distributions': score_distributions
     }
@@ -2418,8 +2461,8 @@ def _analyze_grade(exam, grade_level):
             'subject_averages': subject_averages
         })
         
-        # 班级等级分布（用于堆叠柱状图）- 5个等级
-        class_grade_distribution[class_name] = [excellent_plus_count, excellent_count, good_count, pass_count, fail_count]
+        # 班级等级分布（用于堆叠柱状图）- 5个等级（从底部到顶部：不及格→及格→良好→优秀→特优）
+        class_grade_distribution[class_name] = [fail_count, pass_count, good_count, excellent_count, excellent_plus_count]
     
     # 年级成绩分布（总分分段统计）
     score_ranges = ['特优(95%+)', '优秀(85%-95%)', '良好(70%-85%)', '及格(60%-70%)', '不及格(<60%)']
