@@ -58,8 +58,262 @@
 
     /* 针对此页面的表格字体大小 */
     table {
-        font-size: 12px;
+        font-size: 14px;
     }
+
+    /* ===== 简单直接的冻结表格实现 ===== */
+    .table-container-wrapper {
+        position: relative;
+        overflow: hidden;
+        border: 1px solid #dee2e6;
+        border-radius: 10px;
+        background: white;
+    }
+
+    .table-responsive {
+        overflow-x: auto;
+        overflow-y: visible; /* 改为visible，不限制垂直滚动 */
+        /* 移除 max-height 限制，让表格完全展开 */
+    }
+
+    .frozen-table {
+        margin: 0;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+
+    .frozen-table .frozen-col {
+        position: sticky;
+        background: #f8f9fa;
+        z-index: 10;
+        border-right: 1px solid #dee2e6;
+    }
+
+    .frozen-table .frozen-col:nth-child(1) {
+        left: 0px;
+        width: 100px;
+        min-width: 100px;
+    }
+
+    .frozen-table .frozen-col:nth-child(2) {
+        left: 100px;
+        width: 80px;
+        min-width: 80px;
+    }
+
+    .frozen-table th,
+    .frozen-table td {
+        padding: 0.75rem;
+        text-align: center;
+        white-space: nowrap;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .frozen-table thead th {
+        background: #017b6c;
+        color: white;
+        position: sticky;
+        top: 0;
+        z-index: 5;
+    }
+
+    .frozen-table thead .frozen-col {
+        z-index: 15;
+        background: #017b6c;
+        color: white;
+    }
+
+    .frozen-table .score-cell {
+        width: 60px;
+        min-width: 60px;
+    }
+
+    .student-info {
+        font-weight: 600;
+        color: #495057;
+        text-align: center;
+    }
+</style>
+
+
+
+    .frozen-table .score-cell {
+        width: 60px;
+        min-width: 60px;
+    }
+
+    /* 表格行悬停效果 */
+    .frozen-table tbody tr:hover {
+        background-color: #f5f5f5 !important;
+    }
+
+    .frozen-table tbody tr:hover .frozen-col {
+        background-color: #e9ecef !important;
+    }
+
+    /* 响应式调整 */
+    @media (max-width: 1200px) {
+        .frozen-table .frozen-col:nth-child(1) {
+            left: 0;
+            min-width: 90px;
+            width: 90px;
+            max-width: 90px;
+        }
+        
+        .frozen-table .frozen-col:nth-child(2) {
+            left: 90px;
+            min-width: 70px;
+            width: 70px;
+            max-width: 70px;
+        }
+        
+        /* 分数相关列 - 平均分、最高分、最低分 */
+        .frozen-table th:nth-child(3),
+        .frozen-table td:nth-child(3),
+        .frozen-table th:nth-child(4),
+        .frozen-table td:nth-child(4),
+        .frozen-table th:nth-child(5),
+        .frozen-table td:nth-child(5) {
+            min-width: 80px;
+            width: 80px;
+            max-width: 80px;
+        }
+
+        /* 率类列 - 优秀率、良好率、及格率 */
+        .frozen-table th:nth-child(6),
+        .frozen-table td:nth-child(6),
+        .frozen-table th:nth-child(7),
+        .frozen-table td:nth-child(7),
+        .frozen-table th:nth-child(8),
+        .frozen-table td:nth-child(8) {
+            min-width: 75px;
+            width: 75px;
+            max-width: 75px;
+        }
+        
+        .frozen-table th.score-cell,
+        .frozen-table td.score-cell {
+            min-width: 60px !important; /* 1200px以下稍微增加 */
+            width: 60px !important;
+            max-width: 60px !important;
+        }
+        
+        .frozen-border {
+            left: 160px; /* 更新边界线位置 90+70 = 160px */
+        }
+        
+        .frozen-table th, .frozen-table td {
+            padding: 0.5rem 0.25rem;
+            font-size: 0.8rem;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .frozen-table .frozen-col:nth-child(1) {
+            left: 0;
+            min-width: 80px;
+            width: 80px;
+            max-width: 80px;
+        }
+        
+        .frozen-table .frozen-col:nth-child(2) {
+            left: 80px;
+            min-width: 60px;
+            width: 60px;
+            max-width: 60px;
+        }
+        
+        /* 分数相关列 */
+        .frozen-table th:nth-child(3),
+        .frozen-table td:nth-child(3),
+        .frozen-table th:nth-child(4),
+        .frozen-table td:nth-child(4),
+        .frozen-table th:nth-child(5),
+        .frozen-table td:nth-child(5) {
+            min-width: 70px;
+            width: 70px;
+            max-width: 70px;
+        }
+
+        /* 率类列 */
+        .frozen-table th:nth-child(6),
+        .frozen-table td:nth-child(6),
+        .frozen-table th:nth-child(7),
+        .frozen-table td:nth-child(7),
+        .frozen-table th:nth-child(8),
+        .frozen-table td:nth-child(8) {
+            min-width: 65px;
+            width: 65px;
+            max-width: 65px;
+        }
+        
+        .frozen-table th.score-cell,
+        .frozen-table td.score-cell {
+            min-width: 50px !important; /* 768px以下保持紧凑 */
+            width: 50px !important;
+            max-width: 50px !important;
+        }
+        
+        .frozen-border {
+            left: 140px; /* 更新边界线位置 80+60 = 140px */
+        }
+    }
+
+    @media (max-width: 576px) {
+        .frozen-table .frozen-col:nth-child(1) {
+            left: 0;
+            min-width: 70px;
+            width: 70px;
+            max-width: 70px;
+        }
+        
+        .frozen-table .frozen-col:nth-child(2) {
+            left: 70px;
+            min-width: 50px;
+            width: 50px;
+            max-width: 50px;
+        }
+        
+        /* 分数相关列 */
+        .frozen-table th:nth-child(3),
+        .frozen-table td:nth-child(3),
+        .frozen-table th:nth-child(4),
+        .frozen-table td:nth-child(4),
+        .frozen-table th:nth-child(5),
+        .frozen-table td:nth-child(5) {
+            min-width: 60px;
+            width: 60px;
+            max-width: 60px;
+        }
+
+        /* 率类列 */
+        .frozen-table th:nth-child(6),
+        .frozen-table td:nth-child(6),
+        .frozen-table th:nth-child(7),
+        .frozen-table td:nth-child(7),
+        .frozen-table th:nth-child(8),
+        .frozen-table td:nth-child(8) {
+            min-width: 55px;
+            width: 55px;
+            max-width: 55px;
+        }
+        
+        .frozen-table th.score-cell,
+        .frozen-table td.score-cell {
+            min-width: 45px !important; /* 576px以下最小宽度 */
+            width: 45px !important;
+            max-width: 45px !important;
+        }
+        
+        .frozen-border {
+            left: 120px; /* 更新边界线位置 70+50 = 120px */
+        }
+        
+        .frozen-table {
+            font-size: 0.7rem;
+        }
+    }
+
 </style>
 {% endblock %}
 
@@ -233,58 +487,60 @@
                         <h5><i class="fas fa-table"></i> 年级详细数据统计</h5>
                     </div>
                     <div class="card-body">
-                        <div class="table-responsive">
-                            <table class="table table-modern table-striped table-hover" id="gradeComparisonTable">
-                                <thead>
-                                    <tr>
-                                        <th>班级</th>
-                                        <th>人数</th>
-                                        <th class="sortable" data-column="2">
-                                            平均分 <i class="fas fa-sort sort-icon"></i>
-                                        </th>
-                                        <th class="sortable" data-column="3">
-                                            最高分 <i class="fas fa-sort sort-icon"></i>
-                                        </th>
-                                        <th class="sortable" data-column="4">
-                                            最低分 <i class="fas fa-sort sort-icon"></i>
-                                        </th>
-                                        <th class="sortable" data-column="5">
-                                            优秀率 <i class="fas fa-sort sort-icon"></i>
-                                        </th>
-                                        <th class="sortable" data-column="6">
-                                            良好率 <i class="fas fa-sort sort-icon"></i>
-                                        </th>
-                                        <th class="sortable" data-column="7">
-                                            及格率 <i class="fas fa-sort sort-icon"></i>
-                                        </th>
-                                        {% for subject in subjects %}
-                                        <th class="sortable" data-column="{{ forloop.counter|add:7 }}">
-                                            {{ subject.name }} <i class="fas fa-sort sort-icon"></i>
-                                        </th>
+                        <div class="table-container-wrapper">
+                            <div class="table-responsive">
+                                <table class="table frozen-table" id="gradeComparisonTable">
+                                    <thead>
+                                        <tr>
+                                            <th class="frozen-col">班级</th>
+                                            <th class="frozen-col">人数</th>
+                                            <th class="sortable" data-column="2">
+                                                平均分 <i class="fas fa-sort sort-icon"></i>
+                                            </th>
+                                            <th class="sortable" data-column="3">
+                                                最高分 <i class="fas fa-sort sort-icon"></i>
+                                            </th>
+                                            <th class="sortable" data-column="4">
+                                                最低分 <i class="fas fa-sort sort-icon"></i>
+                                            </th>
+                                            <th class="sortable" data-column="5">
+                                                优秀率 <i class="fas fa-sort sort-icon"></i>
+                                            </th>
+                                            <th class="sortable" data-column="6">
+                                                良好率 <i class="fas fa-sort sort-icon"></i>
+                                            </th>
+                                            <th class="sortable" data-column="7">
+                                                及格率 <i class="fas fa-sort sort-icon"></i>
+                                            </th>
+                                            {% for subject in subjects %}
+                                            <th class="sortable score-cell" data-column="{{ forloop.counter|add:7 }}">
+                                                {{ subject.name }} <i class="fas fa-sort sort-icon"></i>
+                                            </th>
+                                            {% endfor %}
+                                        </tr>
+                                    </thead>
+                                    <tbody id="gradeTableBody">
+                                        {% for class_data in class_statistics %}
+                                        <tr>
+                                            <td class="frozen-col student-info">{{ class_data.class_name }}</td>
+                                            <td class="frozen-col">{{ class_data.student_count }}</td>
+                                            <td data-value="{{ class_data.avg_total }}">{{ class_data.avg_total|floatformat:1 }}</td>
+                                            <td data-value="{{ class_data.max_total }}">{{ class_data.max_total|floatformat:1 }}</td>
+                                            <td data-value="{{ class_data.min_total }}">{{ class_data.min_total|floatformat:1 }}</td>
+                                            <td data-value="{{ class_data.excellent_rate }}">{{ class_data.excellent_rate|floatformat:1 }}%</td>
+                                            <td data-value="{{ class_data.good_rate }}">{{ class_data.good_rate|floatformat:1 }}%</td>
+                                            <td data-value="{{ class_data.pass_rate }}">{{ class_data.pass_rate|floatformat:1 }}%</td>
+                                            {% for subject_avg in class_data.subject_averages %}
+                                            <td class="score-cell" data-value="{{ subject_avg }}">{{ subject_avg|floatformat:1 }}</td>
+                                            {% endfor %}
+                                        </tr>
                                         {% endfor %}
-                                    </tr>
-                                </thead>
-                                <tbody id="gradeTableBody">
-                                    {% for class_data in class_statistics %}
-                                    <tr>
-                                        <td><strong>{{ class_data.class_name }}</strong></td>
-                                        <td>{{ class_data.student_count }}</td>
-                                        <td data-value="{{ class_data.avg_total }}">{{ class_data.avg_total|floatformat:1 }}</td>
-                                        <td data-value="{{ class_data.max_total }}">{{ class_data.max_total|floatformat:1 }}</td>
-                                        <td data-value="{{ class_data.min_total }}">{{ class_data.min_total|floatformat:1 }}</td>
-                                        <td data-value="{{ class_data.excellent_rate }}">{{ class_data.excellent_rate|floatformat:1 }}</td>
-                                        <td data-value="{{ class_data.good_rate }}">{{ class_data.good_rate|floatformat:1 }}</td>
-                                        <td data-value="{{ class_data.pass_rate }}">{{ class_data.pass_rate|floatformat:1 }}</td>
-                                        {% for subject_avg in class_data.subject_averages %}
-                                        <td data-value="{{ subject_avg }}">{{ subject_avg|floatformat:1 }}</td>
-                                        {% endfor %}
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                         <!-- 计算方式说明 -->
-                        <div class="mt-0 px-3 pb-0">
+                        <div class="mt-2 px-3 pb-0 mb-0">
                             <small class="text-muted">
                                 <strong>注：</strong></br>
                                 <p>优秀率=(特优人数+优秀人数)/总人数；良好率=(特优人数+优秀人数+良好人数)/总人数；及格率=(特优人数+优秀人数+良好人数+及格人数)/总人数</p>
