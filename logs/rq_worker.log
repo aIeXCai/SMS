@@ -1,10 +1,5 @@
-17:28:02 Worker b15625a8c83a484ea8011acea8df5630: started with PID 45913, version 2.5.0
-17:28:02 Worker b15625a8c83a484ea8011acea8df5630: subscribing to channel rq:pubsub:b15625a8c83a484ea8011acea8df5630
-17:28:02 *** Listening on default...
-17:28:02 Worker b15625a8c83a484ea8011acea8df5630: cleaning registries for queue: default
-17:41:32 Worker b15625a8c83a484ea8011acea8df5630: cleaning registries for queue: default
-17:55:02 Worker b15625a8c83a484ea8011acea8df5630: cleaning registries for queue: default
-18:09:14 Worker b15625a8c83a484ea8011acea8df5630: cleaning registries for queue: default
-18:22:45 Worker b15625a8c83a484ea8011acea8df5630: cleaning registries for queue: default
-18:36:15 Worker b15625a8c83a484ea8011acea8df5630: cleaning registries for queue: default
-18:49:45 Worker b15625a8c83a484ea8011acea8df5630: cleaning registries for queue: default
+19:36:32 Worker b57b716cc3314f2a9c5d9533c2cd1e1c: started with PID 49807, version 2.5.0
+19:36:32 Worker b57b716cc3314f2a9c5d9533c2cd1e1c: subscribing to channel rq:pubsub:b57b716cc3314f2a9c5d9533c2cd1e1c
+19:36:32 *** Listening on default...
+19:36:32 Worker b57b716cc3314f2a9c5d9533c2cd1e1c: cleaning registries for queue: default
+19:50:02 Worker b57b716cc3314f2a9c5d9533c2cd1e1c: cleaning registries for queue: default
