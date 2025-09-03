@@ -1,4 +1,9 @@
-23:10:07 Worker 922b829131e049e49d930cb986c75eb3: started with PID 63072, version 2.5.0
-23:10:07 Worker 922b829131e049e49d930cb986c75eb3: subscribing to channel rq:pubsub:922b829131e049e49d930cb986c75eb3
-23:10:07 *** Listening on default...
-23:10:07 Worker 922b829131e049e49d930cb986c75eb3: cleaning registries for queue: default
+16:07:46 Worker bf10fcd7705047a28c829278f5729519: started with PID 39772, version 2.5.0
+16:07:46 Worker bf10fcd7705047a28c829278f5729519: subscribing to channel rq:pubsub:bf10fcd7705047a28c829278f5729519
+16:07:46 *** Listening on default...
+16:07:46 Worker bf10fcd7705047a28c829278f5729519: cleaning registries for queue: default
+16:21:17 Worker bf10fcd7705047a28c829278f5729519: cleaning registries for queue: default
+16:34:47 Worker bf10fcd7705047a28c829278f5729519: cleaning registries for queue: default
+16:48:17 Worker bf10fcd7705047a28c829278f5729519: cleaning registries for queue: default
+17:01:36 Worker bf10fcd7705047a28c829278f5729519 [PID 39772]: warm shut down requested
+17:01:36 Worker bf10fcd7705047a28c829278f5729519: unsubscribing from channel rq:pubsub:bf10fcd7705047a28c829278f5729519
