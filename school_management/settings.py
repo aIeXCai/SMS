@@ -38,8 +38,13 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django_rq',  # 添加异步任务支持
-    'school_management.students',
-    'school_management.exams'
+    
+    # 🔴 新的统一学生与成绩模块
+    'school_management.students_grades',
+    
+    # 🔴 原有模块（暂时注释掉，迁移完成后移除）
+    # 'school_management.students',
+    # 'school_management.exams'
 ]
 
 MIDDLEWARE = [
