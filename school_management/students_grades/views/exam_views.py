@@ -39,7 +39,7 @@ def exam_create_step1(request):
                 'grade_level': form.cleaned_data['grade_level'],
                 'description': form.cleaned_data['description'] or '',
             }
-            return redirect('exam_create_step2')
+            return redirect('students_grades:exam_create_step2')
         else:
             # 收集详细的错误信息
             error_messages = []
@@ -80,7 +80,7 @@ def exam_create_step2(request):
     exam_data = request.session.get('exam_create_data')
     if not exam_data:
         messages.error(request, "请先完成第一步的基本信息填写。")
-        return redirect('exam_create_step1')
+        return redirect('students_grades:exam_create_step1')
     
     grade_level = exam_data['grade_level']
     
@@ -116,7 +116,7 @@ def exam_create_step2(request):
                     del request.session['exam_create_data']
                     
                     messages.success(request, f"考试 '{exam.name}' 创建成功！")
-                    return redirect('exam_list')
+                    return redirect('students_grades:exam_list')
             except Exception as e:
                 messages.error(request, f"创建考试失败：{str(e)}")
         else:
@@ -150,10 +150,14 @@ def exam_create_step2(request):
             detailed_error = "考试创建失败，请修正以下问题：\n" + "\n".join([f"• {msg}" for msg in error_messages])
             messages.error(request, detailed_error)
     else:
-        # 创建空的表单集，通过前端JavaScript动态添加默认科目
-        formset = ExamSubjectFormSet(
-            grade_level=grade_level
-        )
+        # 构造 initial 数据，后端初始化默认科目和分数
+        initial_data = []
+        for subject_code, max_score in default_subjects.items():
+            initial_data.append({
+                'subject_code': subject_code,
+                'max_score': max_score
+            })
+        formset = ExamSubjectFormSet(initial=initial_data, grade_level=grade_level)
     
     return render(request, 'exams/exam_create_step2.html', {
         'formset': formset,
@@ -208,7 +212,7 @@ def exam_edit_step1(request, pk):
                 'grade_level': form.cleaned_data['grade_level'],
                 'description': form.cleaned_data['description']
             }
-            return redirect('exam_edit_step2', pk=pk)
+            return redirect('students_grades:exam_edit_step2', pk=pk)
         else:
             # 收集详细的错误信息
             error_messages = []
@@ -252,7 +256,7 @@ def exam_edit_step2(request, pk):
     exam_data = request.session.get('exam_edit_data')
     if not exam_data or exam_data['exam_id'] != exam.id:
         messages.error(request, "请先完成第一步的基本信息编辑。")
-        return redirect('exam_edit_step1', pk=pk)
+        return redirect('students_grades:exam_edit_step1', pk=pk)
     
     grade_level = exam_data['grade_level']
     
@@ -301,7 +305,7 @@ def exam_edit_step2(request, pk):
                         del request.session['exam_edit_data']
                     
                     messages.success(request, f"考试 '{exam.name}' 更新成功！")
-                    return redirect('exam_list')
+                    return redirect('students_grades:exam_list')
             except Exception as e:
                 messages.error(request, f"更新考试失败：{str(e)}")
         else:
@@ -371,4 +375,4 @@ def exam_delete(request, pk):
     exam = get_object_or_404(Exam, pk=pk)
     exam.delete()
     messages.success(request, f"考試 '{exam.name}' 已成功刪除。")
-    return redirect('exam_list')
+    return redirect('students_grades:exam_list')

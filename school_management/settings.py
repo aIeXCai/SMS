@@ -143,6 +143,7 @@ STATIC_URL = 'static/'
 
 # 开发环境下的静态文件目录
 STATICFILES_DIRS = [
+    BASE_DIR / 'school_management' / 'students_grades' / 'static',  # students_grades模块静态文件（优先）
     BASE_DIR / 'school_management' / 'static',  # 项目级静态文件
 ]
 

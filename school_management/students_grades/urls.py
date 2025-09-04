@@ -9,6 +9,21 @@ from .views.student_views import (
     student_batch_update_status, student_batch_promote_grade,
     student_batch_graduate, download_student_import_template
 )
+from .views.exam_views import (
+    exam_list, exam_create_step1, exam_create_step2,
+    exam_edit_step1, exam_edit_step2, exam_delete,
+    get_default_subjects_ajax
+)
+from .views.score_views import (
+    score_list, score_add, score_edit, score_batch_export,
+    score_batch_delete_filtered, score_batch_export_selected,
+    score_batch_delete_selected, score_batch_edit,
+    download_score_import_template, score_query, score_query_results,
+    score_query_export, score_analysis, score_analysis_class,
+    score_analysis_student, score_analysis_grade,
+    score_batch_import_ajax, search_students_ajax,
+    get_classes_by_grade
+)
 
 app_name = 'students_grades'
 
@@ -33,13 +48,41 @@ urlpatterns = [
     # === 工具功能 ===
     path('students/download-template/', download_student_import_template, name='download_student_import_template'), # 下载导入模板
     
-    # === 未来扩展：考试管理 ===
-    # path('exams/', exam_list, name='exam_list'),
-    # path('exams/add/', exam_add, name='exam_add'),
-    # path('exams/edit/<int:pk>/', exam_edit, name='exam_edit'),
+    # === 考试管理 ===
+    path('exams/', exam_list, name='exam_list'),
+    path('exams/create/step1/', exam_create_step1, name='exam_create_step1'),
+    path('exams/create/step2/', exam_create_step2, name='exam_create_step2'),
+    path('exams/<int:pk>/edit/step1/', exam_edit_step1, name='exam_edit_step1'),
+    path('exams/<int:pk>/edit/step2/', exam_edit_step2, name='exam_edit_step2'),
+    path('exams/<int:pk>/delete/', exam_delete, name='exam_delete'),
     
-    # === 未来扩展：成绩管理 ===
-    # path('scores/', score_list, name='score_list'),
-    # path('scores/add/', score_add, name='score_add'),
-    # path('scores/edit/<int:pk>/', score_edit, name='score_edit'),
+    # === 成绩管理 ===
+    path('scores/', score_list, name='score_list'),
+    path('scores/add/', score_add, name='score_add'),
+    path('scores/<int:pk>/edit/', score_edit, name='score_edit'),
+    
+    # === 成绩批量操作 ===
+    path('scores/batch_export/', score_batch_export, name='score_batch_export'),
+    path('scores/batch_delete_filtered/', score_batch_delete_filtered, name='score_batch_delete_filtered'),
+    path('scores/batch_export_selected/', score_batch_export_selected, name='score_batch_export_selected'),
+    path('scores/batch_delete_selected/', score_batch_delete_selected, name='score_batch_delete_selected'),
+    path('scores/batch_edit/', score_batch_edit, name='score_batch_edit'),
+    path('scores/download_template/', download_score_import_template, name='download_score_import_template'),
+    
+    # === 成绩查询功能 ===
+    path('scores/query/', score_query, name='score_query'),
+    path('scores/query/results/', score_query_results, name='score_query_results'),
+    path('scores/query/export/', score_query_export, name='score_query_export'),
+    
+    # === 成绩分析功能 ===
+    path('scores/analysis/', score_analysis, name='score_analysis'),
+    path('scores/analysis/class/', score_analysis_class, name='score_analysis_class'),
+    path('scores/analysis/student/', score_analysis_student, name='score_analysis_student'),
+    path('scores/analysis/grade/', score_analysis_grade, name='score_analysis_grade'),
+    
+    # === AJAX接口 ===
+    path('get_classes_by_grade/', get_classes_by_grade, name='get_classes_by_grade'),
+    path('get_default_subjects/', get_default_subjects_ajax, name='get_default_subjects_ajax'),
+    path('scores/batch_import_ajax/', score_batch_import_ajax, name='score_batch_import_ajax'),
+    path('search_students_ajax/', search_students_ajax, name='search_students_ajax'),
 ]

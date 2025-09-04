@@ -1,9 +1,30 @@
-16:07:46 Worker bf10fcd7705047a28c829278f5729519: started with PID 39772, version 2.5.0
-16:07:46 Worker bf10fcd7705047a28c829278f5729519: subscribing to channel rq:pubsub:bf10fcd7705047a28c829278f5729519
-16:07:46 *** Listening on default...
-16:07:46 Worker bf10fcd7705047a28c829278f5729519: cleaning registries for queue: default
-16:21:17 Worker bf10fcd7705047a28c829278f5729519: cleaning registries for queue: default
-16:34:47 Worker bf10fcd7705047a28c829278f5729519: cleaning registries for queue: default
-16:48:17 Worker bf10fcd7705047a28c829278f5729519: cleaning registries for queue: default
-17:01:36 Worker bf10fcd7705047a28c829278f5729519 [PID 39772]: warm shut down requested
-17:01:36 Worker bf10fcd7705047a28c829278f5729519: unsubscribing from channel rq:pubsub:bf10fcd7705047a28c829278f5729519
+00:22:20 Worker ac85adcceaef46108e2144e51db24843: started with PID 79527, version 2.5.0
+00:22:20 Worker ac85adcceaef46108e2144e51db24843: subscribing to channel rq:pubsub:ac85adcceaef46108e2144e51db24843
+00:22:20 *** Listening on default...
+00:22:20 Worker ac85adcceaef46108e2144e51db24843: cleaning registries for queue: default
+00:50:09 Worker ac85adcceaef46108e2144e51db24843: cleaning registries for queue: default
+01:07:54 Worker ac85adcceaef46108e2144e51db24843: cleaning registries for queue: default
+01:34:02 Worker ac85adcceaef46108e2144e51db24843: cleaning registries for queue: default
+01:51:34 Worker ac85adcceaef46108e2144e51db24843: cleaning registries for queue: default
+02:08:03 Worker ac85adcceaef46108e2144e51db24843: cleaning registries for queue: default
+02:23:50 Worker ac85adcceaef46108e2144e51db24843: cleaning registries for queue: default
+02:35:06 Worker ac85adcceaef46108e2144e51db24843: cleaning registries for queue: default
+02:52:22 Worker ac85adcceaef46108e2144e51db24843: cleaning registries for queue: default
+03:09:54 Worker ac85adcceaef46108e2144e51db24843: cleaning registries for queue: default
+03:26:20 Worker ac85adcceaef46108e2144e51db24843: cleaning registries for queue: default
+03:42:43 Worker ac85adcceaef46108e2144e51db24843: cleaning registries for queue: default
+03:59:27 Worker ac85adcceaef46108e2144e51db24843: cleaning registries for queue: default
+04:14:52 Worker ac85adcceaef46108e2144e51db24843: cleaning registries for queue: default
+04:30:16 Worker ac85adcceaef46108e2144e51db24843: cleaning registries for queue: default
+04:47:58 Worker ac85adcceaef46108e2144e51db24843: cleaning registries for queue: default
+05:03:40 Worker ac85adcceaef46108e2144e51db24843: cleaning registries for queue: default
+05:21:18 Worker ac85adcceaef46108e2144e51db24843: cleaning registries for queue: default
+05:37:45 Worker ac85adcceaef46108e2144e51db24843: cleaning registries for queue: default
+05:53:02 Worker ac85adcceaef46108e2144e51db24843: cleaning registries for queue: default
+06:09:36 Worker ac85adcceaef46108e2144e51db24843: cleaning registries for queue: default
+06:25:47 Worker ac85adcceaef46108e2144e51db24843: cleaning registries for queue: default
+06:45:55 Worker ac85adcceaef46108e2144e51db24843: cleaning registries for queue: default
+07:01:14 Worker ac85adcceaef46108e2144e51db24843: cleaning registries for queue: default
+07:24:57 Worker ac85adcceaef46108e2144e51db24843: cleaning registries for queue: default
+07:42:05 Worker ac85adcceaef46108e2144e51db24843: cleaning registries for queue: default
+08:00:36 Worker ac85adcceaef46108e2144e51db24843: cleaning registries for queue: default

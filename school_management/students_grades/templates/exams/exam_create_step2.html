@@ -1,0 +1,293 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/create_exam.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="text-center mb-4">{{ title }}</h2>
+    
+    <!-- 步骤指示器 -->
+    <div class="step-indicator">
+        <div class="step completed">
+            <div class="step-number">1</div>
+            <span>基本信息</span>
+        </div>
+        <div class="step active">
+            <div class="step-number">2</div>
+            <span>科目配置</span>
+        </div>
+    </div>
+    
+    <div class="form-container">
+        <!-- 考试基本信息展示 -->
+        <div class="exam-info">
+            <h5>考试信息</h5>
+            <p><strong>学年：</strong>{{ exam_data.academic_year }}</p>
+            <p><strong>考试名称：</strong>{{ exam_data.name }}</p>
+            <p><strong>考试日期：</strong>{{ exam_data.date }}</p>
+            <p><strong>适用年级：</strong>{{ exam_data.grade_level }}</p>
+            {% if exam_data.description %}
+                <p><strong>考试描述：</strong>{{ exam_data.description }}</p>
+            {% endif %}
+        </div>
+        
+        <div class="alert alert-info">
+            <strong>提示：</strong>系统已根据 {{ grade_level }} 自动配置常考科目和标准满分。您可以根据实际情况调整满分或删除不需要的科目。
+        </div>
+        
+        <form method="post" id="subjects-form">
+            {% csrf_token %}
+            {{ formset.management_form }}
+            
+            <div class="subjects-container">
+                <h5>科目配置</h5>
+                
+                <div id="formset-container">
+                    {% for form in formset %}
+                        <div class="subject-form" data-form-index="{{ forloop.counter0 }}">
+                            <div class="subject-header">科目 {{ forloop.counter }}</div>
+                            
+                            <div class="subject-form-row">
+                                <div class="form-group">
+                                    <label>{{ form.subject_code.label }}</label>
+                                    <div class="subject-select-wrapper">
+                                        {{ form.subject_code }}
+                                    </div>
+                                    {% if form.subject_code.errors %}
+                                        <div class="text-danger help-text">
+                                            {% for error in form.subject_code.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label>{{ form.max_score.label }}</label>
+                                    {{ form.max_score }}
+                                    {% if form.max_score.errors %}
+                                        <div class="text-danger help-text">
+                                            {% for error in form.max_score.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                
+
+                                
+                                <div class="form-group actions">
+                                    <label>&nbsp;</label><br>
+                                    {% if form.DELETE %}
+                                        {{ form.DELETE }}
+                                        <label for="{{ form.DELETE.id_for_label }}" class="btn btn-danger btn-sm delete-btn">
+                                            删除
+                                        </label>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <!-- 隐藏字段 -->
+                            {% for hidden in form.hidden_fields %}
+                                {{ hidden }}
+                            {% endfor %}
+                        </div>
+                    {% endfor %}
+                </div>
+                
+                <button type="button" class="btn btn-success add-subject-btn" id="add-subject">
+                    + 添加科目
+                </button>
+            </div>
+            
+            <div class="btn-container">
+                <a href="{% url 'students_grades:exam_create_step1' %}" class="btn btn-secondary">上一步</a>
+                <a href="{% url 'students_grades:exam_list' %}" class="btn btn-secondary">取消</a>
+                <button type="submit" class="btn btn-primary">创建考试</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 新科目表单模板 -->
+<div id="empty-form" style="display: none;">
+    <div class="subject-form" data-form-index="__prefix__">
+        <div class="subject-header">新科目</div>
+        <div class="subject-form-row">
+            <div class="form-group">
+                <label>科目</label>
+                <div class="subject-select-wrapper">
+                    {{ formset.empty_form.subject_code }}
+                </div>
+            </div>
+            <div class="form-group">
+                <label>满分</label>
+                {{ formset.empty_form.max_score }}
+            </div>
+
+            <div class="form-group actions">
+                <label>&nbsp;</label><br>
+                <button type="button" class="btn btn-danger btn-sm delete-btn">
+                    删除
+                </button>
+            </div>
+        </div>
+        {% for hidden in formset.empty_form.hidden_fields %}
+            {{ hidden }}
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    let formIndex = {{ formset.total_form_count }};
+    
+    
+    // 添加科目表单的函数
+    function addSubjectForm(subjectCode = '', maxScore = '') {
+        const emptyForm = $('#empty-form').html();
+        const newForm = emptyForm.replace(/__prefix__/g, formIndex);
+        $('#formset-container').append(newForm);
+        
+        // 如果提供了默认值，设置表单值
+        if (subjectCode) {
+            $(`#id_form-${formIndex}-subject_code`).val(subjectCode);
+        }
+        if (maxScore) {
+            $(`#id_form-${formIndex}-max_score`).val(maxScore);
+        }
+        
+        // 更新表单计数
+        formIndex++;
+        $('#id_form-TOTAL_FORMS').val(formIndex);
+        
+        // 重新绑定删除事件
+        bindDeleteEvents();
+    }
+    
+    // 添加科目
+    $('#add-subject').click(function() {
+        addSubjectForm();
+    });
+    
+    // 检查科目是否已存在（排除隐藏的模板表单）
+    function isSubjectExists(subjectCode) {
+        let exists = false;
+        $('.subject-form').not('#empty-form .subject-form').find('select[name$="-subject_code"]').each(function() {
+            if ($(this).val() === subjectCode) {
+                exists = true;
+                return false; // 跳出循环
+            }
+        });
+        return exists;
+    }
+    
+    // 删除科目（勾选DELETE并隐藏表单）
+    function bindDeleteEvents() {
+        $('.delete-btn').off('click').on('click', function() {
+            const formDiv = $(this).closest('.subject-form');
+            // 找到form.DELETE checkbox并勾选
+            const deleteCheckbox = formDiv.find('input[type="checkbox"][name$="-DELETE"]');
+            if (deleteCheckbox.length) {
+                deleteCheckbox.prop('checked', true);
+                formDiv.hide();
+            } else {
+                // 新增表单（未提交到后端），直接移除
+                formDiv.remove();
+            }
+        });
+    }
+    
+    // 初始绑定删除事件
+    bindDeleteEvents();
+    
+    // 科目选择变化时自动设置满分
+    $(document).on('change', 'select[name$="-subject_code"]', function() {
+        const subjectCode = $(this).val();
+        const gradeLevel = '{{ grade_level }}';
+        const maxScoreInput = $(this).closest('.subject-form').find('input[name$="-max_score"]');
+        const currentForm = $(this).closest('.subject-form');
+        
+        if (subjectCode && gradeLevel) {
+            // 检查是否与其他表单中的科目重复（排除隐藏的模板表单）
+            let isDuplicate = false;
+            $('.subject-form').not(currentForm).not('#empty-form .subject-form').each(function() {
+                const otherSubjectCode = $(this).find('select[name$="-subject_code"]').val();
+                if (otherSubjectCode === subjectCode) {
+                    isDuplicate = true;
+                    return false;
+                }
+            });
+            
+            if (isDuplicate) {
+                alert(`科目"${subjectCode}"已存在，请选择其他科目！`);
+                $(this).val(''); // 清空选择
+                maxScoreInput.val(''); // 清空满分
+                return;
+            }
+            
+            // 获取默认满分
+            $.get('{% url "students_grades:get_default_subjects_ajax" %}', {
+                grade_level: gradeLevel
+            }, function(data) {
+                const subject = data.subjects.find(s => s.subject_code === subjectCode);
+                if (subject && !maxScoreInput.val()) {
+                    maxScoreInput.val(subject.max_score);
+                }
+            });
+        }
+    });
+    
+    // 表单提交验证
+    $('#subjects-form').on('submit', function(e) {
+        let hasValidSubject = false;
+        
+        $('.subject-form').each(function() {
+            const subjectCode = $(this).find('select[name$="-subject_code"]').val();
+            const maxScore = $(this).find('input[name$="-max_score"]').val();
+            
+            if (subjectCode && maxScore) {
+                hasValidSubject = true;
+            }
+        });
+        
+        if (!hasValidSubject) {
+            e.preventDefault();
+            alert('至少需要配置一个科目！');
+            return false;
+        }
+        
+        // 检查重复科目（排除隐藏的模板表单）
+        const subjects = [];
+        let hasDuplicate = false;
+        let duplicateSubject = '';
+        
+        $('.subject-form').not('#empty-form .subject-form').each(function() {
+            const subjectCode = $(this).find('select[name$="-subject_code"]').val();
+            
+            if (subjectCode && subjectCode !== '') {
+                if (subjects.includes(subjectCode)) {
+                    hasDuplicate = true;
+                    duplicateSubject = subjectCode;
+                    return false;
+                }
+                subjects.push(subjectCode);
+            }
+        });
+        
+        if (hasDuplicate) {
+            e.preventDefault();
+            alert(`存在重复的科目：${duplicateSubject}，请检查配置！`);
+            return false;
+        }
+    });
+});
+</script>
+{% endblock %}
