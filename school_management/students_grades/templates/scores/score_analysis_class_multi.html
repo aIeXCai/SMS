@@ -67,19 +67,19 @@
                     <h1><i class="fas fa-chart-line me-3"></i>多班级对比分析</h1>
                     <nav aria-label="breadcrumb">
                         <ol class="breadcrumb">
-                            <li class="breadcrumb-item"><a href="{% url 'score_analysis' %}">成绩分析</a></li>
+                            <li class="breadcrumb-item"><a href="{% url 'students_grades:score_analysis' %}">成绩分析</a></li>
                             <li class="breadcrumb-item active" aria-current="page">多班级对比</li>
                         </ol>
                     </nav>
                 </div>
                 <div class="col-auto text-end">
-                    <a href="{% url 'score_analysis' %}" class="btn btn-return">
+                    <a href="{% url 'students_grades:score_analysis' %}" class="btn btn-return">
                         <i class="fas fa-arrow-left me-2"></i>返回选择
                     </a>
                 </div>
             </div>
         </div>
-    </div
+    </div>
     
     <div class="container-fluid fade-in">
         <!-- 分析条件卡片 -->
@@ -511,6 +511,4 @@
         rows.forEach(row => tbody.appendChild(row));
     }
 </script>
-</body>
-</html>
 {% endblock %}

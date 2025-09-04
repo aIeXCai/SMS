@@ -1432,102 +1432,106 @@ def score_analysis_class(request):
         # 如果有班级选择，直接进行分析
         auto_analysis = True
         
-        # 构造一个临时的form数据用于分析
-        temp_form_data = {
-            'academic_year': request.GET.get('academic_year'),
-            'exam': request.GET.get('exam'),
-            'grade_level': request.GET.get('grade_level'),
-            # 关键：传入 class_selection 以通过表单校验
-            'class_selection': request.GET.get('class_selection', 'all'),
-        }
-        temp_form = ScoreAnalysisForm(temp_form_data)
+        # 直接从 URL 参数获取数据，不使用表单验证
+        academic_year = request.GET.get('academic_year')
+        exam_id = request.GET.get('exam')
+        grade_level = request.GET.get('grade_level')
         
-        if temp_form.is_valid():
-            academic_year = temp_form.cleaned_data['academic_year']
-            exam = temp_form.cleaned_data['exam']
-            grade_level = temp_form.cleaned_data['grade_level']
+        try:
+            exam = Exam.objects.get(id=exam_id)
+        except Exam.DoesNotExist:
+            messages.error(request, f'考试不存在')
+            return render(request, 'scores/score_analysis_class.html', {
+                'form': form,
+                'available_classes': available_classes,
+                'page_title': '班级成绩分析',
+                'analysis_type': 'class',
+                'from_analysis_page': from_analysis_page,
+                'show_class_selection': from_analysis_page and available_classes,
+                'auto_analysis': auto_analysis
+            })
+        
+        # 根据传递的班级选择确定分析模式
+        if 'all' in url_selected_classes:
+            # 场景3：所有班级 - 年级整体分析
+            analysis_mode = 'grade_overall'
+            scores = Score.objects.filter(
+                exam=exam,
+                student__current_class__grade_level=grade_level
+            )
             
-            # 根据传递的班级选择确定分析模式
-            if 'all' in url_selected_classes:
-                # 场景3：所有班级 - 年级整体分析
-                analysis_mode = 'grade_overall'
+            context = {
+                'form': form,
+                'available_classes': available_classes,
+                'page_title': '年级整体成绩分析',
+                'analysis_type': 'class',
+                'from_analysis_page': from_analysis_page,
+                'show_class_selection': False,
+                'auto_analysis': True,
+                'analysis_mode': analysis_mode,
+                'selected_exam': exam,
+                'selected_grade': grade_level,
+                'total_students': scores.values('student').distinct().count(),
+                'total_scores': scores.count(),
+            }
+            return render(request, 'scores/score_analysis_class.html', context)
+            
+        elif len(url_selected_classes) == 1:
+            # 场景1：单个班级分析
+            class_id = url_selected_classes[0]
+            try:
+                target_class = Class.objects.get(id=class_id)
+                
                 scores = Score.objects.filter(
                     exam=exam,
-                    student__current_class__grade_level=grade_level
+                    student__current_class=target_class
                 )
+                
+                analysis_result = _analyze_single_class(scores, target_class, exam)
                 
                 context = {
                     'form': form,
                     'available_classes': available_classes,
-                    'page_title': '年级整体成绩分析',
+                    'page_title': f'{target_class.class_name} 成绩分析',
                     'analysis_type': 'class',
                     'from_analysis_page': from_analysis_page,
                     'show_class_selection': False,
                     'auto_analysis': True,
-                    'analysis_mode': analysis_mode,
+                    'analysis_mode': 'single_class',
                     'selected_exam': exam,
                     'selected_grade': grade_level,
-                    'total_students': scores.values('student').distinct().count(),
-                    'total_scores': scores.count(),
+                    'target_class': target_class,
+                    **analysis_result
                 }
                 return render(request, 'scores/score_analysis_class.html', context)
                 
-            elif len(url_selected_classes) == 1:
-                # 场景1：单个班级分析
-                class_id = url_selected_classes[0]
-                try:
-                    target_class = Class.objects.get(id=class_id)
-                    
-                    scores = Score.objects.filter(
-                        exam=exam,
-                        student__current_class=target_class
-                    )
-                    
-                    analysis_result = _analyze_single_class(scores, target_class, exam)
-                    
-                    context = {
-                        'form': form,
-                        'available_classes': available_classes,
-                        'page_title': f'{target_class.class_name} 成绩分析',
-                        'analysis_type': 'class',
-                        'from_analysis_page': from_analysis_page,
-                        'show_class_selection': False,
-                        'auto_analysis': True,
-                        'analysis_mode': 'single_class',
-                        'selected_exam': exam,
-                        'selected_grade': grade_level,
-                        'target_class': target_class,
-                        **analysis_result
-                    }
-                    return render(request, 'scores/score_analysis_class.html', context)
-                    
-                except Class.DoesNotExist:
-                    messages.error(request, f'班级 {class_id} 不存在')
-                    
-            else:
-                # 场景2：多班级对比分析
-                analysis_mode = 'class_comparison'
-                selected_class_ids = [int(class_id) for class_id in url_selected_classes]
-                selected_classes = Class.objects.filter(id__in=selected_class_ids)
+            except Class.DoesNotExist:
+                messages.error(request, f'班级 {class_id} 不存在')
                 
-                # 获取多班级对比分析数据
-                analysis_result = _analyze_multiple_classes(selected_classes, exam)
-                
-                context = {
-                    'form': form,
-                    'available_classes': available_classes,
-                    'page_title': '多班级成绩对比分析',
-                    'analysis_type': 'class',
-                    'from_analysis_page': from_analysis_page,
-                    'show_class_selection': False,
-                    'auto_analysis': True,
-                    'analysis_mode': analysis_mode,
-                    'selected_exam': exam,
-                    'selected_grade': grade_level,
-                    'selected_classes': selected_classes,
-                    **analysis_result
-                }
-                return render(request, 'scores/score_analysis_class_multi.html', context)
+        else:
+            # 场景2：多班级对比分析
+            analysis_mode = 'class_comparison'
+            selected_class_ids = [int(class_id) for class_id in url_selected_classes]
+            selected_classes = Class.objects.filter(id__in=selected_class_ids)
+            
+            # 获取多班级对比分析数据
+            analysis_result = _analyze_multiple_classes(selected_classes, exam)
+            
+            context = {
+                'form': form,
+                'available_classes': available_classes,
+                'page_title': '多班级成绩对比分析',
+                'analysis_type': 'class',
+                'from_analysis_page': from_analysis_page,
+                'show_class_selection': False,
+                'auto_analysis': True,
+                'analysis_mode': analysis_mode,
+                'selected_exam': exam,
+                'selected_grade': grade_level,
+                'selected_classes': selected_classes,
+                **analysis_result
+            }
+            return render(request, 'scores/score_analysis_class_multi.html', context)
     
     context = {
         'form': form,
@@ -1700,20 +1704,13 @@ def score_analysis_grade(request):
     }
     
     if from_analysis_page:
-        # 构造一个临时的form数据用于分析
-        temp_form_data = {
-            'academic_year': request.GET.get('academic_year'),
-            'exam': request.GET.get('exam'),
-            'grade_level': request.GET.get('grade_level'),
-            # 关键：传入 class_selection 以通过表单校验
-            'class_selection': request.GET.get('class_selection', 'all'),
-        }
-        temp_form = ScoreAnalysisForm(temp_form_data)
+        # 直接从 URL 参数获取数据，不使用表单验证
+        academic_year = request.GET.get('academic_year')
+        exam_id = request.GET.get('exam')
+        grade_level = request.GET.get('grade_level')
         
-        if temp_form.is_valid():
-            academic_year = temp_form.cleaned_data['academic_year']
-            exam = temp_form.cleaned_data['exam']
-            grade_level = temp_form.cleaned_data['grade_level']
+        try:
+            exam = Exam.objects.get(id=exam_id)
             
             # 获取年级整体分析数据
             analysis_result = _analyze_grade(exam, grade_level)
@@ -1724,6 +1721,8 @@ def score_analysis_grade(request):
                 'academic_year': academic_year,
                 **analysis_result
             })
+        except Exam.DoesNotExist:
+            messages.error(request, f'考试不存在')
     
     return render(request, 'scores/score_analysis_grade.html', context)
 

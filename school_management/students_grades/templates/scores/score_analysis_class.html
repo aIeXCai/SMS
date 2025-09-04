@@ -365,8 +365,11 @@
         }
         
         // 各科目平均分雷达图
-        const radarCtx = document.getElementById('subjectRadarChart').getContext('2d');
-        new Chart(radarCtx, {
+        const radarCanvas = document.getElementById('subjectRadarChart');
+        
+        if (radarCanvas && chartData.subject_avg_scores) {
+            const radarCtx = radarCanvas.getContext('2d');
+            new Chart(radarCtx, {
             type: 'radar',
             data: {
                 labels: chartData.subject_avg_scores.labels,
@@ -440,9 +443,13 @@
                 }
             }
         });
+        }
         
         // 成绩等级分布柱状图
-        const distributionCtx = document.getElementById('scoreDistributionChart').getContext('2d');
+        const distributionCanvas = document.getElementById('scoreDistributionChart');
+        
+        if (distributionCanvas && chartData.score_distribution) {
+            const distributionCtx = distributionCanvas.getContext('2d');
         
         // 准备分布数据
         const subjects = Object.keys(chartData.score_distribution);
@@ -567,9 +574,13 @@
                 }
             }
         });
+        }
         
         // 总分分布饼图
-        const pieCtx = document.getElementById('totalScorePieChart').getContext('2d');
+        const pieCanvas = document.getElementById('totalScorePieChart');
+        
+        if (pieCanvas && chartData.grade_distribution) {
+            const pieCtx = pieCanvas.getContext('2d');
         
         // 从后端获取总分满分和等级分布数据
         const totalMaxScore = chartData.total_max_score || 0;
@@ -640,9 +651,13 @@
                 cutout: '60%'
             }
         });
+        }
         
         // 科目平均分对比柱状图
-        const comparisonCtx = document.getElementById('subjectComparisonChart').getContext('2d');
+        const comparisonCanvas = document.getElementById('subjectComparisonChart');
+        
+        if (comparisonCanvas && chartData.subject_avg_scores) {
+            const comparisonCtx = comparisonCanvas.getContext('2d');
         
         new Chart(comparisonCtx, {
             type: 'bar',
@@ -714,9 +729,11 @@
                 }
             }
         });
+        }
+        
+        {% else %}
+        console.warn('chart_data_json 不存在或为空');
         {% endif %}
     });
 </script>
-</body>
-</html>
 {% endblock %}

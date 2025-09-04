@@ -319,13 +319,13 @@
                     <h1><i class="fas fa-graduation-cap me-3"></i>{{ page_title }}</h1>
                     <nav aria-label="breadcrumb">
                         <ol class="breadcrumb">
-                            <li class="breadcrumb-item"><a href="{% url 'score_analysis' %}">成绩分析</a></li>
+                            <li class="breadcrumb-item"><a href="{% url 'students_grades:score_analysis' %}">成绩分析</a></li>
                             <li class="breadcrumb-item active" aria-current="page">年级分析</li>
                         </ol>
                     </nav>
                 </div>
                 <div class="col-auto">
-                    <a href="{% url 'score_analysis' %}" class="btn btn-return">
+                    <a href="{% url 'students_grades:score_analysis' %}" class="btn btn-return">
                         <i class="fas fa-arrow-left me-2"></i>返回选择
                     </a>
                 </div>
