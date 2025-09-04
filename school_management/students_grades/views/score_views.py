@@ -135,7 +135,7 @@ def score_list(request):
         'selected_grade_filter': grade_filter,
         'selected_class_filter': class_filter,
     }
-    return render(request, 'exams/score_list.html', context)
+    return render(request, 'scores/score_list.html', context)
 
 # 新增成績 (Create)
 @require_http_methods(["GET", "POST"])
@@ -191,7 +191,7 @@ def score_add(request):
         'score_fields': score_fields
     }
     
-    return render(request, 'exams/score_form.html', context)
+    return render(request, 'scores/score_form.html', context)
 
 # 編輯成績 (Update)
 @require_http_methods(["GET", "POST"])
@@ -218,7 +218,7 @@ def score_edit(request, pk):
     else:
         form = ScoreForm(instance=score)
     
-    return render(request, 'exams/score_form.html', {'form': form, 'title': '編輯成績'})
+    return render(request, 'scores/score_form.html', {'form': form, 'title': '編輯成績'})
 
 # 批量编辑学生在某考试中的所有科目成绩
 @require_http_methods(["GET", "POST"])
@@ -289,7 +289,7 @@ def score_batch_edit(request):
             # 将验证错误信息合并为一个消息
             error_message = "\n".join(validation_errors)
             messages.error(request, error_message)
-            return render(request, 'exams/score_batch_edit.html', {
+            return render(request, 'scores/score_batch_edit.html', {
                 'student': student,
                 'exam': exam,
                 'existing_scores': get_existing_scores(student, exam),
@@ -319,7 +319,7 @@ def score_batch_edit(request):
         'subjects': SUBJECT_CHOICES,
         'subject_max_scores': get_subject_max_scores(exam)  # 添加满分信息
     }
-    return render(request, 'exams/score_batch_edit.html', context)
+    return render(request, 'scores/score_batch_edit.html', context)
 
 # 辅助函数：获取学生在某考试中的现有成绩
 def get_existing_scores(student, exam):
@@ -998,7 +998,7 @@ def score_query(request):
         'page_title': '成绩查询',
     }
     
-    return render(request, 'exams/score_query.html', context)
+    return render(request, 'scores/score_query.html', context)
 
 # 成绩查询结果页面
 # 处理查询请求并显示结果，包含排名计算和科目排序
@@ -1082,7 +1082,7 @@ def score_query_results(request):
             'has_results': False,
         }
     
-    return render(request, 'exams/score_query_results.html', context)
+    return render(request, 'scores/score_query_results.html', context)
 
 # 计算成绩和排名的辅助函数
 # 计算成绩总分和年级排名，支持按科目、总分和排名排序
@@ -1246,13 +1246,15 @@ def score_query_export(request):
     
     # 设置表头
     headers = [
-        "学号", "学生姓名", "年级", "班级", "考试名称"
+        "学号", "学生姓名", "年级", "班级", "考试名称", "学年", "考试日期"
     ]
     
     # 添加科目列 - 按照SUBJECT_CHOICES顺序
     all_subjects = set()
     for result in results:
-        all_subjects.update(result.all_subjects)
+        # result 是字典，使用 get 方法访问 all_subjects
+        subjects = result.get('all_subjects', [])
+        all_subjects.update(subjects)
     
     # 按照SUBJECT_CHOICES的顺序排列科目
     def get_subject_order(subject):
@@ -1275,24 +1277,30 @@ def score_query_export(request):
     
     # 添加数据行
     for result in results:
+        # result 是字典，使用 get 方法访问各个字段
+        student = result.get('student')
+        class_obj = result.get('class_obj')
+        exam = result.get('exam')
+        scores = result.get('scores', {})
+        
         row = [
-            result.student.student_id,
-            result.student.name,
-            result.student.get_grade_level_display() if result.student.grade_level else "N/A",
-            result.class_obj.class_name if result.class_obj else "N/A",
-            result.exam.name,
-            result.exam.academic_year or "N/A",
-            result.exam.date.strftime('%Y-%m-%d')
+            student.student_id if student else "",
+            student.name if student else "",
+            student.get_grade_level_display() if student and student.grade_level else "N/A",
+            class_obj.class_name if class_obj else "N/A",
+            exam.name if exam else "",
+            exam.academic_year or "N/A" if exam else "N/A",
+            exam.date.strftime('%Y-%m-%d') if exam and exam.date else ""
         ]
         
         # 添加各科目成绩 - 按照SUBJECT_CHOICES顺序
         for subject_code in ordered_subjects:
-            score_value = result.scores.get(subject_code, "")
+            score_value = scores.get(subject_code, "")
             row.append(score_value)
         
         # 添加总分和年级排名
-        row.append(result.total_score)
-        row.append(result.grade_rank or "")
+        row.append(result.get('total_score', ""))
+        row.append(result.get('grade_rank', "") or "")
         
         sheet.append(row)
     
@@ -1396,7 +1404,7 @@ def score_analysis(request):
         'all_classes': all_classes,
     }
     
-    return render(request, 'exams/score_analysis.html', context)
+    return render(request, 'scores/score_analysis.html', context)
 
 # 班级/年级成绩分析
 def score_analysis_class(request):
@@ -1462,7 +1470,7 @@ def score_analysis_class(request):
                     'total_students': scores.values('student').distinct().count(),
                     'total_scores': scores.count(),
                 }
-                return render(request, 'exams/score_analysis_class.html', context)
+                return render(request, 'scores/score_analysis_class.html', context)
                 
             elif len(url_selected_classes) == 1:
                 # 场景1：单个班级分析
@@ -1491,7 +1499,7 @@ def score_analysis_class(request):
                         'target_class': target_class,
                         **analysis_result
                     }
-                    return render(request, 'exams/score_analysis_class.html', context)
+                    return render(request, 'scores/score_analysis_class.html', context)
                     
                 except Class.DoesNotExist:
                     messages.error(request, f'班级 {class_id} 不存在')
@@ -1519,7 +1527,7 @@ def score_analysis_class(request):
                     'selected_classes': selected_classes,
                     **analysis_result
                 }
-                return render(request, 'exams/score_analysis_class_multi.html', context)
+                return render(request, 'scores/score_analysis_class_multi.html', context)
     
     context = {
         'form': form,
@@ -1604,9 +1612,9 @@ def score_analysis_class(request):
     
     # 根据分析模式选择不同的模板
     if context.get('analysis_mode') == 'class_comparison':
-        return render(request, 'exams/score_analysis_class_multi.html', context)
+        return render(request, 'scores/score_analysis_class_multi.html', context)
     else:
-        return render(request, 'exams/score_analysis_class.html', context)
+        return render(request, 'scores/score_analysis_class.html', context)
 
 
 # 学生个人成绩分析
@@ -1647,7 +1655,7 @@ def score_analysis_student(request):
             'academic_year': academic_year,
         })
     
-    return render(request, 'exams/score_analysis_student.html', context)
+    return render(request, 'scores/score_analysis_student.html', context)
 
 # AJAX接口：根据年级获取班级列表
 def get_classes_by_grade(request):
@@ -1717,7 +1725,7 @@ def score_analysis_grade(request):
                 **analysis_result
             })
     
-    return render(request, 'exams/score_analysis_grade.html', context)
+    return render(request, 'scores/score_analysis_grade.html', context)
 
 # 单班级详细数据分析辅助函数
 def _analyze_single_class(scores, target_class, exam):

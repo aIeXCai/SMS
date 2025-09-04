@@ -446,61 +446,6 @@ class ScoreQueryForm(forms.Form):
         pass
 
 
-    """成绩分析表单"""
-    
-    ANALYSIS_TYPE_CHOICES = [
-        ('class', '班级分析'),
-        ('grade', '年级分析'),
-        ('student', '学生个人分析'),
-        ('subject', '科目分析'),
-    ]
-    
-    analysis_type = forms.ChoiceField(
-        choices=ANALYSIS_TYPE_CHOICES,
-        label='分析类型',
-        widget=forms.Select(attrs={'class': 'form-control'})
-    )
-    exam = forms.ModelChoiceField(
-        queryset=Exam.objects.all(),
-        label='选择考试',
-        widget=forms.Select(attrs={'class': 'form-control'})
-    )
-    grade_level = forms.ChoiceField(
-        choices=GRADE_LEVEL_CHOICES,
-        label='年级',
-        widget=forms.Select(attrs={'class': 'form-control'})
-    )
-    class_filter = forms.ModelChoiceField(
-        queryset=Class.objects.none(),
-        required=False,
-        label='班级',
-        widget=forms.Select(attrs={'class': 'form-control'})
-    )
-    student = forms.ModelChoiceField(
-        queryset=Student.objects.none(),
-        required=False,
-        label='学生',
-        widget=forms.Select(attrs={'class': 'form-control'})
-    )
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        
-        # 根据年级动态加载班级和学生
-        if 'grade_level' in self.data:
-            try:
-                grade_level = self.data.get('grade_level')
-                if grade_level:
-                    self.fields['class_filter'].queryset = Class.objects.filter(
-                        grade_level=grade_level
-                    )
-                    self.fields['student'].queryset = Student.objects.filter(
-                        grade_level=grade_level
-                    )
-            except (ValueError, TypeError):
-                pass
-
-
 # 成绩分析筛选表单
 class ScoreAnalysisForm(forms.Form):
     academic_year = forms.ChoiceField(

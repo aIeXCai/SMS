@@ -1,0 +1,386 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}成绩查询 - 学校管理系统{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+<link href="{% static 'css/score_query.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<!-- 页面头部 -->
+<div class="page-header">
+    <div class="container-fluid">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1><i class="fas fa-search me-3"></i>成绩查询</h1>
+                <p class="mb-0 opacity-75">快速查询学生成绩信息</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 查询表单 -->
+<div class="container-fluid">
+    <div class="card filter-card">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="fas fa-search me-2"></i>查询条件设置
+            </h5>
+        </div>
+        <div class="card-body">
+            <form method="get" action="{% url 'students_grades:score_query_results' %}" id="queryForm">
+                <!-- 隐藏容器：在提交前由JS填充选中的科目，确保即使下拉菜单被移动到body外也能随表单提交 -->
+                <div id="selected_subjects_hidden_container"></div>
+                <!-- 第一行：学年、年级、开始日期、结束日期、考试、排序方式 -->
+                <div class="row g-3">
+                    <!-- 学年-->
+                    <div class="col-md-2">
+                        <div class="form-group-vertical">
+                            <label for="{{ form.academic_year.id_for_label }}" class="form-label">学年</label>
+                            {{ form.academic_year }}
+                        </div>
+                    </div>
+                    <!-- 年级-->
+                    <div class="col-md-2">
+                        <div class="form-group-vertical">
+                            <label for="{{ form.grade_level.id_for_label }}" class="form-label">年级</label>
+                            {{ form.grade_level }}
+                        </div>
+                    </div>
+                    <!-- 开始日期-->
+                    <div class="col-md-2">
+                        <div class="form-group-vertical">
+                            <label for="{{ form.date_from.id_for_label }}" class="form-label">开始日期</label>
+                            {{ form.date_from }}
+                        </div>
+                    </div>
+                    <!-- 结束日期-->
+                    <div class="col-md-2">
+                        <div class="form-group-vertical">
+                            <label for="{{ form.date_to.id_for_label }}" class="form-label">结束日期</label>
+                            {{ form.date_to }}
+                        </div>
+                    </div>
+                    <!-- 考试-->
+                    <div class="col-md-2">
+                        <div class="form-group-vertical">
+                            <label for="{{ form.exam.id_for_label }}" class="form-label">考试</label>
+                            {{ form.exam }}
+                        </div>
+                    </div>
+                    <!-- 排序方式-->
+                    <div class="col-md-2">
+                        <div class="form-group-vertical">
+                            <label for="{{ form.sort_by.id_for_label }}" class="form-label">排序方式</label>
+                            {{ form.sort_by }}
+                        </div>
+                    </div>
+                </div>
+                <!-- 第二行：班级、姓名、科目 -->
+                <div class="row g-3 mt-2">
+                    <!-- 班级 -->
+                    <div class="col-md-2">
+                        <div class="form-group-vertical">
+                            <label for="{{ form.class_name.id_for_label }}" class="form-label">班级</label>
+                            {{ form.class_name }}
+                        </div>
+                    </div>
+                    <!-- 姓名 -->
+                    <div class="col-md-2">
+                        <div class="form-group-vertical">
+                            <label for="{{ form.student_name.id_for_label }}" class="form-label">姓名</label>
+                            {{ form.student_name }}
+                        </div>
+                    </div>
+                    <!-- 科目 -->
+                    <div class="col-md-4">
+                        <div class="form-group-vertical">
+                            <label for="{{ form.subject.id_for_label }}" class="form-label">科目</label>
+                            <div class="subject-dropdown">
+                                <div class="subject-dropdown-toggle" id="subjectDropdownToggle">
+                                    <span class="subject-dropdown-text">请选择科目</span>
+                                    <i class="fas fa-chevron-down subject-dropdown-arrow"></i>
+                                </div>
+                                <div class="subject-dropdown-menu" id="subjectDropdownMenu">
+                                    <div class="subject-dropdown-header">
+                                        <label class="form-check mb-0">
+                                            <input type="checkbox" class="form-check-input" id="select-all-subjects">
+                                            <span class="form-check-label">全选/取消全选</span>
+                                        </label>
+                                    </div>
+                                    <div class="subject-dropdown-items">
+                                        {% for value, label in form.subject.field.choices %}
+                                            <div class="form-check">
+                                                <input class="form-check-input subject-checkbox" 
+                                                    type="checkbox" 
+                                                    name="subject" 
+                                                    value="{{ value }}" 
+                                                    id="subject_{{ value }}">
+                                                <label class="form-check-label" for="subject_{{ value }}">
+                                                    {{ label }}
+                                                </label>
+                                            </div>
+                                        {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    </div>
+                    <!-- 查询和重置按钮 -->
+                    <div class="col-md-2">
+                        <div class="form-group-vertical">
+                            <label class="form-label" style="visibility: hidden;">查询</label>
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-search"></i> 开始查询
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-group-vertical">
+                            <label class="form-label" style="visibility: hidden;">重置</label>
+                            <button type="reset" class="btn btn-secondary w-100">
+                                <i class="fas fa-undo"></i> 重置条件
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 使用说明 -->
+<div class="help-section">
+    <h5 class="mb-4">
+        <i class="fas fa-question-circle me-2"></i>使用说明
+    </h5>
+    <div class="row">
+        <div class="col-md-6">
+            <div class="help-item">
+                <div class="help-icon">
+                    <i class="fas fa-user"></i>
+                </div>
+                <div>
+                    <h6 class="mb-1">学生信息查询</h6>
+                    <p class="mb-0 text-muted">可通过学生姓名进行模糊搜索，支持部分匹配</p>
+                </div>
+            </div>
+            <div class="help-item">
+                <div class="help-icon">
+                    <i class="fas fa-filter"></i>
+                </div>
+                <div>
+                    <h6 class="mb-1">考试筛选</h6>
+                    <p class="mb-0 text-muted">可选择特定考试或学年进行精确查询</p>
+                </div>
+            </div>
+            <div class="help-item">
+                <div class="help-icon">
+                    <i class="fas fa-book"></i>
+                </div>
+                <div>
+                    <h6 class="mb-1">科目筛选</h6>
+                    <p class="mb-0 text-muted">可查询特定科目组合或全部科目的成绩信息</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="help-item">
+                <div class="help-icon">
+                    <i class="fas fa-calendar"></i>
+                </div>
+                <div>
+                    <h6 class="mb-1">日期范围</h6>
+                    <p class="mb-0 text-muted">可限定考试日期范围，精确控制查询时间段</p>
+                </div>
+            </div>
+            <div class="help-item">
+                <div class="help-icon">
+                    <i class="fas fa-sort"></i>
+                </div>
+                <div>
+                    <h6 class="mb-1">排序方式</h6>
+                    <p class="mb-0 text-muted">支持按总分、姓名、日期等多种方式排序</p>
+                </div>
+            </div>
+            <div class="help-item">
+                <div class="help-icon">
+                    <i class="fas fa-chart-bar"></i>
+                </div>
+                <div>
+                    <h6 class="mb-1">查询结果</h6>
+                    <p class="mb-0 text-muted">将显示详细成绩信息、总分和年级排名</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // 表单增强功能
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('queryForm');
+        const inputs = form.querySelectorAll('input, select');
+        const selectAllCheckbox = document.getElementById('select-all-subjects');
+        const subjectCheckboxes = document.querySelectorAll('.subject-checkbox');
+        
+        // 科目下拉菜单功能
+        const subjectDropdownToggle = document.getElementById('subjectDropdownToggle');
+        const subjectDropdownMenu = document.getElementById('subjectDropdownMenu');
+        const subjectDropdownText = subjectDropdownToggle.querySelector('.subject-dropdown-text');
+        
+        // 点击切换下拉菜单
+        subjectDropdownToggle.addEventListener('click', function(e) {
+            e.stopPropagation();
+            subjectDropdownMenu.classList.toggle('show');
+            subjectDropdownToggle.classList.toggle('active');
+        });
+        
+        // 点击外部关闭下拉菜单
+        document.addEventListener('click', function(e) {
+            if (!subjectDropdownToggle.contains(e.target) && !subjectDropdownMenu.contains(e.target)) {
+                subjectDropdownMenu.classList.remove('show');
+                subjectDropdownToggle.classList.remove('active');
+            }
+        });
+        
+        // 阻止下拉菜单内部点击事件冒泡
+        subjectDropdownMenu.addEventListener('click', function(e) {
+            e.stopPropagation();
+        });
+        
+        // 更新选中文本显示
+        function updateSelectedText() {
+            const checkedBoxes = document.querySelectorAll('.subject-checkbox:checked');
+            const checkedCount = checkedBoxes.length;
+            const totalCount = subjectCheckboxes.length;
+            
+            if (checkedCount === 0) {
+                subjectDropdownText.innerHTML = '请选择科目';
+            } else if (checkedCount === totalCount) {
+                subjectDropdownText.innerHTML = '全部科目 <span class="subject-selected-count">(' + checkedCount + ')</span>';
+            } else if (checkedCount === 1) {
+                const checkedLabel = checkedBoxes[0].nextElementSibling.textContent;
+                subjectDropdownText.innerHTML = checkedLabel;
+            } else {
+                subjectDropdownText.innerHTML = '已选择 <span class="subject-selected-count">' + checkedCount + ' 个科目</span>';
+            }
+        }
+        
+        // 为每个科目选项添加样式类
+        subjectCheckboxes.forEach(checkbox => {
+            const item = checkbox.closest('.subject-dropdown-item') || checkbox.parentElement;
+            if (!item.classList.contains('subject-dropdown-item')) {
+                item.classList.add('subject-dropdown-item');
+            }
+            
+            checkbox.addEventListener('change', function() {
+                if (this.checked) {
+                    item.classList.add('checked');
+                } else {
+                    item.classList.remove('checked');
+                }
+                updateSelectedText();
+                updateSelectAllState();
+            });
+        });
+        
+        // 更新全选状态
+        function updateSelectAllState() {
+            const checkedCount = document.querySelectorAll('.subject-checkbox:checked').length;
+            const totalCount = subjectCheckboxes.length;
+            
+            if (checkedCount === 0) {
+                selectAllCheckbox.indeterminate = false;
+                selectAllCheckbox.checked = false;
+            } else if (checkedCount === totalCount) {
+                selectAllCheckbox.indeterminate = false;
+                selectAllCheckbox.checked = true;
+            } else {
+                selectAllCheckbox.indeterminate = true;
+                selectAllCheckbox.checked = false;
+            }
+        }
+        
+        // 全选/取消全选
+        selectAllCheckbox.addEventListener('change', function() {
+            subjectCheckboxes.forEach(checkbox => {
+                checkbox.checked = this.checked;
+                const item = checkbox.closest('.subject-dropdown-item') || checkbox.parentElement;
+                if (this.checked) {
+                    item.classList.add('checked');
+                } else {
+                    item.classList.remove('checked');
+                }
+            });
+            updateSelectedText();
+        });
+
+        // 在表单提交前，将选中的科目复制到 form 内的隐藏 inputs 中
+        form.addEventListener('submit', function(e) {
+            const hiddenContainer = document.getElementById('selected_subjects_hidden_container');
+            // 清空旧的隐藏域
+            hiddenContainer.innerHTML = '';
+            // 创建隐藏输入，name 与后端 form 字段一致：subject
+            document.querySelectorAll('.subject-checkbox:checked').forEach(cb => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'subject';
+                input.value = cb.value;
+                hiddenContainer.appendChild(input);
+            });
+            // 允许表单继续提交
+        });
+        
+        // 初始化
+        updateSelectedText();
+        updateSelectAllState();
+        
+        // 添加表单验证提示
+        inputs.forEach(input => {
+            input.addEventListener('focus', function() {
+                this.parentElement.classList.add('focused');
+            });
+            
+            input.addEventListener('blur', function() {
+                this.parentElement.classList.remove('focused');
+            });
+        });
+        
+        // 重置按钮功能增强
+        const resetBtn = form.querySelector('button[type="reset"]');
+        resetBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            if (confirm('确定要重置所有查询条件吗？')) {
+                form.reset();
+                // 清除所有浮动标签的激活状态
+                inputs.forEach(input => {
+                    input.parentElement.classList.remove('focused');
+                });
+                // 重置科目选择
+                subjectCheckboxes.forEach(checkbox => {
+                    checkbox.checked = false;
+                    const item = checkbox.closest('.subject-dropdown-item') || checkbox.parentElement;
+                    item.classList.remove('checked');
+                });
+                updateSelectedText();
+                updateSelectAllState();
+            }
+        });
+        
+        // 表单提交前验证
+        form.addEventListener('submit', function(e) {
+            const hasValue = Array.from(inputs).some(input => input.value.trim() !== '');
+            if (!hasValue) {
+                e.preventDefault();
+                alert('请至少填写一个查询条件！');
+                return false;
+            }
+        });
+    });
+</script>
+{% endblock %}
