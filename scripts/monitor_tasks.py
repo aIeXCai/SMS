@@ -7,6 +7,12 @@ import os
 import django
 import time
 from datetime import datetime
+import sys
+from pathlib import Path
+
+# Ensure project root is on sys.path when script is run directly
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT_ROOT))
 
 # 配置Django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'school_management.settings')
@@ -89,10 +95,10 @@ def monitor_ranking_tasks():
                     print(f"   - 任务 {job_id[:8]}... (无法获取详情: {e})")
             print()
         
-        # 检查排名计算进度
+        # 检查排名计算进度（模型已迁移到 students_grades）
         print("🏆 排名计算进度:")
-        from school_management.exams.models import Exam, Score
-        
+        from school_management.students_grades.models import Exam, Score
+
         latest_exam = Exam.objects.order_by('-date').first()
         if latest_exam:
             total_scores = Score.objects.filter(exam=latest_exam).count()
@@ -100,14 +106,14 @@ def monitor_ranking_tasks():
                 exam=latest_exam,
                 total_score_rank_in_grade__isnull=False
             ).count()
-            
+
             if total_scores > 0:
                 progress = (ranked_scores / total_scores) * 100
                 print(f"   考试: {latest_exam.name}")
                 print(f"   总成绩数: {total_scores}")
                 print(f"   已排名: {ranked_scores}")
                 print(f"   完成度: {progress:.1f}%")
-                
+
                 if progress == 100.0:
                     print("   状态: ✅ 排名计算完成")
                 elif progress > 0:

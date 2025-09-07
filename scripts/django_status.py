@@ -5,6 +5,12 @@ Django系统状态监控
 import os
 import django
 from datetime import datetime
+import sys
+from pathlib import Path
+
+# Ensure project root is on sys.path when script is run directly
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT_ROOT))
 
 # 配置Django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'school_management.settings')
@@ -20,20 +26,19 @@ def check_django_status():
         with connection.cursor() as cursor:
             cursor.execute("SELECT 1")
         print("✅ 数据库连接: 正常")
-        
-        # 获取数据库统计
-        from school_management.exams.models import Exam, Score
-        from school_management.students.models import Student
-        
+
+        # 获取数据库统计（已迁移到 students_grades）
+        from school_management.students_grades.models import Exam, Score, Student
+
         exam_count = Exam.objects.count()
         student_count = Student.objects.count()
         score_count = Score.objects.count()
-        
+
         print(f"📊 数据统计:")
         print(f"   - 考试数量: {exam_count}")
         print(f"   - 学生数量: {student_count}")
         print(f"   - 成绩记录: {score_count}")
-        
+
     except Exception as e:
         print(f"❌ 数据库连接失败: {e}")
     

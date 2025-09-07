@@ -6,7 +6,7 @@ import time
 from django.db.models import Sum
 from .models import Exam, Score
 
-def update_grade_rankings_async(exam_id, grade_level=None):
+def update_grade_rankings_async(exam_id, grade_level=None, *args, **kwargs):
     """
     异步更新年级排名
     这是一个耗时的操作，适合在后台执行
@@ -97,14 +97,14 @@ def update_grade_rankings_async(exam_id, grade_level=None):
         execution_time = time.time() - start_time
         success_message = f"排名更新完成！共更新 {total_updated} 条记录，耗时 {execution_time:.2f} 秒"
         print(success_message)
-        
+
         return {
             'success': True,
             'message': success_message,
             'updated_count': total_updated,
             'execution_time': execution_time
         }
-        
+
     except Exception as e:
         error_message = f"排名更新失败: {str(e)}"
         print(error_message)

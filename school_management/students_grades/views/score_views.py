@@ -169,7 +169,7 @@ def score_add(request):
                     except Exception as e:
                         messages.warning(request, f'成绩添加成功，但排名更新失败: {e}')
                     
-                    return redirect('score_list')
+                    return redirect('students_grades:score_list')
             except Exception as e:
                 messages.error(request, f"添加成绩失败：{e}")
         else:
@@ -210,7 +210,7 @@ def score_edit(request, pk):
                 except Exception as e:
                     messages.warning(request, f'成绩更新成功，但排名更新失败: {e}')
                     
-                return redirect('score_list')
+                return redirect('students_grades:score_list')
             except Exception as e:
                 messages.error(request, f"更新成绩失败：{e}。请检查是否已存在该学生在该考试该科目的成绩。")
         else:
@@ -228,14 +228,14 @@ def score_batch_edit(request):
     
     if not student_id or not exam_id:
         messages.error(request, '缺少必要的参数：学生ID或考试ID')
-        return redirect('score_list')
+        return redirect('students_grades:score_list')
     
     try:
         student = Student.objects.get(pk=student_id)
         exam = Exam.objects.get(pk=exam_id)
     except (Student.DoesNotExist, Exam.DoesNotExist):
         messages.error(request, '学生或考试不存在')
-        return redirect('score_list')
+        return redirect('students_grades:score_list')
     
     if request.method == 'POST':
         # 处理表单提交
@@ -307,7 +307,7 @@ def score_batch_edit(request):
         else:
             messages.info(request, '没有检测到任何更改')
         
-        return redirect('score_list')
+        return redirect('students_grades:score_list')
     
     # GET请求：显示编辑表单
     existing_scores = get_existing_scores(student, exam)
@@ -831,7 +831,7 @@ def score_batch_delete_filtered(request):
     else:
         messages.info(request, '没有找到符合条件的成绩记录')
     
-    return redirect('score_list')
+    return redirect('students_grades:score_list')
 
 
 # 导出选中的成绩记录
@@ -841,7 +841,7 @@ def score_batch_export_selected(request):
     
     if not selected_records:
         messages.error(request, '没有选择任何记录')
-        return redirect('score_list')
+        return redirect('students_grades:score_list')
     
     # 解析选中的记录并聚合数据
     aggregated_data = defaultdict(lambda: {
@@ -879,7 +879,7 @@ def score_batch_export_selected(request):
     
     if not aggregated_data:
         messages.error(request, '没有找到对应的成绩记录')
-        return redirect('score_list')
+        return redirect('students_grades:score_list')
     
     # 创建Excel文件
     workbook = openpyxl.Workbook()
@@ -964,7 +964,7 @@ def score_batch_delete_selected(request):
     
     if not selected_records:
         messages.error(request, '没有选择任何记录')
-        return redirect('score_list')
+        return redirect('students_grades:score_list')
     
     # 解析选中的记录并删除
     total_deleted = 0
@@ -984,7 +984,7 @@ def score_batch_delete_selected(request):
     else:
         messages.info(request, '没有找到对应的成绩记录')
     
-    return redirect('score_list')
+    return redirect('students_grades:score_list')
 
 
 
@@ -1188,7 +1188,7 @@ def score_query_export(request):
     form = ScoreQueryForm(request.GET)
     if not form.is_valid():
         messages.error(request, '查询参数无效，无法导出')
-        return redirect('score_query')
+        return redirect('students_grades:score_query')
     
     # 获取查询参数（与score_query_results相同的逻辑）
     student_name = form.cleaned_data.get('student_name')

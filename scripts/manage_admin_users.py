@@ -8,6 +8,12 @@ import os
 import sys
 import django
 from getpass import getpass
+from pathlib import Path
+
+# Ensure project root is on sys.path when script is run directly
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT_ROOT))
+
 
 # 设置Django环境
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'school_management.settings')
