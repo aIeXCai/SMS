@@ -122,7 +122,21 @@ def student_edit(request, pk):
 def student_delete(request, pk):
     student = get_object_or_404(Student, pk=pk)
     if request.method == 'POST':
+        # 获取该学生参与的所有考试ID，用于后续排名更新
+        from school_management.students_grades.models.score import Score
+        affected_exam_ids = list(Score.objects.filter(student=student).values_list('exam_id', flat=True).distinct())
+        
         student.delete()
+        
+        # 异步更新受影响考试的排名
+        if affected_exam_ids:
+            from school_management.students_grades.tasks import update_all_rankings_async
+            for exam_id in affected_exam_ids:
+                try:
+                    update_all_rankings_async.delay(exam_id)
+                except Exception as e:
+                    pass  # 静默处理任务提交错误，不影响删除操作
+        
         return redirect('students_grades:student_list') # 刪除成功後跳轉回列表頁
     return render(request, 'students/student_confirm_delete.html', {'student': student})
 
@@ -335,9 +349,25 @@ def student_batch_delete(request):
     
     try:
         with transaction.atomic(): # 確保刪除操作的原子性
-            # 獲取所有選中的學生對象
+            # 获取所有选中的学生对象
             students_to_delete = Student.objects.filter(pk__in=selected_student_ids)
-            deleted_count, _ = students_to_delete.delete() # 执行删除
+            
+            # 获取这些学生参与的所有考试ID，用于后续排名更新
+            from school_management.students_grades.models.score import Score
+            affected_exam_ids = list(Score.objects.filter(student__in=students_to_delete).values_list('exam_id', flat=True).distinct())
+            
+            # 执行删除
+            deleted_count, _ = students_to_delete.delete()
+            
+            # 异步更新受影响考试的排名
+            if affected_exam_ids:
+                from school_management.students_grades.tasks import update_all_rankings_async
+                for exam_id in affected_exam_ids:
+                    try:
+                        update_all_rankings_async.delay(exam_id)
+                    except Exception as e:
+                        pass  # 静默处理任务提交错误，不影响删除操作
+            
             return JsonResponse({
                 'success': True,
                 'message': f"成功删除 {deleted_count} 名学生。",

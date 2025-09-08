@@ -187,10 +187,10 @@
         <div class="row">
             <!-- 第1栏：图表区域 -->
             <div class="col-md-4">
-                <!-- 各科目平均分雷达图 -->
+                <!-- 各科目平均分标准化雷达图 -->
                  <div class="chart-card mb-2">
                      <div class="card-header">
-                         <h5><i class="fas fa-chart-line"></i> 各科目平均分雷达图</h5>
+                         <h5><i class="fas fa-chart-line"></i> 各科目平均分标准化雷达图</h5>
                      </div>
                      <div class="card-body">
                          <div class="chart-container" style="height: 350px;">
@@ -364,18 +364,37 @@
             return gradient;
         }
         
-        // 各科目平均分雷达图
+        // 各科目平均分标准化雷达图
         const radarCanvas = document.getElementById('subjectRadarChart');
         
         if (radarCanvas && chartData.subject_avg_scores) {
             const radarCtx = radarCanvas.getContext('2d');
+            
+            // 获取各科目的满分和平均分
+            const subjectScores = chartData.subject_avg_scores.data;
+            const subjectMaxScores = chartData.subject_max_scores || [];
+            
+            // 如果没有各科目满分数据，使用统一的满分
+            let normalizedData;
+            if (subjectMaxScores.length > 0 && subjectMaxScores.length === subjectScores.length) {
+                // 标准化数据：将每科分数除以该科满分，得到0-1之间的比例
+                normalizedData = subjectScores.map((score, index) => {
+                    const maxScoreForSubject = subjectMaxScores[index];
+                    return maxScoreForSubject > 0 ? score / maxScoreForSubject : 0;
+                });
+            } else {
+                // 如果没有分科满分，使用统一满分标准化
+                normalizedData = subjectScores.map(score => score / maxScore);
+                console.warn('使用统一满分进行标准化，各科目满分数据不可用');
+            }
+            
             new Chart(radarCtx, {
             type: 'radar',
             data: {
                 labels: chartData.subject_avg_scores.labels,
                 datasets: [{
-                    label: '平均分',
-                    data: chartData.subject_avg_scores.data,
+                    label: '标准化平均分',
+                    data: normalizedData,
                     backgroundColor: 'rgba(1, 135, 108, 0.2)',
                     borderColor: 'rgb(1,135,108)',
                     borderWidth: 3,
@@ -399,12 +418,15 @@
                 scales: {
                     r: {
                         beginAtZero: true,
-                        max: maxScore,
+                        max: 1, // 标准化后最大值为1
                         ticks: {
-                            stepSize: 20,
+                            stepSize: 0.2,
                             color: '#6c757d',
                             font: {
                                 size: 15
+                            },
+                            callback: function(value) {
+                                return (value * 100).toFixed(0) + '%';
                             }
                         },
                         grid: {
@@ -436,7 +458,14 @@
                         displayColors: false,
                         callbacks: {
                             label: function(context) {
-                                return context.parsed.r.toFixed(1) + '分';
+                                const originalIndex = context.dataIndex;
+                                const originalScore = subjectScores[originalIndex];
+                                const percentage = (context.parsed.r * 100).toFixed(1);
+                                let maxScoreText = '';
+                                if (subjectMaxScores.length > 0 && subjectMaxScores[originalIndex]) {
+                                    maxScoreText = `/${subjectMaxScores[originalIndex]}`;
+                                }
+                                return `实际分数: ${originalScore.toFixed(1)}${maxScoreText}分\n标准化分数: ${percentage}%`;
                             }
                         }
                     }

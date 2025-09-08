@@ -24,6 +24,9 @@ from .views.score_views import (
     score_batch_import_ajax, search_students_ajax,
     get_classes_by_grade
 )
+from .views.ranking_debug_view import (
+    ranking_debug_view, get_ranking_data, ranking_update_test
+)
 
 app_name = 'students_grades'
 
@@ -85,4 +88,9 @@ urlpatterns = [
     path('get_default_subjects/', get_default_subjects_ajax, name='get_default_subjects_ajax'),
     path('scores/batch_import_ajax/', score_batch_import_ajax, name='score_batch_import_ajax'),
     path('search_students_ajax/', search_students_ajax, name='search_students_ajax'),
+    
+    # === 排名调试工具 ===
+    path('ranking_debug/', ranking_debug_view, name='ranking_debug'),
+    path('ranking_debug/data/', get_ranking_data, name='get_ranking_data'),
+    path('ranking_debug/update/', ranking_update_test, name='ranking_update_test'),
 ]

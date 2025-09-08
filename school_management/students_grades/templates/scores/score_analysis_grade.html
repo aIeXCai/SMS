@@ -396,11 +396,11 @@
                 </div>
             </div>
 
-            <!-- 各科目年级平均分雷达图 -->
+            <!-- 各科目年级平均分标准化雷达图 -->
             <div class="col-md-6">
                 <div class="chart-card">
                     <div class="card-header">
-                        <h5><i class="fas fa-chart-line"></i> 各科目年级平均分雷达图</h5>
+                        <h5><i class="fas fa-chart-line"></i> 各科目年级平均分标准化雷达图</h5>
                     </div>
                     <div class="card-body">
                         <div class="chart-container">
@@ -426,11 +426,11 @@
                 </div>
             </div>
 
-            <!-- 年级等级分布箱线图 -->
+            <!-- 年级等级分布饼图 -->
             <div class="col-md-6">
                 <div class="chart-card">
                     <div class="card-header">
-                        <h5><i class="fas fa-chart-area"></i> 年级整体各等级分布</h5>
+                        <h5><i class="fas fa-chart-pie"></i> 年级整体各等级分布饼图</h5>
                     </div>
                     <div class="card-body">
                         <div class="chart-container-large">
@@ -636,15 +636,34 @@
             }
         });
 
-        // 2. 各科目年级平均分雷达图
+        // 2. 各科目年级平均分标准化雷达图
         const subjectRadarCtx = document.getElementById('subjectRadarChart').getContext('2d');
+        
+        // 获取各科目的满分和平均分
+        const subjectScores = chartData.subject_averages;
+        const subjectMaxScores = chartData.subject_max_scores || [];
+        
+        // 如果没有各科目满分数据，使用统一的满分
+        let normalizedData;
+        if (subjectMaxScores.length > 0 && subjectMaxScores.length === subjectScores.length) {
+            // 标准化数据：将每科分数除以该科满分，得到0-1之间的比例
+            normalizedData = subjectScores.map((score, index) => {
+                const maxScoreForSubject = subjectMaxScores[index];
+                return maxScoreForSubject > 0 ? score / maxScoreForSubject : 0;
+            });
+        } else {
+            // 如果没有分科满分，使用统一满分标准化
+            normalizedData = subjectScores.map(score => score / maxScore);
+            console.warn('使用统一满分进行标准化，各科目满分数据不可用');
+        }
+        
         new Chart(subjectRadarCtx, {
             type: 'radar',
             data: {
                 labels: chartData.subject_names,
                 datasets: [{
-                    label: '年级平均分',
-                    data: chartData.subject_averages,
+                    label: '年级标准化平均分',
+                    data: normalizedData,
                     backgroundColor: primaryColorAlpha,
                     borderColor: primaryColor,
                     borderWidth: 3,
@@ -663,11 +682,15 @@
                 scales: {
                     r: {
                         beginAtZero: true,
-                        max: Math.max(...chartData.subject_max_scores),
+                        max: 1, // 标准化后最大值为1
                         ticks: {
                             color: '#6c757d',
                             font: {
                                 size: 12
+                            },
+                            stepSize: 0.2,
+                            callback: function(value) {
+                                return (value * 100).toFixed(0) + '%';
                             }
                         },
                         grid: {
@@ -698,7 +721,14 @@
                         cornerRadius: 8,
                         callbacks: {
                             label: function(context) {
-                                return '平均分: ' + context.parsed.r.toFixed(1) + '分';
+                                const originalIndex = context.dataIndex;
+                                const originalScore = subjectScores[originalIndex];
+                                const percentage = (context.parsed.r * 100).toFixed(1);
+                                let maxScoreText = '';
+                                if (subjectMaxScores.length > 0 && subjectMaxScores[originalIndex]) {
+                                    maxScoreText = `/${subjectMaxScores[originalIndex]}`;
+                                }
+                                return `实际分数: ${originalScore.toFixed(1)}${maxScoreText}分\n标准化分数: ${percentage}%`;
                             }
                         }
                     }
@@ -831,28 +861,60 @@
         }
 
 
-        // 4. 年级成绩分布箱线图（使用柱状图模拟）
+        // 4. 年级整体各等级分布饼图
         const scoreDistributionCtx = document.getElementById('scoreDistributionChart').getContext('2d');
+        
+        // 等级颜色定义 - 按照后端数据顺序：['特优(95%+)', '优秀(85%-95%)', '良好(70%-85%)', '及格(60%-70%)', '不及格(<60%)']
+        const gradeColors = [
+            '#10B981',  // 特优 - 翠绿色
+            '#3B82F6',  // 优秀 - 蓝色  
+            '#F59E0B',  // 良好 - 橙色
+            '#EF4444',  // 及格 - 红色
+            '#6B7280'   // 不及格 - 灰色
+        ];
+        
+        // 准备饼图数据
+        const pieLabels = chartData.score_ranges;
+        const pieData = chartData.score_distribution;
+        
+        // 检查数据有效性
+        if (!pieLabels || !pieData || pieLabels.length === 0 || pieData.length === 0) {
+            console.error('饼图数据无效:', { pieLabels, pieData });
+            return;
+        }
+        
         new Chart(scoreDistributionCtx, {
-            type: 'bar',
+            type: 'doughnut',
             data: {
-                labels: chartData.score_ranges,
+                labels: pieLabels,
                 datasets: [{
-                    label: '学生人数',
-                    data: chartData.score_distribution,
-                    backgroundColor: gradientColors[0],
-                    borderColor: primaryColor,
-                    borderWidth: 2,
-                    borderRadius: 6,
-                    borderSkipped: false
+                    data: pieData,
+                    backgroundColor: gradeColors,
+                    borderColor: '#fff',
+                    borderWidth: 3,
+                    hoverBorderWidth: 5,
+                    hoverOffset: 10
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                animation: {
+                    animateRotate: true,
+                    duration: 2000,
+                    easing: 'easeInOutQuart'
+                },
                 plugins: {
                     legend: {
-                        display: false
+                        position: 'bottom',
+                        labels: {
+                            padding: 20,
+                            usePointStyle: true,
+                            font: {
+                                size: 15,
+                                weight: '500'
+                            }
+                        }
                     },
                     tooltip: {
                         backgroundColor: 'rgba(0,0,0,0.8)',
@@ -863,45 +925,14 @@
                         cornerRadius: 8,
                         callbacks: {
                             label: function(context) {
-                                return '人数: ' + context.parsed.y + '人';
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((context.parsed / total) * 100).toFixed(1);
+                                return context.label + ': ' + context.parsed + '人 (' + percentage + '%)';
                             }
                         }
                     }
                 },
-                scales: {
-                    y: {
-                        title: {
-                                display: true,
-                                text: '学生人数',
-                                color: '#6c757d',
-                                font: {
-                                    size: 15,
-                                    weight: '500'
-                                }
-                            },
-                        beginAtZero: true,
-                        grid: {
-                            color: 'rgba(0,0,0,0.1)'
-                        },
-                        ticks: {
-                            color: '#6c757d',
-                            font: {
-                                size: 15
-                            }
-                        }
-                    },
-                    x: {
-                        grid: {
-                            display: false
-                        },
-                        ticks: {
-                            color: '#6c757d',
-                            font: {
-                                size: 15
-                            }
-                        }
-                    }
-                }
+                cutout: '60%' // 制作甜甜圈样式
             }
         });
 
@@ -909,7 +940,7 @@
         const classGradeDistributionCtx = document.getElementById('classGradeDistributionChart').getContext('2d');
         // 标签顺序：从底部到顶部（不及格→及格→良好→优秀→特优）
         const gradeLabels = ['不及格(<60%)', '及格(60%-70%)', '良好(70%-85%)', '优秀(85%-95%)', '特优(95%+)'];
-        const gradeColors = [
+        const stackedBarColors = [
             'rgba(107,114,128,0.8)', // 灰色 - 不及格（底部）
             'rgba(239,68,68,0.8)',   // 红色 - 及格
             'rgba(245,158,11,0.8)',  // 橙色 - 良好
@@ -924,8 +955,8 @@
                 datasets: gradeLabels.map((label, index) => ({
                     label: label,
                     data: chartData.class_names.map(className => chartData.class_grade_distribution[className][index]),
-                    backgroundColor: gradeColors[index],
-                    borderColor: gradeColors[index].replace('0.8', '1'),
+                    backgroundColor: stackedBarColors[index],
+                    borderColor: stackedBarColors[index].replace('0.8', '1'),
                     borderWidth: 1,
                     borderRadius: 4
                 }))

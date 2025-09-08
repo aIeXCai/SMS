@@ -162,12 +162,13 @@ def score_add(request):
                             )
                             created_count += 1
                     
-                    # 添加排名更新逻辑
+                    # 提交异步任务：更新排名
                     try:
-                        update_grade_rankings(exam.pk, student.grade_level)
-                        messages.success(request, f"成功添加 {created_count} 个科目的成绩，并已更新年级排名！")
+                        from school_management.students_grades.tasks import update_all_rankings_async
+                        job = update_all_rankings_async.delay(exam.pk, student.grade_level)
+                        messages.success(request, f"成功添加 {created_count} 个科目的成绩！排名计算已提交到后台处理（任务ID: {job.id}）")
                     except Exception as e:
-                        messages.warning(request, f'成绩添加成功，但排名更新失败: {e}')
+                        messages.warning(request, f'成绩添加成功，但排名更新任务提交失败: {e}')
                     
                     return redirect('students_grades:score_list')
             except Exception as e:
@@ -204,11 +205,13 @@ def score_edit(request, pk):
                 updated_score = form.save()
                 messages.success(request, "成绩信息更新成功！")
                 
-                # 更新年级排名
+                # 提交异步任务：更新排名
                 try:
-                    update_grade_rankings(updated_score.exam.pk, updated_score.student.grade_level)
+                    from school_management.students_grades.tasks import update_all_rankings_async
+                    job = update_all_rankings_async.delay(updated_score.exam.pk, updated_score.student.grade_level)
+                    messages.success(request, f'成绩更新成功！排名计算已提交到后台处理（任务ID: {job.id}）')
                 except Exception as e:
-                    messages.warning(request, f'成绩更新成功，但排名更新失败: {e}')
+                    messages.warning(request, f'成绩更新成功，但排名更新任务提交失败: {e}')
                     
                 return redirect('students_grades:score_list')
             except Exception as e:
@@ -299,11 +302,13 @@ def score_batch_edit(request):
         
         if created_count > 0 or updated_count > 0:
             messages.success(request, f'成功修改成绩！')
-            # 更新年级排名
+            # 提交异步任务：更新排名
             try:
-                update_grade_rankings(exam.pk, student.grade_level)
+                from school_management.students_grades.tasks import update_all_rankings_async
+                job = update_all_rankings_async.delay(exam.pk, student.grade_level)
+                messages.info(request, f'排名计算已提交到后台处理（任务ID: {job.id}）')
             except Exception as e:
-                messages.warning(request, f'成绩保存成功，但排名更新失败: {e}')
+                messages.warning(request, f'成绩保存成功，但排名更新任务提交失败: {e}')
         else:
             messages.info(request, '没有检测到任何更改')
         
@@ -531,7 +536,7 @@ def score_batch_import_ajax(request):
                 # 检查是否安装了django-rq和Redis可用性
                 try:
                     import django_rq
-                    from ..tasks import update_grade_rankings_async  # update_subject_rankings_async 已注释
+                    from ..tasks import update_all_rankings_async
                     
                     # 获取异步队列
                     queue = django_rq.get_queue('default')
@@ -539,22 +544,15 @@ def score_batch_import_ajax(request):
                     # 测试Redis连接
                     queue.connection.ping()  # 这会抛出异常如果Redis不可用
                     
-                    # 提交异步任务：更新总分排名
-                    job1 = queue.enqueue(
-                        update_grade_rankings_async, 
+                    # 提交异步任务：更新完整排名（总分和单科的年级、班级排名）
+                    job = queue.enqueue(
+                        update_all_rankings_async, 
                         selected_exam.pk,
-                        job_timeout=600  # 10分钟超时
+                        job_timeout=1200  # 20分钟超时
                     )
                     
-                    # 提交异步任务：更新学科排名 - 暂时注释掉
-                    # job2 = queue.enqueue(
-                    #     update_subject_rankings_async,
-                    #     selected_exam.pk,
-                    #     job_timeout=600  # 10分钟超时
-                    # )
-                    
                     # 记录异步任务ID
-                    print(f"异步排名更新任务已提交: 总分排名={job1.id}")  # 学科排名已注释
+                    print(f"异步完整排名更新任务已提交: job_id={job.id}")
                     ranking_update_status = "async_submitted"
                     
                 except ImportError:
@@ -826,8 +824,20 @@ def score_batch_delete_filtered(request):
     # 执行删除
     count = scores.count()
     if count > 0:
+        # 获取删除记录的考试ID，用于后续排名更新
+        exam_ids = set(scores.values_list('exam_id', flat=True).distinct())
+        
         scores.delete()
         messages.success(request, f'成功删除 {count} 条成绩记录')
+        
+        # 异步更新相关考试的排名
+        from school_management.students_grades.tasks import update_all_rankings_async
+        for exam_id in exam_ids:
+            try:
+                update_all_rankings_async.delay(exam_id)
+                messages.info(request, f'已提交考试 {exam_id} 的排名更新任务到后台处理')
+            except Exception as e:
+                messages.warning(request, f'排名更新任务提交失败: {str(e)}')
     else:
         messages.info(request, '没有找到符合条件的成绩记录')
     
@@ -968,6 +978,8 @@ def score_batch_delete_selected(request):
     
     # 解析选中的记录并删除
     total_deleted = 0
+    affected_exam_ids = set()
+    
     for record in selected_records:
         try:
             student_id, exam_id = record.split('_')
@@ -976,11 +988,22 @@ def score_batch_delete_selected(request):
                 exam_id=exam_id
             ).delete()[0]
             total_deleted += deleted_count
+            if deleted_count > 0:
+                affected_exam_ids.add(int(exam_id))
         except ValueError:
             continue
     
     if total_deleted > 0:
         messages.success(request, f'成功删除 {total_deleted} 条成绩记录')
+        
+        # 异步更新受影响考试的排名
+        from school_management.students_grades.tasks import update_all_rankings_async
+        for exam_id in affected_exam_ids:
+            try:
+                update_all_rankings_async.delay(exam_id)
+                messages.info(request, f'已提交考试 {exam_id} 的排名更新任务到后台处理')
+            except Exception as e:
+                messages.warning(request, f'排名更新任务提交失败: {str(e)}')
     else:
         messages.info(request, '没有找到对应的成绩记录')
     
@@ -1768,6 +1791,9 @@ def _analyze_single_class(scores, target_class, exam):
                 grade_config = SUBJECT_DEFAULT_MAX_SCORES.get(exam.grade_level, {})
                 subject_max_score = grade_config.get(subject_code, 100)
             
+            # 将满分添加到subject_stats中
+            subject_stats[subject_code]['max_score'] = subject_max_score
+            
             # 成绩分布统计（按等级百分比）
             grade_ranges = {
                 '特优(95%+)': subject_scores.filter(score_value__gte=subject_max_score * 0.95).count(),
@@ -1852,6 +1878,7 @@ def _analyze_single_class(scores, target_class, exam):
             'labels': [subject_stats[code]['name'] for code in subject_stats.keys()],
             'data': [float(subject_stats[code]['avg_score']) for code in subject_stats.keys()]
         },
+        'subject_max_scores': [subject_stats[code]['max_score'] for code in subject_stats.keys()],  # 添加各科目满分
         'score_distribution': score_distribution,
         'student_total_scores': [{
             'student_id': s['student_id'],
@@ -2213,8 +2240,11 @@ def _analyze_grade(exam, grade_level):
 # <!-- 排名更新函数 -->
 # 更新指定考试的年级排名
 # 如果指定了grade_level，只更新该年级的排名
-# 如果没有指定，更新该考试所有年级的排名
-def update_grade_rankings(exam_id, grade_level=None):
+# 更新排名：同时计算年级排名和班级排名
+def update_all_rankings(exam_id, grade_level=None):
+    """
+    更新总分排名和单科排名（包括年级排名和班级排名）
+    """
     exam = get_object_or_404(Exam, pk=exam_id)
     
     # 获取需要更新排名的年级
@@ -2227,10 +2257,69 @@ def update_grade_rankings(exam_id, grade_level=None):
         ).distinct()
     
     for current_grade in grade_levels:
-        # 获取该年级该考试的所有学生成绩
+        # 1. 更新总分年级排名
+        update_total_score_grade_ranking(exam, current_grade)
+        
+        # 2. 更新总分班级排名
+        update_total_score_class_ranking(exam, current_grade)
+        
+        # 3. 更新单科年级排名
+        update_subject_grade_ranking(exam, current_grade)
+        
+        # 4. 更新单科班级排名
+        update_subject_class_ranking(exam, current_grade)
+
+# 更新总分年级排名
+def update_total_score_grade_ranking(exam, grade_level):
+    """更新总分年级排名"""
+    # 获取该年级该考试的所有学生成绩
+    students_scores = Score.objects.filter(
+        exam=exam,
+        student__grade_level=grade_level
+    ).values(
+        'student_id',
+        'student__name'
+    ).annotate(
+        total_score=Sum('score_value')
+    ).order_by('-total_score')
+    
+    # 正确的排名逻辑：处理并列排名
+    current_rank = 1
+    previous_score = None
+    
+    for i, student_data in enumerate(students_scores):
+        student_id = student_data['student_id']
+        total_score = float(student_data['total_score'] or 0)
+        
+        # 如果当前分数与前一个分数不同，更新排名
+        if previous_score is not None and total_score != previous_score:
+            current_rank = i + 1  # 跳过并列的位次
+        
+        # 更新该学生在该考试所有科目的总分年级排名
+        Score.objects.filter(
+            exam=exam,
+            student_id=student_id
+        ).update(total_score_rank_in_grade=current_rank)
+        
+        previous_score = total_score
+
+# 更新总分班级排名
+def update_total_score_class_ranking(exam, grade_level):
+    """更新总分班级排名"""
+    # 获取该年级的所有班级
+    classes = Score.objects.filter(
+        exam=exam,
+        student__grade_level=grade_level
+    ).values_list('student__current_class', flat=True).distinct()
+    
+    for class_id in classes:
+        if not class_id:
+            continue
+            
+        # 获取该班级该考试的所有学生成绩
         students_scores = Score.objects.filter(
             exam=exam,
-            student__grade_level=current_grade
+            student__current_class_id=class_id
         ).values(
             'student_id',
             'student__name'
@@ -2238,23 +2327,117 @@ def update_grade_rankings(exam_id, grade_level=None):
             total_score=Sum('score_value')
         ).order_by('-total_score')
         
-        # 正确的排名逻辑：处理并列排名
+        # 计算班级排名
         current_rank = 1
         previous_score = None
-        students_with_same_rank = 0
         
         for i, student_data in enumerate(students_scores):
             student_id = student_data['student_id']
-            total_score = float(student_data['total_score'])
+            total_score = float(student_data['total_score'] or 0)
             
-            # 如果当前分数与前一个分数不同，更新排名
             if previous_score is not None and total_score != previous_score:
-                current_rank = i + 1  # 跳过并列的位次
+                current_rank = i + 1
             
-            # 更新该学生在该考试所有科目的排名
+            # 更新该学生在该考试所有科目的总分班级排名
             Score.objects.filter(
                 exam=exam,
                 student_id=student_id
-            ).update(total_score_rank_in_grade=current_rank)
+            ).update(total_score_rank_in_class=current_rank)
             
             previous_score = total_score
+
+# 更新单科年级排名
+def update_subject_grade_ranking(exam, grade_level):
+    """更新单科年级排名"""
+    # 获取该考试的所有科目
+    subjects = Score.objects.filter(
+        exam=exam,
+        student__grade_level=grade_level
+    ).values_list('subject', flat=True).distinct()
+    
+    for subject in subjects:
+        # 获取该年级该科目的成绩，按分数排序
+        subject_scores = Score.objects.filter(
+            exam=exam,
+            subject=subject,
+            student__grade_level=grade_level
+        ).order_by('-score_value')
+        
+        # 计算排名
+        current_rank = 1
+        previous_score = None
+        score_updates = []
+        
+        for i, score in enumerate(subject_scores):
+            current_score_value = float(score.score_value or 0)
+            
+            if previous_score is not None and current_score_value != previous_score:
+                current_rank = i + 1
+            
+            score.grade_rank_in_subject = current_rank
+            score_updates.append(score)
+            previous_score = current_score_value
+        
+        # 批量更新
+        if score_updates:
+            Score.objects.bulk_update(
+                score_updates,
+                ['grade_rank_in_subject'],
+                batch_size=1000
+            )
+
+# 更新单科班级排名
+def update_subject_class_ranking(exam, grade_level):
+    """更新单科班级排名"""
+    # 获取该年级的所有班级
+    classes = Score.objects.filter(
+        exam=exam,
+        student__grade_level=grade_level
+    ).values_list('student__current_class', flat=True).distinct()
+    
+    for class_id in classes:
+        if not class_id:
+            continue
+            
+        # 获取该班级该考试的所有科目
+        subjects = Score.objects.filter(
+            exam=exam,
+            student__current_class_id=class_id
+        ).values_list('subject', flat=True).distinct()
+        
+        for subject in subjects:
+            # 获取该班级该科目的成绩，按分数排序
+            subject_scores = Score.objects.filter(
+                exam=exam,
+                subject=subject,
+                student__current_class_id=class_id
+            ).order_by('-score_value')
+            
+            # 计算排名
+            current_rank = 1
+            previous_score = None
+            score_updates = []
+            
+            for i, score in enumerate(subject_scores):
+                current_score_value = float(score.score_value or 0)
+                
+                if previous_score is not None and current_score_value != previous_score:
+                    current_rank = i + 1
+                
+                score.class_rank_in_subject = current_rank
+                score_updates.append(score)
+                previous_score = current_score_value
+            
+            # 批量更新
+            if score_updates:
+                Score.objects.bulk_update(
+                    score_updates,
+                    ['class_rank_in_subject'],
+                    batch_size=1000
+                )
+
+
+# 保持向后兼容的函数名
+def update_grade_rankings(exam_id, grade_level=None):
+    """向后兼容函数，调用新的完整排名更新函数"""
+    return update_all_rankings(exam_id, grade_level)
