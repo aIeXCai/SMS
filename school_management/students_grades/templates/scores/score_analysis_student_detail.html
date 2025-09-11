@@ -1,0 +1,1920 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+<link rel="stylesheet" href="{% static 'css/score_analysis.css' %}">
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+    /* 页面特有样式 - 补充外部CSS中未定义的样式 */
+    .chart-container {
+        position: relative;
+        height: 350px;
+        margin-bottom: 10px;
+        padding: 10px;
+    }
+
+    .chart-container-large {
+        position: relative;
+        height: 450px;
+        margin-bottom: 10px;
+        padding: 10px;
+    }
+
+    /* 筛选框样式 - 参考score_analysis_student */
+    .chart-filters {
+        padding: 1rem;
+        background-color: #f8f9fa;
+        border-radius: 0.5rem;
+        margin-bottom: 1rem;
+        border: 1px solid #dee2e6;
+    }
+
+    .filter-group {
+        margin-bottom: 1rem;
+    }
+
+    .filter-group:last-child {
+        margin-bottom: 0;
+    }
+
+    .filter-group label {
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        display: block;
+        color: #495057;
+    }
+
+    .filter-dropdown {
+        position: relative;
+        width: 100%;
+        color: #495057;
+    }
+
+    .filter-dropdown-toggle {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border: 1px solid #ced4da;
+        border-radius: 0.5rem;
+        background-color: #fff;
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        transition: all 0.3s ease;
+        font-size: 0.875rem;
+    }
+
+    .filter-dropdown-toggle:hover {
+        border-color: #007bff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+
+    .filter-dropdown-toggle.active {
+        border-color: #007bff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+
+    .filter-dropdown-arrow {
+        transition: transform 0.3s ease;
+        color: #6c757d;
+    }
+
+    .filter-dropdown-toggle:hover .filter-dropdown-arrow {
+        color: #007bff;
+    }
+
+    .filter-dropdown-toggle.active .filter-dropdown-arrow {
+        transform: rotate(180deg);
+        color: #007bff;
+    }
+
+    .filter-dropdown-menu {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid #ced4da;
+        border-radius: 0.5rem;
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        z-index: 1000;
+        max-height: 200px;
+        overflow-y: auto;
+        display: none;
+        margin-top: 0.25rem;
+    }
+
+    .filter-dropdown-menu.show {
+        display: block;
+    }
+
+    .filter-dropdown-item {
+        padding: 0.75rem 1rem;
+        cursor: pointer;
+        transition: background-color 0.15s ease-in-out;
+        border-bottom: 1px solid #f8f9fa;
+        font-size: 0.875rem;
+    }
+
+    .filter-dropdown-item:hover {
+        background-color: #f8f9fa;
+    }
+
+    .filter-dropdown-item.selected {
+        background-color: #007bff;
+        color: white;
+    }
+
+    /* 多选下拉框样式 */
+    .filter-dropdown-header {
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid #e9ecef;
+        background-color: #f8f9fa;
+        font-weight: 500;
+    }
+
+    .filter-dropdown-item {
+        display: flex;
+        align-items: center;
+    }
+
+    .filter-dropdown-item input[type="checkbox"] {
+        margin-right: 0.5rem;
+    }
+
+    .filter-dropdown-item.checked {
+        background-color: #e3f2fd;
+        color: #007bff;
+        font-weight: 500;
+    }
+
+    .data-table {
+        font-size: 0.9rem;
+    }
+
+    .data-table th {
+        background-color: #f8f9fa;
+        font-weight: 600;
+        border-top: none;
+        vertical-align: middle;
+        text-align: center;
+    }
+
+    .data-table td {
+        vertical-align: middle;
+        text-align: center;
+    }
+
+    /* 图表区域样式改进 */
+    .chart-row {
+        margin-bottom: 1.5rem;
+    }
+
+    .chart-card {
+        transition: box-shadow 0.15s ease-in-out;
+    }
+
+    .chart-card:hover {
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+    }
+
+    /* 柱状图特殊样式 */
+    #barChart {
+        background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+        border-radius: 0.5rem;
+    }
+
+    /* 响应式改进 */
+    @media (max-width: 768px) {
+        .page-header h1 {
+            font-size: 1.75rem;
+        }
+        
+        .student-info-card {
+            padding: 1rem;
+        }
+        
+        .student-info-item {
+            margin-right: 1rem;
+        }
+        
+        .chart-container-large {
+            height: 350px;
+        }
+    }
+
+    .rank-badge {
+        font-size: 0.85rem;
+        font-weight: 600;
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.375rem;
+    }
+
+    .rank-excellent {
+        background-color: #d4edda;
+        color: #155724;
+    }
+
+    .rank-good {
+        background-color: #d1ecf1;
+        color: #0c5460;
+    }
+
+    .rank-average {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+
+    .rank-poor {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+
+    .loading-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255, 255, 255, 0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        border-radius: 15px;
+    }
+
+    .loading-spinner {
+        width: 3rem;
+        height: 3rem;
+        border: 0.3rem solid #f3f3f3;
+        border-top: 0.3rem solid #007bff;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    .pagination-wrapper {
+        display: flex;
+        justify-content: center;
+        margin-top: 1rem;
+    }
+
+    .no-data-message {
+        text-align: center;
+        padding: 3rem;
+        color: #6c757d;
+        font-size: 1.1rem;
+    }
+
+    .no-data-message i {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+
+    /* 确保模态框完全隐藏 */
+    .modal.fade:not(.show) {
+        display: none !important;
+    }
+    
+    .modal-backdrop.fade:not(.show) {
+        display: none !important;
+    }
+    
+    /* 强制隐藏加载模态框 */
+    #loadingModal {
+        display: none !important;
+    }
+    
+    #loadingModal.show {
+        display: none !important;
+    }
+
+    /* 表格样式 */
+    .table-container-wrapper {
+        position: relative;
+        overflow: hidden;
+        border: 1px solid #dee2e6;
+        border-radius: 10px;
+        background: white;
+    }
+
+    .score-table {
+        margin: 0;
+        border-collapse: separate;
+        border-spacing: 0;
+        font-size: 14px;
+    }
+
+    .score-table th,
+    .score-table td {
+        padding: 0.75rem;
+        text-align: center;
+        white-space: nowrap;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    /* 各科详情列特殊样式 */
+    .score-table td:nth-child(5) {
+        min-width: 400px;
+        max-width: 600px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .score-table td:nth-child(5) .d-flex {
+        white-space: nowrap;
+        overflow-x: auto;
+        overflow-y: hidden;
+        scrollbar-width: thin;
+        scrollbar-color: #dee2e6 transparent;
+    }
+
+    .score-table td:nth-child(5) .d-flex::-webkit-scrollbar {
+        height: 4px;
+    }
+
+    .score-table td:nth-child(5) .d-flex::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .score-table td:nth-child(5) .d-flex::-webkit-scrollbar-thumb {
+        background-color: #dee2e6;
+        border-radius: 2px;
+    }
+
+    /* 表格容器样式 */
+    .table-responsive {
+        overflow-x: auto;
+        overflow-y: visible;
+        white-space: nowrap;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .score-table thead th {
+        background: #017b6c;
+        color: white;
+        font-weight: 600;
+    }
+
+    .student-info {
+        font-weight: 600;
+        color: #495057;
+        text-align: left;
+        padding-left: 1rem;
+    }
+
+    /* 表格行悬停效果 */
+    .score-table tbody tr:hover {
+        background-color: #f5f5f5 !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid fade-in">
+    <!-- 页面头部 -->
+    <div class="page-header">
+        <div class="container-fluid">
+            <div class="row align-items-center">
+                <div class="col">
+                    <h1><i class="fas fa-user-graduate me-3"></i>{{ student.name }} - 个人成绩分析</h1>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="{% url 'students_grades:score_analysis' %}">成绩分析</a></li>
+                            <li class="breadcrumb-item"><a href="{% url 'students_grades:student_analysis' %}">个人分析</a></li>
+                            <li class="breadcrumb-item active" aria-current="page">{{ student.name }}</li>
+                        </ol>
+                    </nav>
+                </div>
+                    <div class="col-auto">
+                        <a href="{% url 'students_grades:student_analysis' %}" class="btn btn-return">
+                            <i class="fas fa-arrow-left me-2"></i>返回选择
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 内容区域 -->
+    <div class="container-fluid fade-in">
+        <!-- 学生信息卡片 -->
+        <div class="analysis-info-card alert alert-modern">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-info-circle fa-2x me-3 text-success"></i>
+                    <div>
+                        <h6 class="alert-heading mb-1 text-success">
+                            <i class="fas fa-user me-1"></i>学生信息
+                        </h6>
+                        <p class="mb-0 text-success">
+                            <strong>学号：</strong>{{ student.student_id }} | 
+                            <strong>年级：</strong>{{ student.get_grade_level_display }} | 
+                            <strong>班级：</strong>{{ student.current_class.class_name|default:"未分班" }} | 
+                            <strong>考试次数：</strong><span id="examCount">{{ exams.count }}</span>次
+                        </p>
+                    </div>
+                </div>
+            </div>
+        <!-- 简单加载提示 -->
+        <div id="simpleLoading" class="text-center py-5" style="display: block;">
+            <div class="loading-spinner mx-auto mb-3"></div>
+            <h5>正在加载分析数据...</h5>
+            <p class="text-muted">请稍候，正在为您准备详细的成绩分析报告</p>
+        </div>
+
+        <!-- 分析结果区域 -->
+        <!-- 第一行：排名趋势分析（全宽度） -->
+        <div class="row">
+            <div class="col-12">
+                <div class="chart-card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-chart-line me-2"></i>排名趋势分析</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-filters">
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <div class="filter-group">
+                                        <label><i class="fas fa-calendar-alt me-2 text-primary"></i>考试</label>
+                                        <div class="filter-dropdown">
+                                            <div class="filter-dropdown-toggle" onclick="toggleTrendExamDropdown()">
+                                                <span id="trendExamDropdownText">请选择考试</span>
+                                                <i class="fas fa-chevron-down filter-dropdown-arrow"></i>
+                                            </div>
+                                            <div class="filter-dropdown-menu" id="trendExamDropdownMenu">
+                                                <div class="filter-dropdown-header">
+                                                    <small class="text-muted">多选考试 (<span id="selectedTrendExamCount">0</span> 个已选择)</small>
+                                                </div>
+                                                <div class="filter-dropdown-item">
+                                                    <input type="checkbox" id="allTrendExamsCheckbox" class="form-check-input" onchange="toggleAllTrendExams()">
+                                                    <label class="form-check-label" for="allTrendExamsCheckbox">所有考试</label>
+                                                </div>
+                                                <!-- 动态填充 -->
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="filter-group">
+                                        <label><i class="fas fa-book me-2 text-success"></i>科目</label>
+                                        <div class="filter-dropdown">
+                                            <div class="filter-dropdown-toggle" onclick="toggleTrendSubjectDropdown()">
+                                                <span id="trendSubjectDropdownText">请选择科目</span>
+                                                <i class="fas fa-chevron-down filter-dropdown-arrow"></i>
+                                            </div>
+                                            <div class="filter-dropdown-menu" id="trendSubjectDropdownMenu">
+                                                <div class="filter-dropdown-header">
+                                                    <small class="text-muted">多选科目 (<span id="selectedTrendSubjectCount">0</span> 个已选择)</small>
+                                                </div>
+                                                <div class="filter-dropdown-item">
+                                                    <input type="checkbox" id="allTrendSubjectsCheckbox" class="form-check-input" onchange="toggleAllTrendSubjects()">
+                                                    <label class="form-check-label" for="allTrendSubjectsCheckbox">所有科目</label>
+                                                </div>
+                                                <div class="filter-dropdown-item">
+                                                    <input type="checkbox" id="totalTrendSubjectCheckbox" class="form-check-input trend-subject-checkbox" data-value="total" onchange="toggleTrendSubject('total', '总分')">
+                                                    <label class="form-check-label" for="totalTrendSubjectCheckbox">总分</label>
+                                                </div>
+                                                <!-- 动态填充科目选项 -->
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="filter-group">
+                                        <label><i class="fas fa-trophy me-2 text-warning"></i>排名类型</label>
+                                        <div class="filter-dropdown">
+                                            <div class="filter-dropdown-toggle" onclick="toggleTrendRankTypeDropdown()">
+                                                <span id="trendRankTypeDropdownText">班级排名</span>
+                                                <i class="fas fa-chevron-down filter-dropdown-arrow"></i>
+                                            </div>
+                                            <div class="filter-dropdown-menu" id="trendRankTypeDropdownMenu">
+                                                <div class="filter-dropdown-item" data-value="class">
+                                                    班级排名
+                                                </div>
+                                                <div class="filter-dropdown-item" data-value="grade">
+                                                    年级排名
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="chart-container-large">
+                        <canvas id="trendChart"></canvas>
+                        <div class="loading-overlay" id="trendLoading" style="display: none;">
+                            <div class="loading-spinner"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        </div>
+
+        <!-- 第二行：雷达图（1/3）+ 成绩对比分析（2/3） -->
+        <div class="row">
+            <!-- 学科能力雷达图 -->
+            <div class="col-lg-4 mb-4">
+                <div class="chart-card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-chart-area me-2"></i>学科能力雷达图</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-filters">
+                            <div class="filter-group">
+                                <label><i class="fas fa-calendar-alt me-2 text-primary"></i>考试</label>
+                                <div class="filter-dropdown">
+                                    <div class="filter-dropdown-toggle" onclick="toggleRadarExamDropdown()">
+                                        <span id="radarExamDropdownText">请选择考试</span>
+                                        <i class="fas fa-chevron-down filter-dropdown-arrow"></i>
+                                    </div>
+                                    <div class="filter-dropdown-menu" id="radarExamDropdownMenu">
+                                        <!-- 动态填充 -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="radarChart"></canvas>
+                            <div class="loading-overlay" id="radarLoading" style="display: none;">
+                                <div class="loading-spinner"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 成绩对比柱状图 -->
+            <div class="col-lg-8 mb-4">
+                <div class="chart-card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-chart-bar me-2"></i>成绩对比分析</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-filters">
+                            <div class="filter-group">
+                                <label><i class="fas fa-calendar-alt me-2 text-primary"></i>考试</label>
+                                <div class="filter-dropdown">
+                                    <div class="filter-dropdown-toggle" onclick="toggleBarExamDropdown()">
+                                        <span id="barExamDropdownText">请选择考试</span>
+                                        <i class="fas fa-chevron-down filter-dropdown-arrow"></i>
+                                    </div>
+                                    <div class="filter-dropdown-menu" id="barExamDropdownMenu">
+                                        <!-- 动态填充 -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="barChart"></canvas>
+                            <div class="loading-overlay" id="barLoading" style="display: none;">
+                                <div class="loading-spinner"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 第三行：详细成绩数据表格（全宽度） -->
+        <div class="row">
+            <div class="col-12">
+                <div class="chart-card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-table me-2"></i>学生详细成绩数据</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-container-wrapper">
+                        <div class="table-responsive">
+                            <table class="table score-table" id="studentScoreTable">
+                                <thead>
+                                    <tr>
+                                        <th>考试名称</th>
+                                        <th>总分</th>
+                                        <th>班排</th>
+                                        <th>级排</th>
+                                        <th>各科详情</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="detailTableBody">
+                                    <!-- 动态填充 -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        </div>
+
+        <!-- 无数据提示 -->
+        <div id="noDataMessage" class="no-data-message" style="display: none;">
+            <i class="fas fa-chart-line"></i>
+            <p>暂无分析数据，请确保该学生有考试成绩记录。</p>
+            <a href="{% url 'students_grades:student_analysis' %}" class="btn btn-primary">
+                <i class="fas fa-arrow-left me-2"></i>返回学生选择
+            </a>
+        </div>
+    </div>
+
+    <!-- 加载中模态框 -->
+    <div class="modal fade" id="loadingModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false" style="display: none !important;">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content">
+                <div class="modal-body text-center">
+                    <div class="loading-spinner mx-auto mb-3"></div>
+                    <p>正在加载分析数据...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // 全局变量
+        let currentStudentId = {{ student.id }};
+        let selectedExams = [];
+        let analysisData = {};
+        let charts = {};
+        let currentPage = 1;
+        let pageSize = 10;
+
+        // 立即清理所有加载状态
+        clearAllLoadingStates();
+        
+        // 延迟初始化，确保DOM完全加载
+        setTimeout(() => {
+            init();
+        }, 100);
+        
+        function clearAllLoadingStates() {
+            // 隐藏加载模态框
+            const loadingModal = document.getElementById('loadingModal');
+            if (loadingModal) {
+                loadingModal.style.display = 'none';
+            }
+            
+            // 移除所有模态框背景
+            document.querySelectorAll('.modal-backdrop').forEach(backdrop => {
+                backdrop.remove();
+            });
+            
+            // 移除body上的modal-open类
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
+            document.body.style.paddingRight = '';
+            
+            // 隐藏所有加载覆盖层
+            document.querySelectorAll('.loading-overlay').forEach(overlay => {
+                overlay.style.display = 'none';
+            });
+        }
+
+        function init() {
+            // 确保加载模态框最初是隐藏的
+            const loadingModal = document.getElementById('loadingModal');
+            if (loadingModal) {
+                loadingModal.style.display = 'none';
+            }
+            
+            // 自动获取所有考试进行分析
+            const examIds = [{% for exam in exams %}{{ exam.id }}{% if not forloop.last %},{% endif %}{% endfor %}];
+            
+            if (examIds.length > 0) {
+                selectedExams = examIds.map(id => ({ id: id }));
+                loadAnalysisData();
+            } else {
+                showNoDataMessage();
+            }
+        }
+
+        function showErrorMessage(message) {
+            // 在页面顶部显示错误提示
+            const errorAlert = document.createElement('div');
+            errorAlert.className = 'alert alert-danger alert-dismissible fade show position-fixed';
+            errorAlert.style.cssText = 'top: 20px; right: 20px; z-index: 9999; max-width: 400px;';
+            errorAlert.innerHTML = `
+                <i class="fas fa-exclamation-triangle me-2"></i>${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.body.appendChild(errorAlert);
+            
+            // 5秒后自动消失
+            setTimeout(() => {
+                if (errorAlert.parentNode) {
+                    errorAlert.remove();
+                }
+            }, 5000);
+        }
+
+        function showNoDataMessage() {
+            const simpleLoading = document.getElementById('simpleLoading');
+            if (simpleLoading) {
+                simpleLoading.style.display = 'none';
+            }
+            
+            document.getElementById('noDataMessage').style.display = 'block';
+            document.getElementById('analysisResults').style.display = 'none';
+        }
+
+        async function loadAnalysisData() {
+            try {
+                if (!currentStudentId || selectedExams.length === 0) {
+                    showNoDataMessage();
+                    return;
+                }
+                
+                const examIds = selectedExams.map(exam => exam.id);
+                const url = `{% url 'students_grades:get_student_analysis_data' %}?student_id=${currentStudentId}&exam_ids=${examIds.join(',')}`;
+                
+                const response = await fetch(url);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP错误: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    analysisData = result.data;
+                    displayAnalysisResults();
+                } else {
+                    showNoDataMessage();
+                }
+            } catch (error) {
+                console.error('数据加载错误:', error);
+                showErrorMessage('数据加载失败，请刷新页面重试');
+            }
+        }
+
+        function showLoadingModal() {
+            // 不显示加载模态框，直接处理数据加载
+            // 这样可以避免模态框显示/隐藏的时序问题
+            return;
+        }
+
+        function hideLoadingModal() {
+            const modalElement = document.getElementById('loadingModal');
+            const modal = bootstrap.Modal.getInstance(modalElement);
+            if (modal) {
+                modal.hide();
+            } else {
+                // 如果没有模态框实例，直接隐藏元素
+                modalElement.style.display = 'none';
+                document.body.classList.remove('modal-open');
+                const backdrop = document.querySelector('.modal-backdrop');
+                if (backdrop) {
+                    backdrop.remove();
+                }
+            }
+        }
+
+        function displayAnalysisResults() {
+            const analysisResults = document.getElementById('analysisResults');
+            const noDataMessage = document.getElementById('noDataMessage');
+            const simpleLoading = document.getElementById('simpleLoading');
+            
+            // 隐藏加载提示
+            if (simpleLoading) {
+                simpleLoading.style.display = 'none';
+            }
+            
+            // 确保显示分析结果
+            if (analysisResults) {
+                analysisResults.style.display = 'block';
+            }
+            
+            if (noDataMessage) {
+                noDataMessage.style.display = 'none';
+            }
+            
+            // 更新筛选器选项
+            updateFilterOptions();
+            
+            // 延迟绘制图表，确保默认选择已经完成
+            setTimeout(() => {
+                // 确保默认选择已经设置好后绘制图表
+                initializeDefaultSelections();
+                drawRadarChart();
+                drawBarChart();
+            }, 200);
+            
+            // 填充数据表格
+            populateDetailTable();
+            
+            // 最终检查：移除所有可能的遮罩层
+            setTimeout(() => {
+                // 移除所有模态框背景
+                document.querySelectorAll('.modal-backdrop').forEach(backdrop => {
+                    backdrop.remove();
+                });
+                
+                // 移除body上的modal-open类
+                document.body.classList.remove('modal-open');
+                
+                // 重置body样式
+                document.body.style.overflow = '';
+                document.body.style.paddingRight = '';
+                
+                // 确保分析结果区域可见
+                const analysisResults = document.getElementById('analysisResults');
+                if (analysisResults) {
+                    analysisResults.style.visibility = 'visible';
+                    analysisResults.style.opacity = '1';
+                }
+                
+                // 隐藏所有图表的加载覆盖层
+                document.querySelectorAll('.loading-overlay').forEach(overlay => {
+                    overlay.style.display = 'none';
+                });
+                
+                // 确保所有图表容器可见
+                document.querySelectorAll('.chart-container').forEach(container => {
+                    container.style.visibility = 'visible';
+                    container.style.opacity = '1';
+                });
+            }, 200);
+        }
+
+        function updateFilterOptions() {
+            // 更新考试选项到下拉菜单
+            const trendExamMenu = document.getElementById('trendExamDropdownMenu');
+            const radarExamMenu = document.getElementById('radarExamDropdownMenu');
+            const barExamMenu = document.getElementById('barExamDropdownMenu');
+            
+            // 重新构建趋势图考试菜单（保留固定的头部和"所有考试"选项）
+            if (trendExamMenu) {
+                trendExamMenu.innerHTML = `
+                    <div class="filter-dropdown-header">
+                        <small class="text-muted">多选考试 (<span id="selectedTrendExamCount">0</span> 个已选择)</small>
+                    </div>
+                    <div class="filter-dropdown-item">
+                        <input type="checkbox" id="allTrendExamsCheckbox" class="form-check-input" onchange="toggleAllTrendExams()">
+                        <label class="form-check-label" for="allTrendExamsCheckbox">所有考试</label>
+                    </div>
+                `;
+            }
+            
+            if (radarExamMenu) radarExamMenu.innerHTML = '';
+            if (barExamMenu) barExamMenu.innerHTML = '';
+            
+            // 添加考试选项
+            if (analysisData.exams && analysisData.exams.length > 0) {
+                // 保存可用考试供多选逻辑使用
+                window.availableExams = analysisData.exams;
+                
+                analysisData.exams.forEach((exam, index) => {
+                    // 获取学年信息，格式为"2025-2026"
+                    let schoolYear = '';
+                    if (exam.school_year) {
+                        schoolYear = exam.school_year;
+                    } else if (exam.exam_date) {
+                        const year = parseInt(exam.exam_date.substring(0, 4));
+                        const month = parseInt(exam.exam_date.substring(5, 7));
+                        // 如果是9月之后，学年为当年-下一年；如果是9月之前，学年为上一年-当年
+                        if (month >= 9) {
+                            schoolYear = `${year}-${year + 1}`;
+                        } else {
+                            schoolYear = `${year - 1}-${year}`;
+                        }
+                    } else {
+                        schoolYear = '2024-2025';
+                    }
+                    const gradeLevel = exam.grade_level || '高一';  // 从考试数据中获取年级信息
+                    const displayText = `${schoolYear}${exam.name}（${gradeLevel}）`;
+                    
+                    // 趋势图考试选项（支持多选）
+                    if (trendExamMenu) {
+                        const item = document.createElement('div');
+                        item.className = 'filter-dropdown-item';
+                        item.innerHTML = `
+                            <input type="checkbox" id="trendExam_${exam.id}" class="form-check-input trend-exam-checkbox" 
+                                data-value="${exam.id}" onchange="toggleTrendExam('${exam.id}', '${displayText}')">
+                            <label class="form-check-label" for="trendExam_${exam.id}">${displayText}</label>
+                        `;
+                        trendExamMenu.appendChild(item);
+                    }
+                    
+                    // 雷达图考试选项（单选）
+                    if (radarExamMenu) {
+                        const item = document.createElement('div');
+                        item.className = 'filter-dropdown-item';
+                        item.setAttribute('data-value', exam.id);
+                        item.textContent = displayText;
+                        item.onclick = function() {
+                            selectSingleOption('radarExamDropdownMenu', 'radarExamDropdownText', this);
+                            updateRadarChart();
+                        };
+                        if (index === 0) {
+                            item.classList.add('selected');
+                            document.getElementById('radarExamDropdownText').textContent = displayText;
+                        }
+                        radarExamMenu.appendChild(item);
+                    }
+                    
+                    // 柱状图考试选项（单选）
+                    if (barExamMenu) {
+                        const item = document.createElement('div');
+                        item.className = 'filter-dropdown-item';
+                        item.setAttribute('data-value', exam.id);
+                        item.textContent = displayText;
+                        item.onclick = function() {
+                            selectSingleOption('barExamDropdownMenu', 'barExamDropdownText', this);
+                            updateBarChart();
+                        };
+                        if (index === 0) {
+                            item.classList.add('selected');
+                            document.getElementById('barExamDropdownText').textContent = displayText;
+                        }
+                        barExamMenu.appendChild(item);
+                    }
+                });
+            }
+            
+            // 添加科目选项到趋势图（支持多选）
+            const trendSubjectMenu = document.getElementById('trendSubjectDropdownMenu');
+            if (trendSubjectMenu) {
+                // 重新构建科目菜单（保留固定的头部、"所有科目"和"总分"选项）
+                trendSubjectMenu.innerHTML = `
+                    <div class="filter-dropdown-header">
+                        <small class="text-muted">多选科目 (<span id="selectedTrendSubjectCount">0</span> 个已选择)</small>
+                    </div>
+                    <div class="filter-dropdown-item">
+                        <input type="checkbox" id="allTrendSubjectsCheckbox" class="form-check-input" onchange="toggleAllTrendSubjects()">
+                        <label class="form-check-label" for="allTrendSubjectsCheckbox">所有科目</label>
+                    </div>
+                    <div class="filter-dropdown-item">
+                        <input type="checkbox" id="totalTrendSubjectCheckbox" class="form-check-input trend-subject-checkbox" data-value="total" onchange="toggleTrendSubject('total', '总分')">
+                        <label class="form-check-label" for="totalTrendSubjectCheckbox">总分</label>
+                    </div>
+                `;
+                
+                if (analysisData.subjects && analysisData.subjects.length > 0) {
+                    // 保存可用科目供多选逻辑使用
+                    window.availableSubjects = analysisData.subjects;
+                    
+                    analysisData.subjects.forEach(subject => {
+                        const item = document.createElement('div');
+                        item.className = 'filter-dropdown-item';
+                        item.innerHTML = `
+                            <input type="checkbox" id="trend${subject}SubjectCheckbox" class="form-check-input trend-subject-checkbox" 
+                                data-value="${subject}" onchange="toggleTrendSubject('${subject}', '${subject}')">
+                            <label class="form-check-label" for="trend${subject}SubjectCheckbox">${subject}</label>
+                        `;
+                        trendSubjectMenu.appendChild(item);
+                    });
+                }
+                
+            }
+            
+            // 初始化排名类型筛选器
+            initializeRankTypeFilter();
+        }
+
+        // 初始化排名类型筛选器
+        function initializeRankTypeFilter() {
+            const rankTypeMenu = document.getElementById('trendRankTypeDropdownMenu');
+            if (rankTypeMenu) {
+                // 为排名类型选项添加点击事件
+                rankTypeMenu.querySelectorAll('.filter-dropdown-item').forEach(item => {
+                    item.onclick = function() {
+                        const rankType = this.getAttribute('data-value');
+                        selectRankType(rankType);
+                    };
+                });
+                
+                // 默认选择年级排名
+                selectRankType('grade');
+            }
+        }
+
+        // 选择排名类型
+        function selectRankType(rankType) {
+            selectedRankType = rankType;
+            
+            const menu = document.getElementById('trendRankTypeDropdownMenu');
+            const textElement = document.getElementById('trendRankTypeDropdownText');
+            
+            // 移除所有选中状态
+            menu.querySelectorAll('.filter-dropdown-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+            
+            // 选中当前项
+            const selectedItem = menu.querySelector(`[data-value="${rankType}"]`);
+            if (selectedItem) {
+                selectedItem.classList.add('selected');
+                textElement.textContent = selectedItem.textContent;
+            }
+            
+            // 关闭下拉菜单
+            menu.classList.remove('show');
+            
+            // 更新图表
+            updateTrendChart();
+        }
+
+        // 统一的默认选择初始化函数
+        function initializeDefaultSelections() {
+            // 初始化默认选择：选择所有考试
+            if (analysisData.exams && analysisData.exams.length > 0) {
+                const allExamsCheckbox = document.getElementById('allTrendExamsCheckbox');
+                if (allExamsCheckbox) {
+                    allExamsCheckbox.checked = true;
+                    selectedTrendExams = ['all'];
+                    updateTrendExamDisplay();
+                }
+            }
+            
+            // 初始化默认选择：选择总分
+            const totalSubjectCheckbox = document.getElementById('totalTrendSubjectCheckbox');
+            if (totalSubjectCheckbox) {
+                totalSubjectCheckbox.checked = true;
+                selectedTrendSubjects = ['total'];
+                updateTrendSubjectDisplay();
+            }
+            
+            // 初始化默认选择：选择年级排名
+            selectRankType('grade');
+            
+            // 所有默认选择设置完成后，绘制趋势图
+            setTimeout(() => {
+                drawTrendChart();
+            }, 50);
+        }
+
+        // 辅助函数：单选下拉菜单
+        function selectSingleOption(menuId, textId, selectedItem) {
+            const menu = document.getElementById(menuId);
+            const textElement = document.getElementById(textId);
+            
+            // 移除所有选中状态
+            menu.querySelectorAll('.filter-dropdown-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+            
+            // 选中当前项
+            selectedItem.classList.add('selected');
+            textElement.textContent = selectedItem.textContent;
+            
+            // 关闭下拉菜单
+            menu.classList.remove('show');
+        }
+
+        // 更新趋势图考试选择
+        function updateTrendExamSelection() {
+            const menu = document.getElementById('trendExamDropdownMenu');
+            const textElement = document.getElementById('trendExamDropdownText');
+            const selectedItems = menu.querySelectorAll('.filter-dropdown-item.selected');
+            
+            if (selectedItems.length === 0) {
+                textElement.textContent = '请选择考试';
+            } else if (selectedItems.length === 1) {
+                textElement.textContent = selectedItems[0].textContent;
+            } else {
+                textElement.textContent = `已选择 ${selectedItems.length} 个考试`;
+            }
+            
+            updateTrendChart();
+        }
+
+        function drawTrendChart() {
+            try {
+                const ctx = document.getElementById('trendChart').getContext('2d');
+                
+                if (charts.trend) {
+                    charts.trend.destroy();
+                }
+                
+                // 检查是否有选中的考试和科目
+                if (selectedTrendExams.length === 0 || selectedTrendSubjects.length === 0) {
+                    // 显示提示信息
+                    const noDataMessage = ctx.canvas.parentElement.querySelector('.no-data-message') || 
+                        document.createElement('div');
+                    noDataMessage.className = 'no-data-message text-center p-4';
+                    noDataMessage.innerHTML = '<i class="fas fa-info-circle text-muted"></i><br>请选择考试和科目来查看趋势分析';
+                    if (!ctx.canvas.parentElement.querySelector('.no-data-message')) {
+                        ctx.canvas.parentElement.appendChild(noDataMessage);
+                    }
+                    ctx.canvas.style.display = 'none';
+                    return;
+                }
+                
+                // 隐藏提示信息，显示图表
+                const noDataMessage = ctx.canvas.parentElement.querySelector('.no-data-message');
+                if (noDataMessage) {
+                    noDataMessage.style.display = 'none';
+                }
+                ctx.canvas.style.display = 'block';
+                
+                // 获取要显示的考试数据
+                let examsList = [];
+                if (selectedTrendExams.includes('all')) {
+                    examsList = analysisData.exams || [];
+                } else {
+                    examsList = (analysisData.exams || []).filter(exam => 
+                        selectedTrendExams.includes(exam.id.toString())
+                    );
+                }
+                
+                // 获取要显示的科目
+                let subjectsList = [];
+                if (selectedTrendSubjects.includes('all')) {
+                    subjectsList = ['total', ...(analysisData.subjects || [])];
+                } else {
+                    subjectsList = selectedTrendSubjects;
+                }
+                
+                // 构建趋势数据
+                const trendData = {
+                    labels: [],
+                    datasets: []
+                };
+                
+                // 构建考试标签，格式与表格保持一致：学年+考试名（年级）
+                trendData.labels = examsList.map(exam => {
+                    // 生成学年信息
+                    let schoolYear = '';
+                    if (exam.school_year) {
+                        schoolYear = exam.school_year;
+                    } else if (exam.exam_date) {
+                        const year = parseInt(exam.exam_date.substring(0, 4));
+                        const month = parseInt(exam.exam_date.substring(5, 7));
+                        // 如果是9月之后，学年为当年-下一年；如果是9月之前，学年为上一年-当年
+                        if (month >= 9) {
+                            schoolYear = `${year}-${year + 1}`;
+                        } else {
+                            schoolYear = `${year - 1}-${year}`;
+                        }
+                    } else {
+                        schoolYear = '2024-2025';
+                    }
+                    
+                    // 获取年级信息
+                    const gradeLevel = exam.grade_level || '高一';
+                    
+                    // 返回格式化的标签
+                    return `${schoolYear}${exam.name}（${gradeLevel}）`;
+                });
+                
+                // 为每个选中的科目创建数据集
+                const colors = [
+                    'rgb(1, 123, 108)',     // 主色调
+                    'rgb(40, 167, 69)',     // 绿色
+                    'rgb(0, 123, 255)',     // 蓝色
+                    'rgb(255, 193, 7)',     // 黄色
+                    'rgb(220, 53, 69)',     // 红色
+                    'rgb(108, 117, 125)',   // 灰色
+                    'rgb(255, 107, 53)',    // 橙色
+                    'rgb(111, 66, 193)',    // 紫色
+                    'rgb(25, 135, 84)',     // 深绿
+                    'rgb(13, 110, 253)'     // 深蓝
+                ];
+                
+                subjectsList.forEach((subject, index) => {
+                    const color = colors[index % colors.length];
+                    const rankTypeText = selectedRankType === 'class' ? '班级排名' : '年级排名';
+                    const dataset = {
+                        label: subject === 'total' ? `总分${rankTypeText}` : `${subject}${rankTypeText}`,
+                        data: [],
+                        borderColor: color,
+                        backgroundColor: color.replace('rgb', 'rgba').replace(')', ', 0.1)'),
+                        fill: false,
+                        tension: 0.3,
+                        pointRadius: 4,
+                        pointHoverRadius: 7,
+                        pointBorderWidth: 2,
+                        pointBackgroundColor: '#ffffff',
+                        pointBorderColor: color,
+                        pointHoverBackgroundColor: color,
+                        pointHoverBorderColor: '#ffffff',
+                        pointHoverBorderWidth: 2,
+                        borderWidth: 2.5
+                    };
+                    
+                    // 填充该科目在各个考试中的排名数据
+                    examsList.forEach(exam => {
+                        let rankValue = null;
+                        
+                        if (subject === 'total') {
+                            // 总分排名
+                            if (analysisData.trend_data && analysisData.trend_data.total) {
+                                const examIndex = analysisData.trend_data.total.exam_names.indexOf(exam.name);
+                                if (examIndex !== -1) {
+                                    // 根据选择的排名类型获取相应数据
+                                    if (selectedRankType === 'class') {
+                                        rankValue = analysisData.trend_data.total.class_ranks[examIndex];
+                                    } else {
+                                        rankValue = analysisData.trend_data.total.grade_ranks[examIndex];
+                                    }
+                                }
+                            }
+                        } else {
+                            // 科目排名
+                            if (analysisData.trend_data && analysisData.trend_data[subject]) {
+                                const examIndex = analysisData.trend_data[subject].exam_names.indexOf(exam.name);
+                                if (examIndex !== -1) {
+                                    // 根据选择的排名类型获取相应数据
+                                    if (selectedRankType === 'class') {
+                                        rankValue = analysisData.trend_data[subject].class_ranks[examIndex];
+                                    } else {
+                                        rankValue = analysisData.trend_data[subject].grade_ranks[examIndex];
+                                    }
+                                }
+                            }
+                        }
+                        
+                        dataset.data.push(rankValue);
+                    });
+                    
+                    trendData.datasets.push(dataset);
+                });
+                
+                // 根据数据点数量动态调整左右边距
+                const dataPointCount = trendData.labels.length;
+                let leftPadding = 50;
+                let rightPadding = 50;
+                
+                // 当数据点较少时，增加更多边距让点看起来更紧凑
+                if (dataPointCount <= 2) {
+                    leftPadding = 120;
+                    rightPadding = 120;
+                } else if (dataPointCount <= 3) {
+                    leftPadding = 80;
+                    rightPadding = 80;
+                } else if (dataPointCount <= 4) {
+                    leftPadding = 60;
+                    rightPadding = 60;
+                }
+                
+                charts.trend = new Chart(ctx, {
+                    type: 'line',
+                    data: trendData,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        layout: {
+                            padding: {
+                                left: leftPadding,   // 动态左边距
+                                right: rightPadding, // 动态右边距
+                                top: 10,
+                                bottom: 10
+                            }
+                        },
+                        elements: {
+                            point: {
+                                radius: 4,
+                                hoverRadius: 6,
+                                borderWidth: 2
+                            },
+                            line: {
+                                borderWidth: 2.5,
+                                tension: 0.3
+                            }
+                        },
+                        scales: {
+                            y: {
+                                reverse: true,
+                                beginAtZero: false,
+                                min: 1,  // 设置最小值为1，避免显示第0名
+                                title: {
+                                    display: true,
+                                    text: '排名',
+                                    font: {
+                                        size: 14,
+                                        weight: 'bold'
+                                    },
+                                    color: '#495057'
+                                },
+                                ticks: {
+                                    stepSize: 1,  // 设置刻度间隔为1
+                                    font: {
+                                        size: 12
+                                    },
+                                    color: '#6c757d',
+                                    callback: function(value) {
+                                        // 确保只显示整数排名
+                                        if (Number.isInteger(value) && value >= 1) {
+                                            return `${value}`;
+                                        }
+                                        return '';
+                                    }
+                                },
+                                grid: {
+                                    display: true,
+                                    color: 'rgba(0, 0, 0, 0.08)',
+                                    lineWidth: 1
+                                }
+                            },
+                            x: {
+                                type: 'category',
+                                offset: true,  // 让数据点偏移，不会贴边
+                                title: {
+                                    display: false  // 隐藏x轴标题
+                                },
+                                ticks: {
+                                    font: {
+                                        size: 12
+                                    },
+                                    maxRotation: 45,  // 最大旋转角度45度
+                                    minRotation: 0,   // 最小旋转角度0度
+                                    padding: 10       // 增加标签内边距
+                                },
+                                grid: {
+                                    display: true,
+                                    color: 'rgba(0, 0, 0, 0.1)',
+                                    offset: true
+                                },
+                                // 设置轴的边距，让数据点不会太靠近边缘
+                                bounds: 'data'
+                            }
+                        },
+                        plugins: {
+                            title: {
+                                display: false  // 隐藏图表标题，卡片头部已有标题
+                            },
+                            legend: {
+                                display: true,
+                                position: 'top',
+                                align: 'center',
+                                labels: {
+                                    font: {
+                                        size: 12,
+                                        weight: '500'
+                                    },
+                                    padding: 15,
+                                    usePointStyle: true,
+                                    pointStyle: 'circle',
+                                    boxWidth: 8,
+                                    boxHeight: 8
+                                }
+                            },
+                            tooltip: {
+                                titleFont: {
+                                    size: 13,
+                                    weight: 'bold'
+                                },
+                                bodyFont: {
+                                    size: 12
+                                },
+                                callbacks: {
+                                    title: function(context) {
+                                        return context[0].label;
+                                    },
+                                    label: function(context) {
+                                        const rank = context.raw;
+                                        return rank ? `${context.dataset.label}: 第${rank}名` : `${context.dataset.label}: 无数据`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('趋势图绘制失败:', error);
+            }
+        }
+
+        function drawRadarChart() {
+            const ctx = document.getElementById('radarChart').getContext('2d');
+            
+            if (charts.radar) {
+                charts.radar.destroy();
+            }
+            
+            // 获取当前选中的考试
+            const selectedExamItem = document.querySelector('#radarExamDropdownMenu .filter-dropdown-item.selected');
+            const selectedExamId = selectedExamItem ? selectedExamItem.getAttribute('data-value') : null;
+            
+            // 构建雷达图数据
+            let radarData = {
+                labels: [],
+                datasets: [{
+                    label: '',  // 去掉图例标签
+                    data: [],
+                    borderColor: 'rgb(40, 167, 69)',
+                    backgroundColor: 'rgba(40, 167, 69, 0.2)',
+                    pointBackgroundColor: 'rgb(40, 167, 69)',
+                    pointBorderColor: '#fff',
+                    pointHoverBackgroundColor: '#fff',
+                    pointHoverBorderColor: 'rgb(40, 167, 69)'
+                }]
+            };
+            
+            // 使用选中的考试数据，如果没有选中则使用第一次考试
+            let targetExam = null;
+            if (selectedExamId && analysisData.exams) {
+                targetExam = analysisData.exams.find(exam => exam.id.toString() === selectedExamId);
+            }
+            if (!targetExam && analysisData.exams && analysisData.exams.length > 0) {
+                targetExam = analysisData.exams[0];
+            }
+            
+            if (targetExam && targetExam.scores && targetExam.scores.length > 0) {
+                // 获取成绩数据，计算得分率（学生得分/满分）
+                const subjects = targetExam.scores.map(s => s.subject_name);
+                const percentageScores = targetExam.scores.map(s => {
+                    const studentScore = s.score_value || 0;
+                    const fullScore = s.full_score || 100; // 获取满分，默认100分
+                    const percentage = (studentScore / fullScore) * 100;
+                    return Math.round(Math.max(0, Math.min(100, percentage))); // 确保在0-100范围内
+                });
+                
+                radarData.labels = subjects;
+                radarData.datasets[0].data = percentageScores;
+            }
+            
+            charts.radar = new Chart(ctx, {
+                type: 'radar',
+                data: radarData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            beginAtZero: true,
+                            max: 100,
+                            min: 0,
+                            ticks: {
+                                stepSize: 20,
+                                showLabelBackdrop: false,
+                                callback: function(value) {
+                                    return value + '%';  // 在刻度值后添加百分号
+                                }
+                            },
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.1)'
+                            },
+                            angleLines: {
+                                color: 'rgba(0, 0, 0, 0.1)'
+                            },
+                            pointLabels: {
+                                font: {
+                                    size: 14  // 调大科目标签的字体大小
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false  // 隐藏图例
+                        },
+                        title: {
+                            display: false  // 隐藏标题，因为card-header已经有标题了
+                        },
+                        tooltip: {
+                            titleFont: {
+                                size: 13,
+                                weight: 'bold'
+                            },
+                            bodyFont: {
+                                size: 12
+                            },
+                            callbacks: {
+                                title: function(context) {
+                                    return context[0].label;
+                                },
+                                label: function(context) {
+                                    // 显示得分率百分比
+                                    return `得分率: ${context.raw}%`;
+                                },
+                                afterLabel: function(context) {
+                                    // 如果有原始分数信息，也可以显示
+                                    const examIndex = context.dataIndex;
+                                    if (targetExam && targetExam.scores && targetExam.scores[examIndex]) {
+                                        const score = targetExam.scores[examIndex];
+                                        const studentScore = score.score_value || 0;
+                                        const fullScore = score.full_score || 100;
+                                        return `实际得分: ${studentScore}/${fullScore}`;
+                                    }
+                                    return '';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function drawBarChart() {
+            const ctx = document.getElementById('barChart').getContext('2d');
+            
+            if (charts.bar) {
+                charts.bar.destroy();
+            }
+            
+            // 定义科目颜色配置，使用primary-color主题系列
+            const subjectColors = [
+                { bg: 'rgba(1, 123, 108, 0.8)', border: 'rgb(1, 123, 108)' },     // 语文 - 主色调
+                { bg: 'rgba(26, 148, 133, 0.8)', border: 'rgb(26, 148, 133)' },   // 数学 - 主色调浅一度
+                { bg: 'rgba(51, 173, 158, 0.8)', border: 'rgb(51, 173, 158)' },   // 英语 - 主色调浅二度
+                { bg: 'rgba(76, 198, 183, 0.8)', border: 'rgb(76, 198, 183)' },   // 政治 - 主色调浅三度
+                { bg: 'rgba(101, 223, 208, 0.8)', border: 'rgb(101, 223, 208)' }, // 历史 - 主色调浅四度
+                { bg: 'rgba(0, 98, 86, 0.8)', border: 'rgb(0, 98, 86)' },         // 物理 - 主色调深一度
+                { bg: 'rgba(0, 73, 65, 0.8)', border: 'rgb(0, 73, 65)' },         // 化学 - 主色调深二度
+                { bg: 'rgba(0, 148, 130, 0.8)', border: 'rgb(0, 148, 130)' },     // 生物 - 主色调变种
+                { bg: 'rgba(25, 173, 155, 0.8)', border: 'rgb(25, 173, 155)' },   // 地理 - 主色调变种浅
+                { bg: 'rgba(50, 198, 180, 0.8)', border: 'rgb(50, 198, 180)' }    // 体育 - 主色调变种浅二度
+            ];
+            
+            // 构建柱状图数据
+            let barData = {
+                labels: [],
+                datasets: [{
+                    label: '',  // 去掉数据集标签
+                    data: [],
+                    backgroundColor: [],
+                    borderColor: [],
+                    borderWidth: 1,
+                    borderRadius: 8,    // 添加圆角
+                    borderSkipped: false // 确保所有边都有圆角
+                }]
+            };
+            
+            // 获取当前选中的考试
+            const selectedExamItem = document.querySelector('#barExamDropdownMenu .filter-dropdown-item.selected');
+            const selectedExamId = selectedExamItem ? selectedExamItem.getAttribute('data-value') : null;
+            
+            // 使用选中的考试数据，如果没有选中则使用第一次考试
+            let targetExam = null;
+            if (selectedExamId && analysisData.exams) {
+                targetExam = analysisData.exams.find(exam => exam.id.toString() === selectedExamId);
+            }
+            if (!targetExam && analysisData.exams && analysisData.exams.length > 0) {
+                targetExam = analysisData.exams[0];
+            }
+            
+            if (targetExam && targetExam.scores && targetExam.scores.length > 0) {
+                barData.labels = targetExam.scores.map(s => s.subject_name);
+                barData.datasets[0].data = targetExam.scores.map(s => s.score_value || 0);
+                
+                // 为每个科目分配颜色
+                const backgroundColors = [];
+                const borderColors = [];
+                
+                targetExam.scores.forEach((score, index) => {
+                    const colorIndex = index < subjectColors.length ? index : index % subjectColors.length;
+                    backgroundColors.push(subjectColors[colorIndex].bg);
+                    borderColors.push(subjectColors[colorIndex].border);
+                });
+                
+                barData.datasets[0].backgroundColor = backgroundColors;
+                barData.datasets[0].borderColor = borderColors;
+            }
+            
+            charts.bar = new Chart(ctx, {
+                type: 'bar',
+                data: barData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: '得分',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
+                            },
+                            ticks: {
+                                font: {
+                                    size: 12
+                                }
+                            },
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.05)'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: false // 隐藏X轴标题
+                            },
+                            ticks: {
+                                font: {
+                                    size: 13,
+                                    weight: '500'
+                                }
+                            },
+                            grid: {
+                                display: false // 隐藏X轴网格线
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: false  // 隐藏图表标题
+                        },
+                        legend: {
+                            display: false  // 隐藏图例
+                        },
+                        tooltip: {
+                            titleFont: {
+                                size: 13,
+                                weight: 'bold'
+                            },
+                            bodyFont: {
+                                size: 12
+                            },
+                            callbacks: {
+                                title: function(context) {
+                                    return context[0].label;
+                                },
+                                label: function(context) {
+                                    return `得分: ${context.raw}分`;
+                                }
+                            }
+                        }
+                    },
+                    // 添加动画效果
+                    animation: {
+                        duration: 1000,
+                        easing: 'easeOutQuart'
+                    },
+                    // 柱状图间距
+                    categoryPercentage: 0.8,
+                    barPercentage: 0.9
+                }
+            });
+        }
+
+        function populateDetailTable() {
+            const tbody = document.getElementById('detailTableBody');
+            tbody.innerHTML = '';
+            
+            if (!analysisData.exams || analysisData.exams.length === 0) {
+                const row = document.createElement('tr');
+                row.innerHTML = '<td colspan="5" class="text-center text-muted">暂无考试数据</td>';
+                tbody.appendChild(row);
+                return;
+            }
+            
+            // 添加考试数据
+            analysisData.exams.forEach(exam => {
+                const row = document.createElement('tr');
+                
+                // 生成考试显示名称，格式与筛选器保持一致
+                let schoolYear = '';
+                if (exam.school_year) {
+                    schoolYear = exam.school_year;
+                } else if (exam.exam_date) {
+                    const year = parseInt(exam.exam_date.substring(0, 4));
+                    const month = parseInt(exam.exam_date.substring(5, 7));
+                    // 如果是9月之后，学年为当年-下一年；如果是9月之前，学年为上一年-当年
+                    if (month >= 9) {
+                        schoolYear = `${year}-${year + 1}`;
+                    } else {
+                        schoolYear = `${year - 1}-${year}`;
+                    }
+                } else {
+                    schoolYear = '2024-2025';
+                }
+                const gradeLevel = exam.grade_level || '高一';
+                const examDisplayText = `${schoolYear}${exam.name}（${gradeLevel}）`;
+                
+                // 构建各科详情
+                let subjectDetails = '';
+                if (exam.scores && exam.scores.length > 0) {
+                    exam.scores.forEach(score => {
+                        const scoreValue = score.score_value || 0;
+                        const classRank = score.class_rank || '';
+                        const gradeRank = score.grade_rank || '';
+                        
+                        // 构建排名信息
+                        let rankInfo = '';
+                        const gradeRankText = gradeRank ? `级排:${gradeRank}` : '';
+                        const classRankText = classRank ? `班排:${classRank}` : '';
+                        
+                        if (gradeRankText && classRankText) {
+                            rankInfo = `(${gradeRankText},${classRankText})`;
+                        } else if (gradeRankText) {
+                            rankInfo = `(${gradeRankText})`;
+                        } else if (classRankText) {
+                            rankInfo = `(${classRankText})`;
+                        }
+                        
+                        subjectDetails += `<small class="badge bg-light text-dark me-1">${score.subject_name}:${scoreValue}${rankInfo}</small>`;
+                    });
+                }
+                
+                row.innerHTML = `
+                    <td>${examDisplayText}</td>
+                    <td><span class="badge bg-primary">${exam.total_score || 0}</span></td>
+                    <td><span class="badge bg-success">${exam.class_total_rank || '-'}</span></td>
+                    <td><span class="badge bg-info">${exam.grade_total_rank || '-'}</span></td>
+                    <td><div class="d-flex flex-nowrap gap-1">${subjectDetails}</div></td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // 筛选框控制函数
+        window.toggleTrendExamDropdown = function() {
+            toggleDropdown('trendExamDropdownMenu');
+        };
+
+        window.toggleTrendSubjectDropdown = function() {
+            toggleDropdown('trendSubjectDropdownMenu');
+        };
+
+        window.toggleRadarExamDropdown = function() {
+            toggleDropdown('radarExamDropdownMenu');
+        };
+
+        window.toggleBarExamDropdown = function() {
+            toggleDropdown('barExamDropdownMenu');
+        };
+
+        window.toggleTrendRankTypeDropdown = function() {
+            toggleDropdown('trendRankTypeDropdownMenu');
+        };
+
+        function toggleDropdown(menuId) {
+            const menu = document.getElementById(menuId);
+            if (menu) {
+                menu.classList.toggle('show');
+                // 关闭其他下拉菜单
+                document.querySelectorAll('.filter-dropdown-menu').forEach(m => {
+                    if (m.id !== menuId) {
+                        m.classList.remove('show');
+                    }
+                });
+            }
+        }
+
+        // 点击外部关闭下拉菜单
+        document.addEventListener('click', function(event) {
+            if (!event.target.closest('.filter-dropdown')) {
+                document.querySelectorAll('.filter-dropdown-menu').forEach(menu => {
+                    menu.classList.remove('show');
+                });
+            }
+        });
+
+        // 图表更新函数
+        window.updateTrendChart = function() {
+            drawTrendChart();
+        };
+
+        window.updateRadarChart = function() {
+            drawRadarChart();
+        };
+
+        window.updateBarChart = function() {
+            drawBarChart();
+        };
+
+        // 趋势图多选逻辑
+        let selectedTrendExams = [];
+        let selectedTrendSubjects = [];
+        let selectedRankType = 'grade'; // 默认选择年级排名
+
+        // 切换所有考试选择
+        window.toggleAllTrendExams = function() {
+            const allCheckbox = document.getElementById('allTrendExamsCheckbox');
+            const examCheckboxes = document.querySelectorAll('.trend-exam-checkbox');
+            
+            if (allCheckbox.checked) {
+                selectedTrendExams = ['all'];
+                examCheckboxes.forEach(checkbox => {
+                    checkbox.checked = false;
+                });
+            } else {
+                selectedTrendExams = [];
+                examCheckboxes.forEach(checkbox => {
+                    checkbox.checked = false;
+                });
+            }
+            
+            updateTrendExamDisplay();
+            updateTrendChart();
+        };
+
+        // 切换单个考试选择
+        window.toggleTrendExam = function(examId, examName) {
+            const checkbox = document.getElementById(`trendExam_${examId}`);
+            const allCheckbox = document.getElementById('allTrendExamsCheckbox');
+            
+            // 如果当前选择了"所有考试"，先取消选择
+            if (selectedTrendExams.includes('all')) {
+                selectedTrendExams = [];
+                allCheckbox.checked = false;
+            }
+            
+            if (checkbox.checked) {
+                selectedTrendExams.push(examId);
+            } else {
+                selectedTrendExams = selectedTrendExams.filter(id => id !== examId);
+            }
+            
+            updateTrendExamDisplay();
+            updateTrendChart();
+        };
+
+        // 更新考试显示
+        function updateTrendExamDisplay() {
+            const dropdownText = document.getElementById('trendExamDropdownText');
+            const countSpan = document.getElementById('selectedTrendExamCount');
+            
+            // 添加空值检查，防止元素不存在时出错
+            if (!dropdownText || !countSpan) {
+                return;
+            }
+            
+            if (selectedTrendExams.includes('all')) {
+                countSpan.textContent = availableExams.length;
+                dropdownText.textContent = '所有考试';
+            } else {
+                countSpan.textContent = selectedTrendExams.length;
+                if (selectedTrendExams.length === 0) {
+                    dropdownText.textContent = '请选择考试';
+                } else {
+                    dropdownText.textContent = `已选择 ${selectedTrendExams.length} 个考试`;
+                }
+            }
+        }
+
+        // 切换所有科目选择
+        window.toggleAllTrendSubjects = function() {
+            const allCheckbox = document.getElementById('allTrendSubjectsCheckbox');
+            const subjectCheckboxes = document.querySelectorAll('.trend-subject-checkbox');
+            
+            if (allCheckbox.checked) {
+                selectedTrendSubjects = ['all'];
+                subjectCheckboxes.forEach(checkbox => {
+                    checkbox.checked = false;
+                });
+            } else {
+                selectedTrendSubjects = [];
+                subjectCheckboxes.forEach(checkbox => {
+                    checkbox.checked = false;
+                });
+            }
+            
+            updateTrendSubjectDisplay();
+            updateTrendChart();
+        };
+
+        // 切换单个科目选择
+        window.toggleTrendSubject = function(subjectCode, subjectName) {
+            // 处理总分的特殊ID命名
+            const checkboxId = subjectCode === 'total' ? 'totalTrendSubjectCheckbox' : `trend${subjectCode}SubjectCheckbox`;
+            const checkbox = document.getElementById(checkboxId);
+            const allCheckbox = document.getElementById('allTrendSubjectsCheckbox');
+            
+            // 如果当前选择了"所有科目"，先取消选择
+            if (selectedTrendSubjects.includes('all')) {
+                selectedTrendSubjects = [];
+                allCheckbox.checked = false;
+            }
+            
+            if (checkbox && checkbox.checked) {
+                selectedTrendSubjects.push(subjectCode);
+            } else {
+                selectedTrendSubjects = selectedTrendSubjects.filter(code => code !== subjectCode);
+            }
+            
+            updateTrendSubjectDisplay();
+            updateTrendChart();
+        };
+
+        // 更新科目显示
+        function updateTrendSubjectDisplay() {
+            const dropdownText = document.getElementById('trendSubjectDropdownText');
+            const countSpan = document.getElementById('selectedTrendSubjectCount');
+            
+            // 添加空值检查，防止元素不存在时出错
+            if (!dropdownText || !countSpan) {
+                return;
+            }
+            
+            if (selectedTrendSubjects.includes('all')) {
+                countSpan.textContent = availableSubjects.length + 1; // +1 for 总分
+                dropdownText.textContent = '所有科目';
+            } else {
+                countSpan.textContent = selectedTrendSubjects.length;
+                if (selectedTrendSubjects.length === 0) {
+                    dropdownText.textContent = '请选择科目';
+                } else {
+                    dropdownText.textContent = `已选择 ${selectedTrendSubjects.length} 个科目`;
+                }
+            }
+        }
+    });
+</script>
+{% endblock %}

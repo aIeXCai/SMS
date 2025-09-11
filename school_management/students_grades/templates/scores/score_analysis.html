@@ -247,7 +247,7 @@
         <div class="row align-items-center">
             <div class="col-md-8">
                 <h1><i class="fas fa-chart-line me-3"></i>{{ page_title }}</h1>
-                <p class="mb-0 opacity-75">针对单班级、多班级、年级以及学生个人的成绩分析</p>
+                <p class="mb-0 opacity-75">针对单班级、多班级以及年级的成绩分析</p>
             </div>
         </div>
     </div>
@@ -371,7 +371,7 @@
                         <i class="fas fa-info-circle fa-2x me-3 text-success"></i>
                         <div>
                             <h6 class="alert-heading mb-1 text-success"><i class="fas fa-lightbulb me-1"></i>操作指南</h6>
-                            <p class="mb-0 small text-success">请按照以下步骤进行操作：<strong>1. 选择学年</strong> → <strong>2. 选择考试</strong> → <strong>3. 选择年级</strong> → <strong>4. 选择班级</strong> → <strong>5. 选择分析类型</strong></p>
+                            <p class="mb-0 small text-success">请按照以下步骤进行操作：<strong>1. 选择学年</strong> → <strong>2. 选择考试</strong> → <strong>3. 选择年级</strong> → <strong>4. 选择班级</strong> → <strong>5. 开始分析</strong></p>
                         </div>
                     </div>
                 </div>
@@ -379,19 +379,8 @@
         </div>
 
         <!-- 分析类型选择区域 -->
-        <div class="row mt-0">
-            <div class="col-12">
-                <div class="section-header mb-0">
-                    <h4 class="section-title">
-                        <i class="fas fa-chart-bar me-2 text-primary"></i>选择分析类型
-                    </h4>
-                    <p class="section-subtitle text-muted">根据您的需求选择合适的成绩分析方式</p>
-                </div>
-            </div>
-        </div>
-        
-        <div class="row">
-            <div class="col-lg-6">
+        <div class="row justify-content-center">
+            <div class="col-lg-12">
                 <div class="analysis-card card class-analysis">
                     <div class="card-body">
                         <div class="analysis-icon">
@@ -408,27 +397,6 @@
                         </div>
                         <button type="button" class="btn btn-primary" onclick="goToClassAnalysis()">
                             <i class="fas fa-chart-line me-2"></i>进入班级/年级分析
-                        </button>
-                    </div>
-                </div>
-            </div>
-            <div class="col-lg-6">
-                <div class="analysis-card card student-analysis">
-                    <div class="card-body">
-                        <div class="analysis-icon">
-                            <i class="fas fa-user-graduate"></i>
-                        </div>
-                        <h5 class="card-title">学生个人成绩分析</h5>
-                        <p class="card-text">详细分析学生个人成绩变化轨迹、各学科能力雷达图、进步情况统计，助力个性化教学</p>
-                        <div class="mb-3">
-                            <small class="text-muted">
-                                <i class="fas fa-check-circle me-1"></i>个人成绩轨迹<br>
-                                <i class="fas fa-check-circle me-1"></i>学科能力雷达<br>
-                                <i class="fas fa-check-circle me-1"></i>进步趋势分析
-                            </small>
-                        </div>
-                        <button type="button" class="btn btn-success" onclick="goToStudentAnalysis()">
-                            <i class="fas fa-user-chart me-2"></i>进入个人分析
                         </button>
                     </div>
                 </div>
@@ -702,14 +670,7 @@
         }
     }
 
-    function goToStudentAnalysis() {
-        if (validateForm()) {
-            const form = document.getElementById('analysisForm');
-            const formData = new FormData(form);
-            const params = new URLSearchParams(formData);
-            window.location.href = '{% url "students_grades:score_analysis_student" %}?' + params.toString();
-        }
-    }
+
 
     // 页面加载完成后的初始化
     document.addEventListener('DOMContentLoaded', function() {

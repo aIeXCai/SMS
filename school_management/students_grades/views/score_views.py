@@ -1399,6 +1399,22 @@ def search_students_ajax(request):
     
     return JsonResponse({'students': student_list})
 
+# <!-- 成绩排名更新 -->
+# 成绩排名更新视图
+# 保持向后兼容的函数名
+def update_grade_rankings(exam_id, grade_level=None):
+    """向后兼容函数，调用tasks中的异步排名更新函数"""
+    try:
+        from ..tasks import update_all_rankings_async
+        # 同步调用异步函数（用于向后兼容）
+        return update_all_rankings_async(exam_id, grade_level)
+    except ImportError:
+        # 如果无法导入异步任务，返回错误信息
+        return {
+            'success': False,
+            'message': '无法导入异步任务模块，请检查Redis和django-rq配置'
+        }
+
 
 # <!-- 成绩分析 -->
 # 成绩分析主界面
@@ -1646,6 +1662,7 @@ def score_analysis_class(request):
 
 # 学生个人成绩分析
 def score_analysis_student(request):
+    """学生个人成绩分析页面"""
     form = ScoreAnalysisForm(request.GET or None)
 
     context = {
@@ -1654,32 +1671,96 @@ def score_analysis_student(request):
         'analysis_type': 'student'
     }
     
-    if form.is_valid():
-        # 获取筛选条件
-        academic_year = form.cleaned_data['academic_year']
-        exam = form.cleaned_data['exam']
-        grade_level = form.cleaned_data['grade_level']
-        class_name = form.cleaned_data.get('class_name')
-        
+    # 获取URL参数中的筛选条件
+    academic_year = request.GET.get('academic_year')
+    exam_id = request.GET.get('exam')
+    grade_level = request.GET.get('grade_level')
+    class_id = request.GET.get('class_name')  # 注意：这里传递的实际是班级ID
+    
+    # 年级映射：从数字/英文转换为中文
+    grade_mapping = {
+        '10': '高一',
+        '11': '高二', 
+        '12': '高三',
+        '7': '初一',
+        '8': '初二',
+        '9': '初三',
+        'Grade10': '高一',
+        'Grade11': '高二',
+        'Grade12': '高三',
+        'Grade7': '初一',
+        'Grade8': '初二',
+        'Grade9': '初三',
+    }
+    
+    # 转换年级格式
+    if grade_level and grade_level in grade_mapping:
+        grade_level = grade_mapping[grade_level]
+    
+    # 获取班级对象和班级名称
+    selected_class = None
+    class_name = None
+    if class_id:
+        try:
+            selected_class = Class.objects.get(id=class_id)
+            class_name = selected_class.class_name
+        except Class.DoesNotExist:
+            pass
+    
+    # 添加调试信息到上下文
+    context['debug_info'] = {
+        'academic_year': academic_year,
+        'exam_id': exam_id,
+        'grade_level': grade_level,
+        'class_id': class_id,
+        'class_name': class_name,
+        'selected_class': selected_class,
+        'all_params': dict(request.GET.items())
+    }
+    
+    # 如果有筛选条件，获取对应的学生列表
+    if grade_level:
         # 构建查询条件
-        filters = {
-            'grade_level': grade_level,
-        }
+        filters = {'grade_level': grade_level}
         
-        if class_name:
-            filters['current_class__class_name'] = class_name
+        if selected_class:
+            filters['current_class'] = selected_class
         
-        # 获取学生列表
-        students = Student.objects.filter(**filters).order_by(
-            'current_class__class_name', 'name'
-        )
+        # 获取学生列表，按学号排序
+        students = Student.objects.filter(**filters).select_related('current_class').order_by('student_id')
+        
+        # 获取考试列表（根据年级和学年筛选）
+        exam_filters = {'grade_level': grade_level}
+        if academic_year:
+            exam_filters['academic_year'] = academic_year
+        
+        exams = Exam.objects.filter(**exam_filters).order_by('-date')
         
         context.update({
             'students': students,
-            'selected_exam': exam,
-            'selected_grade': grade_level,
-            'selected_class': class_name,
+            'exams': exams,
             'academic_year': academic_year,
+            'selected_grade': grade_level,
+            'selected_class': f"{selected_class.grade_level}{selected_class.class_name}" if selected_class else None,
+            'student_count': students.count(),
+        })
+        
+        # 如果指定了考试ID，获取考试对象
+        if exam_id:
+            try:
+                exam = Exam.objects.get(pk=exam_id)
+                context['selected_exam'] = exam
+            except Exam.DoesNotExist:
+                pass
+    else:
+        # 如果没有筛选条件，获取所有学生和考试
+        students = Student.objects.all().select_related('current_class').order_by('grade_level', 'student_id')
+        exams = Exam.objects.all().order_by('-date')
+        
+        context.update({
+            'students': students,
+            'exams': exams,
+            'student_count': students.count(),
         })
     
     return render(request, 'scores/score_analysis_student.html', context)
@@ -1693,14 +1774,28 @@ def get_classes_by_grade(request):
         return JsonResponse({'error': '年级参数不能为空'}, status=400)
     
     try:
-        classes = Class.objects.filter(grade_level=grade_level).order_by('class_name')
+        classes = Class.objects.filter(grade_level=grade_level)
+        
+        # 自定义排序函数：提取班级编号进行数字排序
+        def extract_class_number(class_obj):
+            """从班级名称中提取数字进行排序，例如从'1班'中提取'1'"""
+            import re
+            class_name = class_obj.class_name
+            # 提取班级编号，例如从'1班'中提取'1'
+            match = re.search(r'(\d+)', class_name)
+            return int(match.group(1)) if match else 0
+        
+        # 按班级编号数字排序
+        sorted_classes = sorted(classes, key=extract_class_number)
+        
         classes_data = [
             {
                 'id': cls.id,
                 'class_name': cls.class_name,
-                'grade_level': cls.grade_level
+                'grade_level': cls.grade_level,
+                'display_name': f"{cls.grade_level}{cls.class_name}"
             }
-            for cls in classes
+            for cls in sorted_classes
         ]
         
         return JsonResponse({
@@ -1709,6 +1804,45 @@ def get_classes_by_grade(request):
         })
     except Exception as e:
         return JsonResponse({'error': f'获取班级列表失败: {str(e)}'}, status=500)
+
+# AJAX接口：根据班级获取学生列表
+def get_students_by_class(request):
+    """根据年级和班级获取学生列表的AJAX接口"""
+    grade_level = request.GET.get('grade_level')
+    class_name = request.GET.get('class_name')
+    class_id = request.GET.get('class_id')
+    
+    if not grade_level:
+        return JsonResponse({'error': '年级参数不能为空'}, status=400)
+    
+    try:
+        # 构建查询条件
+        filters = {'grade_level': grade_level}
+        
+        # 支持按班级ID或班级名称查询
+        if class_id:
+            filters['current_class_id'] = class_id
+        elif class_name:
+            filters['current_class__class_name'] = class_name
+        
+        students = Student.objects.filter(**filters).select_related('current_class').order_by('student_id', 'name')
+        students_data = [
+            {
+                'id': student.id,
+                'student_id': student.student_id,
+                'name': student.name,
+                'class_name': student.current_class.class_name if student.current_class else '未分班',
+                'grade_level': student.grade_level
+            }
+            for student in students
+        ]
+        
+        return JsonResponse({
+            'students': students_data,
+            'count': len(students_data)
+        })
+    except Exception as e:
+        return JsonResponse({'error': f'获取学生列表失败: {str(e)}'}, status=500)
 
 # 年级成绩分析
 def score_analysis_grade(request):
@@ -2237,207 +2371,255 @@ def _analyze_grade(exam, grade_level):
     }
 
 
-# <!-- 排名更新函数 -->
-# 更新指定考试的年级排名
-# 如果指定了grade_level，只更新该年级的排名
-# 更新排名：同时计算年级排名和班级排名
-def update_all_rankings(exam_id, grade_level=None):
-    """
-    更新总分排名和单科排名（包括年级排名和班级排名）
-    """
-    exam = get_object_or_404(Exam, pk=exam_id)
+# 学生个人成绩分析AJAX接口
+def get_student_analysis_data(request):
+    """获取学生个人成绩分析数据的AJAX接口"""
+    if request.method != 'GET':
+        return JsonResponse({'error': '不支持的请求方法'}, status=405)
     
-    # 获取需要更新排名的年级
-    if grade_level:
-        grade_levels = [grade_level]
+    student_id = request.GET.get('student_id')
+    exam_ids = request.GET.get('exam_ids', '')  # 支持多考试ID，用逗号分隔
+    exam_id = request.GET.get('exam_id')  # 兼容单考试ID
+    
+    if not student_id:
+        return JsonResponse({'error': '缺少学生ID参数'}, status=400)
+        
+    # 处理考试ID参数
+    if exam_ids:
+        exam_id_list = [id.strip() for id in exam_ids.split(',') if id.strip()]
+    elif exam_id:
+        exam_id_list = [exam_id]
     else:
-        # 获取该考试涉及的所有年级
-        grade_levels = Score.objects.filter(exam=exam).values_list(
-            'student__grade_level', flat=True
-        ).distinct()
+        return JsonResponse({'error': '缺少考试ID参数'}, status=400)
     
-    for current_grade in grade_levels:
-        # 1. 更新总分年级排名
-        update_total_score_grade_ranking(exam, current_grade)
+    try:
+        student = Student.objects.get(id=student_id)
+        exams = Exam.objects.filter(id__in=exam_id_list).order_by('-date')
         
-        # 2. 更新总分班级排名
-        update_total_score_class_ranking(exam, current_grade)
+        if not exams.exists():
+            return JsonResponse({'error': '未找到指定的考试'}, status=404)
         
-        # 3. 更新单科年级排名
-        update_subject_grade_ranking(exam, current_grade)
+        # 构建多考试分析数据
+        analysis_data = {
+            'student_info': {
+                'id': student.id,
+                'student_id': student.student_id,
+                'name': student.name,
+                'grade_level': student.grade_level,
+                'class_name': student.current_class.class_name if student.current_class else '未分班',
+            },
+            'exams': [],
+            'subjects': [],
+            'trend_data': {},
+            'summary': {
+                'total_exams': exams.count(),
+                'subjects_count': 0,
+            }
+        }
         
-        # 4. 更新单科班级排名
-        update_subject_class_ranking(exam, current_grade)
-
-# 更新总分年级排名
-def update_total_score_grade_ranking(exam, grade_level):
-    """更新总分年级排名"""
-    # 获取该年级该考试的所有学生成绩
-    students_scores = Score.objects.filter(
-        exam=exam,
-        student__grade_level=grade_level
-    ).values(
-        'student_id',
-        'student__name'
-    ).annotate(
-        total_score=Sum('score_value')
-    ).order_by('-total_score')
-    
-    # 正确的排名逻辑：处理并列排名
-    current_rank = 1
-    previous_score = None
-    
-    for i, student_data in enumerate(students_scores):
-        student_id = student_data['student_id']
-        total_score = float(student_data['total_score'] or 0)
+        # 收集所有科目
+        all_subjects = set()
         
-        # 如果当前分数与前一个分数不同，更新排名
-        if previous_score is not None and total_score != previous_score:
-            current_rank = i + 1  # 跳过并列的位次
-        
-        # 更新该学生在该考试所有科目的总分年级排名
-        Score.objects.filter(
-            exam=exam,
-            student_id=student_id
-        ).update(total_score_rank_in_grade=current_rank)
-        
-        previous_score = total_score
-
-# 更新总分班级排名
-def update_total_score_class_ranking(exam, grade_level):
-    """更新总分班级排名"""
-    # 获取该年级的所有班级
-    classes = Score.objects.filter(
-        exam=exam,
-        student__grade_level=grade_level
-    ).values_list('student__current_class', flat=True).distinct()
-    
-    for class_id in classes:
-        if not class_id:
-            continue
-            
-        # 获取该班级该考试的所有学生成绩
-        students_scores = Score.objects.filter(
-            exam=exam,
-            student__current_class_id=class_id
-        ).values(
-            'student_id',
-            'student__name'
-        ).annotate(
-            total_score=Sum('score_value')
-        ).order_by('-total_score')
-        
-        # 计算班级排名
-        current_rank = 1
-        previous_score = None
-        
-        for i, student_data in enumerate(students_scores):
-            student_id = student_data['student_id']
-            total_score = float(student_data['total_score'] or 0)
-            
-            if previous_score is not None and total_score != previous_score:
-                current_rank = i + 1
-            
-            # 更新该学生在该考试所有科目的总分班级排名
-            Score.objects.filter(
-                exam=exam,
-                student_id=student_id
-            ).update(total_score_rank_in_class=current_rank)
-            
-            previous_score = total_score
-
-# 更新单科年级排名
-def update_subject_grade_ranking(exam, grade_level):
-    """更新单科年级排名"""
-    # 获取该考试的所有科目
-    subjects = Score.objects.filter(
-        exam=exam,
-        student__grade_level=grade_level
-    ).values_list('subject', flat=True).distinct()
-    
-    for subject in subjects:
-        # 获取该年级该科目的成绩，按分数排序
-        subject_scores = Score.objects.filter(
-            exam=exam,
-            subject=subject,
-            student__grade_level=grade_level
-        ).order_by('-score_value')
-        
-        # 计算排名
-        current_rank = 1
-        previous_score = None
-        score_updates = []
-        
-        for i, score in enumerate(subject_scores):
-            current_score_value = float(score.score_value or 0)
-            
-            if previous_score is not None and current_score_value != previous_score:
-                current_rank = i + 1
-            
-            score.grade_rank_in_subject = current_rank
-            score_updates.append(score)
-            previous_score = current_score_value
-        
-        # 批量更新
-        if score_updates:
-            Score.objects.bulk_update(
-                score_updates,
-                ['grade_rank_in_subject'],
-                batch_size=1000
+        # 处理每个考试的数据
+        for exam in exams:            
+            # 获取该学生在该次考试的所有成绩
+            scores = Score.objects.filter(
+                student=student,
+                exam=exam
             )
-
-# 更新单科班级排名
-def update_subject_class_ranking(exam, grade_level):
-    """更新单科班级排名"""
-    # 获取该年级的所有班级
-    classes = Score.objects.filter(
-        exam=exam,
-        student__grade_level=grade_level
-    ).values_list('student__current_class', flat=True).distinct()
-    
-    for class_id in classes:
-        if not class_id:
-            continue
             
-        # 获取该班级该考试的所有科目
-        subjects = Score.objects.filter(
-            exam=exam,
-            student__current_class_id=class_id
-        ).values_list('subject', flat=True).distinct()
+            # 按SUBJECT_CHOICES顺序排序
+            def get_subject_order_for_score(score):
+                """获取成绩对象的科目在SUBJECT_CHOICES中的顺序"""
+                for index, (subject_code, subject_name) in enumerate(SUBJECT_CHOICES):
+                    if subject_code == score.subject or subject_name == score.subject:
+                        return index
+                return 999  # 未知科目排在最后
+            
+            scores_list = list(scores)
+            scores_list.sort(key=get_subject_order_for_score)
+            
+            exam_data = {
+                'id': exam.id,
+                'name': exam.name,
+                'academic_year': exam.academic_year,
+                'exam_date': exam.date.strftime('%Y-%m-%d') if exam.date else None,
+                'scores': [],
+                'total_score': 0,
+                'average_score': 0,
+                'grade_total_rank': None,
+                'class_total_rank': None,
+            }
+            
+            total_score = 0
+            valid_scores = 0
+            
+            for score in scores_list:
+                subject_name = score.subject
+                all_subjects.add(subject_name)
+                
+                # 获取该科目的正确满分
+                max_score = score.get_max_score()
+                
+                score_data = {
+                    'subject_name': subject_name,
+                    'score_value': float(score.score_value) if score.score_value else 0,
+                    'full_score': float(max_score),  # 使用该科目的实际满分
+                    'grade_rank': score.grade_rank_in_subject,
+                    'class_rank': score.class_rank_in_subject,
+                    'percentage': 0
+                }
+                
+                # 计算百分比
+                if score_data['full_score'] > 0:
+                    score_data['percentage'] = round((score_data['score_value'] / score_data['full_score']) * 100, 1)
+                
+                exam_data['scores'].append(score_data)
+                
+                # 累计总分
+                if score.score_value:
+                    total_score += float(score.score_value)
+                    valid_scores += 1
+                
+                # 构建趋势数据
+                if subject_name not in analysis_data['trend_data']:
+                    analysis_data['trend_data'][subject_name] = {
+                        'class_ranks': [],
+                        'grade_ranks': [],
+                        'scores': [],
+                        'exam_names': []
+                    }
+                
+                analysis_data['trend_data'][subject_name]['class_ranks'].append(score.class_rank_in_subject)
+                analysis_data['trend_data'][subject_name]['grade_ranks'].append(score.grade_rank_in_subject)
+                analysis_data['trend_data'][subject_name]['scores'].append(score_data['score_value'])
+                analysis_data['trend_data'][subject_name]['exam_names'].append(exam.name)
+            
+            # 计算考试总分和平均分
+            exam_data['total_score'] = round(total_score, 1)
+            if valid_scores > 0:
+                exam_data['average_score'] = round(total_score / valid_scores, 1)
+            
+            # 获取总分排名
+            if scores_list:
+                first_score = scores_list[0]
+                exam_data['grade_total_rank'] = first_score.total_score_rank_in_grade
+                exam_data['class_total_rank'] = first_score.total_score_rank_in_class
+            
+            analysis_data['exams'].append(exam_data)
         
-        for subject in subjects:
-            # 获取该班级该科目的成绩，按分数排序
-            subject_scores = Score.objects.filter(
-                exam=exam,
-                subject=subject,
-                student__current_class_id=class_id
-            ).order_by('-score_value')
-            
-            # 计算排名
-            current_rank = 1
-            previous_score = None
-            score_updates = []
-            
-            for i, score in enumerate(subject_scores):
-                current_score_value = float(score.score_value or 0)
-                
-                if previous_score is not None and current_score_value != previous_score:
-                    current_rank = i + 1
-                
-                score.class_rank_in_subject = current_rank
-                score_updates.append(score)
-                previous_score = current_score_value
-            
-            # 批量更新
-            if score_updates:
-                Score.objects.bulk_update(
-                    score_updates,
-                    ['class_rank_in_subject'],
-                    batch_size=1000
-                )
+        # 设置科目列表和汇总信息 - 按SUBJECT_CHOICES顺序排序
+        def get_subject_order(subject):
+            """获取科目在SUBJECT_CHOICES中的顺序"""
+            for index, (subject_code, subject_name) in enumerate(SUBJECT_CHOICES):
+                if subject_code == subject or subject_name == subject:
+                    return index
+            return 999  # 未知科目排在最后
+        
+        analysis_data['subjects'] = sorted(list(all_subjects), key=get_subject_order)
+        analysis_data['summary']['subjects_count'] = len(all_subjects)
+        
+        # 构建总分趋势数据
+        analysis_data['trend_data']['total'] = {
+            'class_ranks': [exam_data['class_total_rank'] for exam_data in analysis_data['exams']],
+            'grade_ranks': [exam_data['grade_total_rank'] for exam_data in analysis_data['exams']],
+            'scores': [exam_data['total_score'] for exam_data in analysis_data['exams']],
+            'exam_names': [exam_data['name'] for exam_data in analysis_data['exams']]
+        }
+        
+        return JsonResponse({
+            'success': True,
+            'data': analysis_data
+        })
+        
+    except Student.DoesNotExist:
+        return JsonResponse({'error': '学生不存在'}, status=404)
+    except Exam.DoesNotExist:
+        return JsonResponse({'error': '考试不存在'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': f'服务器错误: {str(e)}'}, status=500)
 
+# 学生个人成绩详细分析页面
+def score_analysis_student_detail(request):
+    """学生个人成绩详细分析页面，显示图表和数据分析"""
+    
+    # 获取筛选参数
+    grade_level = request.GET.get('grade_level')
+    class_name = request.GET.get('class_name')
+    student_id = request.GET.get('student_id')
+    
+    if not all([grade_level, class_name, student_id]):
+        messages.error(request, '缺少必要的分析参数')
+        return redirect('students_grades:student_analysis')
+    
+    # 查找学生
+    try:
+        # 根据隐藏字段的ID值查找学生
+        student = Student.objects.select_related('current_class').get(pk=student_id)
+    except Student.DoesNotExist:
+        messages.error(request, '学生不存在')
+        return redirect('students_grades:student_analysis')
+    
+    # 获取该学生的所有考试成绩
+    scores = Score.objects.filter(
+        student=student
+    ).select_related('exam').order_by('-exam__date')
+    
+    # 获取该学生参与的所有考试
+    exams = Exam.objects.filter(
+        id__in=scores.values_list('exam_id', flat=True).distinct()
+    ).order_by('-date')
+    
+    context = {
+        'student': student,
+        'scores': scores,
+        'exams': exams,
+        'subjects': SUBJECT_CHOICES,
+        'page_title': f'{student.name} - 个人成绩分析',
+        'selected_grade': grade_level,
+        'selected_class': class_name,
+        'selected_student_id': student_id,
+    }
+    
+    return render(request, 'scores/score_analysis_student_detail.html', context)
 
-# 保持向后兼容的函数名
-def update_grade_rankings(exam_id, grade_level=None):
-    """向后兼容函数，调用新的完整排名更新函数"""
-    return update_all_rankings(exam_id, grade_level)
+# AJAX接口：获取所有年级列表
+def get_grades_ajax(request):
+    """获取系统中所有年级的AJAX接口"""
+    try:
+        # 从学生表中获取所有不重复的年级
+        grades = Student.objects.values_list('grade_level', flat=True).distinct().order_by('grade_level')
+        
+        # 过滤掉空值并构建返回数据
+        grade_list = []
+        grade_display_map = {
+            'Grade7': '初一',
+            'Grade8': '初二', 
+            'Grade9': '初三',
+            'Grade10': '高一',
+            'Grade11': '高二',
+            'Grade12': '高三'
+        }
+        
+        for grade in grades:
+            if grade:  # 过滤掉None或空字符串
+                display_name = grade_display_map.get(grade, grade)
+                grade_list.append({
+                    'value': grade,
+                    'display_name': display_name
+                })
+        
+        # 如果没有找到年级数据，返回默认年级
+        if not grade_list:
+            grade_list = [
+                {'value': 'Grade10', 'display_name': '高一'},
+                {'value': 'Grade11', 'display_name': '高二'},
+                {'value': 'Grade12', 'display_name': '高三'}
+            ]
+        
+        return JsonResponse({
+            'grades': grade_list,
+            'count': len(grade_list)
+        })
+    except Exception as e:
+        return JsonResponse({'error': f'获取年级列表失败: {str(e)}'}, status=500)

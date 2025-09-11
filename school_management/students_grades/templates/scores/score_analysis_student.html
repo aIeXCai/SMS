@@ -1,126 +1,651 @@
 {% extends 'base.html' %}
 {% load static %}
-{% block title %}{{ page_title }}{% endblock %}
+
+{% block title %}个人成绩分析{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+<link rel="stylesheet" href="{% static 'css/score_analysis.css' %}">
+
+<style>
+    .filter-card {
+        border: none;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        border-radius: 10px;
+        margin-bottom: 2rem;
+    }
+
+    .filter-card .card-header {
+        background: #f8f9fa;
+        border-bottom: 1px solid #dee2e6;
+        border-radius: 10px 10px 0 0;
+        padding: 1rem 1.5rem;
+    }
+
+    .analysis-card {
+        border: none;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        border-radius: 15px;
+        transition: all 0.3s ease;
+        height: 100%;
+        overflow: hidden;
+    }
+
+    .analysis-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    }
+
+    .analysis-card .card-body {
+        padding: 2rem;
+        text-align: center;
+    }
+
+    .analysis-card .card-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+    }
+
+    .analysis-card .card-text {
+        color: #6c757d;
+        margin-bottom: 1.5rem;
+        line-height: 1.6;
+    }
+
+    .analysis-card .btn {
+        border-radius: 25px;
+        padding: 0.75rem 2rem;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+
+    .analysis-card.student-analysis {
+        border-left: 4px solid #28a745;
+    }
+
+    .analysis-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        opacity: 0.8;
+    }
+
+    .section-header {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+
+    .section-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 0.5rem;
+    }
+
+    .section-subtitle {
+        font-size: 1rem;
+        margin-bottom: 0;
+    }
+
+    .student-analysis .analysis-icon {
+        color: #28a745;
+    }
+
+    /* 下拉菜单样式 */
+    .class-dropdown {
+        position: relative;
+        width: 100%;
+        color: #495057;
+    }
+
+    .class-dropdown-toggle {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border: 1px solid #ced4da;
+        border-radius: 0.5rem;
+        background-color: #fff;
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        transition: all 0.3s ease;
+    }
+
+    .class-dropdown-toggle:hover {
+        border-color: #007bff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+
+    .class-dropdown-toggle.active {
+        border-color: #007bff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+
+    .class-dropdown-arrow {
+        transition: transform 0.3s ease;
+        color: #6c757d;
+    }
+
+    .class-dropdown-toggle.active .class-dropdown-arrow {
+        transform: rotate(180deg);
+    }
+
+    .class-dropdown-menu {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid #ced4da;
+        border-radius: 0.5rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        z-index: 1000;
+        max-height: 250px;
+        overflow-y: auto;
+        display: none;
+        margin-top: 2px;
+    }
+
+    .class-dropdown-menu.show {
+        display: block;
+    }
+
+    .class-dropdown-item {
+        padding: 0.5rem 1rem;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+        display: flex;
+        align-items: center;
+    }
+
+    .class-dropdown-item:hover {
+        background-color: #f8f9fa;
+    }
+
+    /* 响应式设计 */
+    @media (max-width: 768px) {
+        .class-dropdown-menu {
+            max-height: 200px;
+        }
+        .page-header {
+            padding: 1rem 0;
+            margin-bottom: 1rem;
+        }
+        .analysis-card .card-body {
+            padding: 1.5rem;
+        }
+        .analysis-card .btn {
+            padding: 0.5rem 1.5rem;
+        }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
+<!-- 页面头部 -->
+<div class="page-header">
+    <div class="container-fluid">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1><i class="fas fa-user-graduate me-3"></i>个人成绩分析</h1>
+                <p class="mb-0 opacity-75">深入分析个人学业表现，提供多维度数据洞察</p>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="container-fluid">
-    <div class="row">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">{{ page_title }}</h3>
-                    <div class="card-tools">
-                        <a href="{% url 'students_grades:score_analysis' %}" class="btn btn-secondary btn-sm">
-                            <i class="fas fa-arrow-left"></i> 返回
-                        </a>
+    <!-- 筛选条件卡片 -->
+    <div class="filter-card card">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="fas fa-filter me-2"></i>筛选条件</h5>
+        </div>
+        <div class="card-body">
+            <!-- 筛选条件表单 -->
+            <form method="get" id="analysisForm">
+                <div class="row g-3">
+                    <!-- 选择年级 -->
+                    <div class="col-lg-4 col-md-6">
+                        <div class="form-group">
+                            <label class="form-label fw-semibold"><i class="fas fa-layer-group me-2 text-warning"></i>年级</label>
+                            <div class="class-dropdown">
+                                <div class="class-dropdown-toggle" onclick="toggleGradeDropdown()">
+                                    <span id="gradeDropdownText">请选择年级</span>
+                                    <i class="fas fa-chevron-down class-dropdown-arrow"></i>
+                                </div>
+                                <div class="class-dropdown-menu" id="gradeDropdownMenu">
+                                    <!-- 年级选项将通过JavaScript动态加载 -->
+                                </div>
+                                <input type="hidden" name="grade_level" id="selectedGrade">
+                            </div>
+                        </div>
+                    </div>
+                    <!-- 选择班级 -->
+                    <div class="col-lg-4 col-md-6">
+                        <div class="form-group">
+                            <label class="form-label fw-semibold"><i class="fas fa-users me-2 text-info"></i>班级</label>
+                            <div class="class-dropdown">
+                                <div class="class-dropdown-toggle" onclick="toggleClassDropdown()" id="classDropdownToggle">
+                                    <span id="classDropdownText">请先选择年级</span>
+                                    <i class="fas fa-chevron-down class-dropdown-arrow"></i>
+                                </div>
+                                <div class="class-dropdown-menu" id="classDropdownMenu">
+                                    <!-- 班级选项将通过JavaScript动态加载 -->
+                                </div>
+                                <input type="hidden" name="class_name" id="selectedClass">
+                            </div>
+                        </div>
+                    </div>
+                    <!-- 选择学生 -->
+                    <div class="col-lg-4 col-md-6">
+                        <div class="form-group">
+                            <label class="form-label fw-semibold"><i class="fas fa-user-graduate me-2 text-success"></i>学生</label>
+                            <div class="class-dropdown">
+                                <div class="class-dropdown-toggle" onclick="toggleStudentDropdown()" id="studentDropdownToggle">
+                                    <span id="studentDropdownText">请先选择班级</span>
+                                    <i class="fas fa-chevron-down class-dropdown-arrow"></i>
+                                </div>
+                                <div class="class-dropdown-menu" id="studentDropdownMenu">
+                                    <!-- 学生选项将通过JavaScript动态加载 -->
+                                </div>
+                                <input type="hidden" name="student_id" id="selectedStudent">
+                            </div>
+                        </div>
                     </div>
                 </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- 使用提示区域 -->
+    <div class="row mt-0">
+        <div class="col-12">
+            <div class="alert alert-info border-0" style="background: linear-gradient(135deg, #e8f5e8 0%, #c8e6c9 100%); border-radius: 12px;">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-info-circle fa-2x me-3 text-success"></i>
+                    <div>
+                        <h6 class="alert-heading mb-1 text-success"><i class="fas fa-lightbulb me-1"></i>操作指南</h6>
+                        <p class="mb-0 small text-success">请按照以下步骤进行操作：<strong>1. 选择年级</strong> → <strong>2. 选择班级</strong> → <strong>3. 选择学生</strong> → <strong>4. 开始分析</strong></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 分析类型选择区域 -->
+    <div class="row justify-content-center">
+        <div class="col-lg-12">
+            <div class="analysis-card card student-analysis">
                 <div class="card-body">
-                    <!-- 筛选条件显示 -->
-                    {% if selected_exam %}
-                    <div class="alert alert-info">
-                        <strong>分析条件：</strong>
-                        学年：{{ academic_year }} | 
-                        考试：{{ selected_exam.name }} | 
-                        年级：{{ selected_grade }}
-                        {% if selected_class %} | 班级：{{ selected_class }}{% else %} | 范围：所有班级{% endif %}
+                    <div class="analysis-icon">
+                        <i class="fas fa-user-graduate"></i>
                     </div>
-                    
-                    <!-- 学生列表 -->
-                    {% if students %}
-                    <div class="row">
-                        <div class="col-12">
-                            <h5>请选择要分析的学生：</h5>
-                            <div class="table-responsive">
-                                <table class="table table-bordered table-striped">
-                                    <thead>
-                                        <tr>
-                                            <th>学号</th>
-                                            <th>姓名</th>
-                                            <th>班级</th>
-                                            <th>操作</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {% for student in students %}
-                                        <tr>
-                                            <td>{{ student.student_id }}</td>
-                                            <td>{{ student.name }}</td>
-                                            <td>{{ student.grade_level }}{{ student.current_class.class_name|default:"未分班" }}</td>
-                                            <td>
-                                                <button type="button" class="btn btn-sm btn-primary" onclick="analyzeStudent('{{ student.id }}')">
-                                                    <i class="fas fa-chart-line"></i> 分析
-                                                </button>
-                                            </td>
-                                        </tr>
-                                        {% endfor %}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
+                    <h5 class="card-title">学生个人成绩分析</h5>
+                    <p class="card-text">深入分析学生个人成绩趋势、各科目表现、班级年级排名变化，全面了解学生学习状况和发展轨迹</p>
+                    <div class="mb-3">
+                        <small class="text-muted">
+                            <i class="fas fa-check-circle me-1"></i>历次考试排名趋势<br>
+                            <i class="fas fa-check-circle me-1"></i>各科目雷达图分析<br>
+                            <i class="fas fa-check-circle me-1"></i>成绩对比图表<br>
+                            <i class="fas fa-check-circle me-1"></i>详细数据表格
+                        </small>
                     </div>
-                    {% else %}
-                    <div class="alert alert-warning">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        未找到符合条件的学生。
-                    </div>
-                    {% endif %}
-                    
-                    {% else %}
-                    <!-- 筛选表单 -->
-                    <form method="get">
-                        <div class="row">
-                            <div class="col-md-3">
-                                <div class="form-group">
-                                    <label for="{{ form.academic_year.id_for_label }}">{{ form.academic_year.label }}</label>
-                                    {{ form.academic_year }}
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="form-group">
-                                    <label for="{{ form.exam.id_for_label }}">{{ form.exam.label }}</label>
-                                    {{ form.exam }}
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="form-group">
-                                    <label for="{{ form.grade_level.id_for_label }}">{{ form.grade_level.label }}</label>
-                                    {{ form.grade_level }}
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="form-group">
-                                    <label for="{{ form.class_name.id_for_label }}">{{ form.class_name.label }}</label>
-                                    {{ form.class_name }}
-                                </div>
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-12">
-                                <button type="submit" class="btn btn-primary">
-                                    <i class="fas fa-search"></i> 查找学生
-                                </button>
-                            </div>
-                        </div>
-                    </form>
-                    {% endif %}
+                    <button type="button" class="btn btn-success" onclick="goToStudentAnalysis()" id="analyzeBtn" disabled>
+                        <i class="fas fa-chart-line me-2"></i>开始分析
+                    </button>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
-<script>
-function analyzeStudent(studentId) {
-    alert('学生个人成绩分析功能正在开发中，学生ID: ' + studentId);
-    // 这里将来会跳转到具体的学生分析页面
-}
+<!-- 提示模态窗口 -->
+<div class="modal fade" id="alertModal" tabindex="-1" aria-labelledby="alertModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title" id="alertModalLabel">
+                    <i class="fas fa-exclamation-triangle me-2"></i>提示
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning d-flex align-items-center" role="alert">
+                    <i class="fas fa-exclamation-triangle me-3 fs-4"></i>
+                    <div>
+                        <h6 class="alert-heading mb-1">操作提示</h6>
+                        <p class="mb-0" id="alertModalMessage"><!-- 动态内容 --></p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-warning" data-bs-dismiss="modal">
+                    <i class="fas fa-check me-1"></i>我知道了
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
-// 为表单字段添加样式
-document.addEventListener('DOMContentLoaded', function() {
-    const selects = document.querySelectorAll('select');
-    selects.forEach(select => {
-        select.classList.add('form-control');
+<script>
+    // 全局变量
+    let selectedGrade = null;
+    let selectedClass = null;
+    let selectedStudent = null;
+
+    // 显示提示模态窗口
+    function showAlert(message) {
+        document.getElementById('alertModalMessage').textContent = message;
+        const modal = new bootstrap.Modal(document.getElementById('alertModal'));
+        modal.show();
+    }
+
+    // 页面加载完成后的初始化
+    document.addEventListener('DOMContentLoaded', function() {
+        // 初始化数据并加载年级选项
+        initializeData();
+        
+        // 设置点击外部关闭下拉菜单
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.class-dropdown')) {
+                closeAllDropdowns();
+            }
+        });
     });
-});
+
+    // 初始化数据并加载年级选项
+    async function initializeData() {
+        try {
+            // 加载年级选项
+            await loadGradeOptions();
+        } catch (error) {
+            console.error('初始化数据失败:', error);
+            // 如果API调用失败，使用默认年级选项
+            loadDefaultGradeOptions();
+        }
+    }
+
+    // 加载年级选项
+    async function loadGradeOptions() {
+        // 从学生数据中获取所有存在的年级
+        try {
+            const response = await fetch('{% url "students_grades:get_grades_ajax" %}');
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const data = await response.json();
+            
+            const gradeMenu = document.getElementById('gradeDropdownMenu');
+            gradeMenu.innerHTML = '';
+            
+            if (data.grades && data.grades.length > 0) {
+                data.grades.forEach(grade => {
+                    const item = document.createElement('div');
+                    item.className = 'class-dropdown-item';
+                    item.onclick = () => selectGrade(grade.value, grade.display_name);
+                    item.innerHTML = `<i class="fas fa-graduation-cap me-2"></i>${grade.display_name}`;
+                    gradeMenu.appendChild(item);
+                });
+            } else {
+                // 如果没有数据，显示默认选项
+                loadDefaultGradeOptions();
+            }
+        } catch (error) {
+            console.error('获取年级数据失败:', error);
+            loadDefaultGradeOptions();
+        }
+    }
+
+    // 加载默认年级选项（备用方案）
+    function loadDefaultGradeOptions() {
+        const gradeMenu = document.getElementById('gradeDropdownMenu');
+        gradeMenu.innerHTML = '';
+        
+        const defaultGrades = [
+            { value: 'Grade10', display_name: '高一' },
+            { value: 'Grade11', display_name: '高二' },
+            { value: 'Grade12', display_name: '高三' }
+        ];
+        
+        defaultGrades.forEach(grade => {
+            const item = document.createElement('div');
+            item.className = 'class-dropdown-item';
+            item.onclick = () => selectGrade(grade.value, grade.display_name);
+            item.innerHTML = `<i class="fas fa-graduation-cap me-2"></i>${grade.display_name}`;
+            gradeMenu.appendChild(item);
+        });
+    }
+
+    // 切换年级下拉菜单
+    function toggleGradeDropdown() {
+        const menu = document.getElementById('gradeDropdownMenu');
+        const toggle = menu.previousElementSibling;
+        
+        closeAllDropdowns();
+        
+        if (menu.classList.contains('show')) {
+            menu.classList.remove('show');
+            toggle.classList.remove('active');
+        } else {
+            menu.classList.add('show');
+            toggle.classList.add('active');
+        }
+    }
+
+    // 切换班级下拉菜单
+    function toggleClassDropdown() {
+        if (!selectedGrade) {
+            showAlert('请先选择年级');
+            return;
+        }
+
+        const menu = document.getElementById('classDropdownMenu');
+        const toggle = document.getElementById('classDropdownToggle');
+        
+        closeAllDropdowns();
+        
+        if (menu.classList.contains('show')) {
+            menu.classList.remove('show');
+            toggle.classList.remove('active');
+        } else {
+            menu.classList.add('show');
+            toggle.classList.add('active');
+        }
+    }
+
+    // 切换学生下拉菜单
+    function toggleStudentDropdown() {
+        if (!selectedClass) {
+            showAlert('请先选择班级');
+            return;
+        }
+
+        const menu = document.getElementById('studentDropdownMenu');
+        const toggle = document.getElementById('studentDropdownToggle');
+        
+        closeAllDropdowns();
+        
+        if (menu.classList.contains('show')) {
+            menu.classList.remove('show');
+            toggle.classList.remove('active');
+        } else {
+            menu.classList.add('show');
+            toggle.classList.add('active');
+        }
+    }
+
+    // 关闭所有下拉菜单
+    function closeAllDropdowns() {
+        const menus = document.querySelectorAll('.class-dropdown-menu');
+        const toggles = document.querySelectorAll('.class-dropdown-toggle');
+        
+        menus.forEach(menu => menu.classList.remove('show'));
+        toggles.forEach(toggle => toggle.classList.remove('active'));
+    }
+
+    // 选择年级
+    async function selectGrade(value, label) {
+        selectedGrade = value;
+        document.getElementById('gradeDropdownText').textContent = label;
+        document.getElementById('selectedGrade').value = value;
+        
+        // 重置班级和学生选择
+        selectedClass = null;
+        selectedStudent = null;
+        document.getElementById('classDropdownText').textContent = '请选择班级';
+        document.getElementById('selectedClass').value = '';
+        document.getElementById('studentDropdownText').textContent = '请先选择班级';
+        document.getElementById('selectedStudent').value = '';
+        
+        // 更新班级选项
+        await updateClassOptions();
+        
+        // 更新按钮状态
+        updateAnalyzeButton();
+        
+        closeAllDropdowns();
+    }
+
+    // 选择班级
+    async function selectClass(id, name) {
+        selectedClass = id;
+        document.getElementById('classDropdownText').textContent = name;
+        document.getElementById('selectedClass').value = id;
+        
+        // 重置学生选择
+        selectedStudent = null;
+        document.getElementById('studentDropdownText').textContent = '请选择学生';
+        document.getElementById('selectedStudent').value = '';
+        
+        // 更新学生选项
+        await updateStudentOptions();
+        
+        // 更新按钮状态
+        updateAnalyzeButton();
+        
+        closeAllDropdowns();
+    }
+
+    // 选择学生
+    function selectStudent(id, name) {
+        selectedStudent = id;
+        document.getElementById('studentDropdownText').textContent = name;
+        document.getElementById('selectedStudent').value = id;
+        
+        // 更新按钮状态
+        updateAnalyzeButton();
+        
+        closeAllDropdowns();
+    }
+
+    // 更新班级选项
+    async function updateClassOptions() {
+        if (!selectedGrade) return;
+        
+        const menu = document.getElementById('classDropdownMenu');
+        menu.innerHTML = '<div class="class-dropdown-item">加载中...</div>';
+        
+        try {
+            const response = await fetch(`{% url 'students_grades:get_classes_by_grade' %}?grade_level=${selectedGrade}`);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const data = await response.json();
+            
+            menu.innerHTML = '';
+            
+            if (data.classes && data.classes.length > 0) {
+                data.classes.forEach(cls => {
+                    const item = document.createElement('div');
+                    item.className = 'class-dropdown-item';
+                    item.onclick = () => selectClass(cls.id, cls.class_name);
+                    item.innerHTML = `<i class="fas fa-users me-2"></i>${cls.class_name}`;
+                    menu.appendChild(item);
+                });
+            } else {
+                const item = document.createElement('div');
+                item.className = 'class-dropdown-item';
+                item.style.color = '#6c757d';
+                item.innerHTML = '该年级暂无班级';
+                menu.appendChild(item);
+            }
+        } catch (error) {
+            console.error('获取班级数据失败:', error);
+            menu.innerHTML = '<div class="class-dropdown-item" style="color: #dc3545;">获取班级数据失败</div>';
+        }
+    }
+
+    // 更新学生选项
+    async function updateStudentOptions() {
+        if (!selectedGrade || !selectedClass) return;
+        
+        const menu = document.getElementById('studentDropdownMenu');
+        menu.innerHTML = '<div class="class-dropdown-item">加载中...</div>';
+        
+        try {
+            const response = await fetch(`{% url 'students_grades:get_students_by_class' %}?grade_level=${encodeURIComponent(selectedGrade)}&class_id=${encodeURIComponent(selectedClass)}`);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const data = await response.json();
+            
+            menu.innerHTML = '';
+            
+            if (data.students && data.students.length > 0) {
+                data.students.forEach(student => {
+                    const item = document.createElement('div');
+                    item.className = 'class-dropdown-item';
+                    item.onclick = () => selectStudent(student.id, student.name);
+                    item.innerHTML = `<i class="fas fa-user-graduate me-2"></i>${student.name} (${student.student_id})`;
+                    menu.appendChild(item);
+                });
+            } else {
+                const item = document.createElement('div');
+                item.className = 'class-dropdown-item';
+                item.style.color = '#6c757d';
+                item.innerHTML = '该班级暂无学生';
+                menu.appendChild(item);
+            }
+        } catch (error) {
+            console.error('获取学生数据失败:', error);
+            menu.innerHTML = '<div class="class-dropdown-item" style="color: #dc3545;">获取学生数据失败</div>';
+        }
+    }
+
+    // 更新分析按钮状态
+    function updateAnalyzeButton() {
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        analyzeBtn.disabled = !selectedGrade || !selectedClass || !selectedStudent;
+    }
+
+    // 表单验证
+    function validateForm() {
+        if (!selectedGrade) {
+            showAlert('请选择年级');
+            return false;
+        }
+        
+        if (!selectedClass) {
+            showAlert('请选择班级');
+            return false;
+        }
+        
+        if (!selectedStudent) {
+            showAlert('请选择学生');
+            return false;
+        }
+        
+        return true;
+    }
+
+    // 开始分析
+    function goToStudentAnalysis() {
+        if (validateForm()) {
+            const form = document.getElementById('analysisForm');
+            const formData = new FormData(form);
+            const params = new URLSearchParams(formData);
+            window.location.href = '{% url "students_grades:student_analysis_detail" %}?' + params.toString();
+        }
+    }
 </script>
 {% endblock %}
