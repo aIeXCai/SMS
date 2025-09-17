@@ -1499,6 +1499,12 @@ def score_analysis_class(request):
                 student__current_class__grade_level=grade_level
             )
             
+            # 计算总满分
+            total_max_score = 0
+            exam_subjects = exam.exam_subjects.all()
+            for exam_subject in exam_subjects:
+                total_max_score += exam_subject.max_score
+            
             context = {
                 'form': form,
                 'available_classes': available_classes,
@@ -1512,6 +1518,7 @@ def score_analysis_class(request):
                 'selected_grade': grade_level,
                 'total_students': scores.values('student').distinct().count(),
                 'total_scores': scores.count(),
+                'total_max_score': total_max_score,
             }
             return render(request, 'scores/score_analysis_class.html', context)
             
@@ -1642,6 +1649,13 @@ def score_analysis_class(request):
             # 多班级对比分析的数据处理
             analysis_data = _analyze_multiple_classes(selected_classes, exam)
             context.update(analysis_data)
+        elif analysis_mode == 'grade_overall':
+            # 年级整体分析需要计算总满分
+            total_max_score = 0
+            exam_subjects = exam.exam_subjects.all()
+            for exam_subject in exam_subjects:
+                total_max_score += exam_subject.max_score
+            context['total_max_score'] = total_max_score
         
         context.update({
             'scores': scores,
@@ -1858,6 +1872,7 @@ def score_analysis_grade(request):
         'page_title': '年级成绩分析',
         'analysis_type': 'grade',
         'from_analysis_page': from_analysis_page,
+        'total_max_score': 0,  # 添加默认值，避免模板错误
     }
     
     if from_analysis_page:
@@ -1880,6 +1895,24 @@ def score_analysis_grade(request):
             })
         except Exam.DoesNotExist:
             messages.error(request, f'考试不存在')
+    elif form.is_valid():
+        # 处理表单提交的情况
+        academic_year = form.cleaned_data['academic_year']
+        exam = form.cleaned_data['exam']
+        grade_level = form.cleaned_data['grade_level']
+        
+        try:
+            # 获取年级整体分析数据
+            analysis_result = _analyze_grade(exam, grade_level)
+            
+            context.update({
+                'selected_exam': exam,
+                'selected_grade': grade_level,
+                'academic_year': academic_year,
+                **analysis_result
+            })
+        except Exception as e:
+            messages.error(request, f'数据分析失败: {str(e)}')
     
     return render(request, 'scores/score_analysis_grade.html', context)
 
@@ -1905,8 +1938,8 @@ def _analyze_single_class(scores, target_class, exam):
             subject_stats[subject_code] = {
                 'name': subject_name,
                 'avg_score': round(float(stats['avg_score'] or 0), 2),
-                'max_score': float(stats['max_score'] or 0),
-                'min_score': float(stats['min_score'] or 0),
+                'actual_max_score': float(stats['max_score'] or 0),  # 该班级实际最高分
+                'actual_min_score': float(stats['min_score'] or 0),  # 该班级实际最低分
                 'count': stats['count']
             }
             
@@ -1925,8 +1958,8 @@ def _analyze_single_class(scores, target_class, exam):
                 grade_config = SUBJECT_DEFAULT_MAX_SCORES.get(exam.grade_level, {})
                 subject_max_score = grade_config.get(subject_code, 100)
             
-            # 将满分添加到subject_stats中
-            subject_stats[subject_code]['max_score'] = subject_max_score
+            # 将考试设定的满分添加到subject_stats中（用于等级分布计算）
+            subject_stats[subject_code]['exam_max_score'] = subject_max_score
             
             # 成绩分布统计（按等级百分比）
             grade_ranges = {
@@ -2012,7 +2045,7 @@ def _analyze_single_class(scores, target_class, exam):
             'labels': [subject_stats[code]['name'] for code in subject_stats.keys()],
             'data': [float(subject_stats[code]['avg_score']) for code in subject_stats.keys()]
         },
-        'subject_max_scores': [subject_stats[code]['max_score'] for code in subject_stats.keys()],  # 添加各科目满分
+        'subject_max_scores': [subject_stats[code]['actual_max_score'] for code in subject_stats.keys()],  # 添加各科目实际最高分
         'score_distribution': score_distribution,
         'student_total_scores': [{
             'student_id': s['student_id'],
@@ -2444,6 +2477,7 @@ def get_student_analysis_data(request):
                 'name': exam.name,
                 'academic_year': exam.academic_year,
                 'exam_date': exam.date.strftime('%Y-%m-%d') if exam.date else None,
+                'grade_level': exam.get_grade_level_display(),  # 添加年级信息
                 'scores': [],
                 'total_score': 0,
                 'average_score': 0,

@@ -84,10 +84,15 @@
                                 <div class="form-group actions">
                                     <label>&nbsp;</label><br>
                                     {% if form.DELETE %}
-                                        {{ form.DELETE }}
-                                        <label for="{{ form.DELETE.id_for_label }}" class="btn btn-danger btn-sm delete-btn">
+                                        <!-- 隐藏DELETE checkbox -->
+                                        <div style="display: none;">{{ form.DELETE }}</div>
+                                        <button type="button" class="btn btn-danger btn-sm delete-btn" data-form-index="{{ forloop.counter0 }}">
                                             删除
-                                        </label>
+                                        </button>
+                                    {% else %}
+                                        <button type="button" class="btn btn-danger btn-sm delete-btn" data-form-index="{{ forloop.counter0 }}">
+                                            删除
+                                        </button>
                                     {% endif %}
                                 </div>
                             </div>
@@ -132,6 +137,8 @@
 
             <div class="form-group actions">
                 <label>&nbsp;</label><br>
+                <!-- 隐藏的DELETE字段 -->
+                <div style="display: none;">{{ formset.empty_form.DELETE }}</div>
                 <button type="button" class="btn btn-danger btn-sm delete-btn">
                     删除
                 </button>
@@ -193,13 +200,22 @@ $(document).ready(function() {
     function bindDeleteEvents() {
         $('.delete-btn').off('click').on('click', function() {
             const formDiv = $(this).closest('.subject-form');
-            // 找到form.DELETE checkbox并勾选
-            const deleteCheckbox = formDiv.find('input[type="checkbox"][name$="-DELETE"]');
-            if (deleteCheckbox.length) {
+            const formIndex = formDiv.data('form-index') || $(this).data('form-index');
+            
+            // 尝试多种方式找到DELETE checkbox
+            let deleteCheckbox = formDiv.find('input[type="checkbox"][name$="-DELETE"]');
+            
+            // 如果没找到，尝试使用表单索引
+            if (deleteCheckbox.length === 0 && formIndex !== undefined) {
+                deleteCheckbox = $(`input[name="form-${formIndex}-DELETE"]`);
+            }
+            
+            if (deleteCheckbox.length > 0) {
+                // 存在DELETE字段，说明这是一个已存在的表单，标记为删除
                 deleteCheckbox.prop('checked', true);
                 formDiv.hide();
             } else {
-                // 新增表单（未提交到后端），直接移除
+                // 不存在DELETE字段，说明是新增的表单，直接移除
                 formDiv.remove();
             }
         });
@@ -208,77 +224,93 @@ $(document).ready(function() {
     // 初始绑定删除事件
     bindDeleteEvents();
     
-    // 科目选择变化时自动设置满分
-    $(document).on('change', 'select[name$="-subject_code"]', function() {
-        const subjectCode = $(this).val();
-        const gradeLevel = '{{ grade_level }}';
-        const maxScoreInput = $(this).closest('.subject-form').find('input[name$="-max_score"]');
-        const currentForm = $(this).closest('.subject-form');
-        
-        if (subjectCode && gradeLevel) {
-            // 检查是否与其他表单中的科目重复（排除隐藏的模板表单）
-            let isDuplicate = false;
-            $('.subject-form').not(currentForm).not('#empty-form .subject-form').each(function() {
-                const otherSubjectCode = $(this).find('select[name$="-subject_code"]').val();
-                if (otherSubjectCode === subjectCode) {
-                    isDuplicate = true;
-                    return false;
-                }
-            });
+        // 科目选择变化时自动设置满分
+        $(document).on('change', 'select[name$="-subject_code"]', function() {
+            const subjectCode = $(this).val();
+            const gradeLevel = '{{ grade_level }}';
+            const maxScoreInput = $(this).closest('.subject-form').find('input[name$="-max_score"]');
+            const currentForm = $(this).closest('.subject-form');
             
-            if (isDuplicate) {
-                alert(`科目"${subjectCode}"已存在，请选择其他科目！`);
-                $(this).val(''); // 清空选择
-                maxScoreInput.val(''); // 清空满分
-                return;
+            if (subjectCode && gradeLevel) {
+                // 检查是否与其他可见且未删除的表单中的科目重复
+                let isDuplicate = false;
+                $('.subject-form:visible').not(currentForm).each(function() {
+                    const deleteCheckbox = $(this).find('input[type="checkbox"][name$="-DELETE"]');
+                    const isDeleted = deleteCheckbox.length > 0 && deleteCheckbox.prop('checked');
+                    
+                    if (!isDeleted) {
+                        const otherSubjectCode = $(this).find('select[name$="-subject_code"]').val();
+                        if (otherSubjectCode === subjectCode) {
+                            isDuplicate = true;
+                            return false;
+                        }
+                    }
+                });
+                
+                if (isDuplicate) {
+                    alert(`科目"${subjectCode}"已存在，请选择其他科目！`);
+                    $(this).val(''); // 清空选择
+                    maxScoreInput.val(''); // 清空满分
+                    return;
+                }
+                
+                // 获取默认满分
+                $.get('{% url "students_grades:get_default_subjects_ajax" %}', {
+                    grade_level: gradeLevel
+                }, function(data) {
+                    const subject = data.subjects.find(s => s.subject_code === subjectCode);
+                    if (subject && !maxScoreInput.val()) {
+                        maxScoreInput.val(subject.max_score);
+                    }
+                });
             }
-            
-            // 获取默认满分
-            $.get('{% url "students_grades:get_default_subjects_ajax" %}', {
-                grade_level: gradeLevel
-            }, function(data) {
-                const subject = data.subjects.find(s => s.subject_code === subjectCode);
-                if (subject && !maxScoreInput.val()) {
-                    maxScoreInput.val(subject.max_score);
-                }
-            });
-        }
-    });
+        });
     
     // 表单提交验证
     $('#subjects-form').on('submit', function(e) {
         let hasValidSubject = false;
         
-        $('.subject-form').each(function() {
-            const subjectCode = $(this).find('select[name$="-subject_code"]').val();
-            const maxScore = $(this).find('input[name$="-max_score"]').val();
+        // 只检查可见的（未删除的）表单
+        $('.subject-form:visible').each(function() {
+            const deleteCheckbox = $(this).find('input[type="checkbox"][name$="-DELETE"]');
+            const isDeleted = deleteCheckbox.length > 0 && deleteCheckbox.prop('checked');
             
-            if (subjectCode && maxScore) {
-                hasValidSubject = true;
+            if (!isDeleted) {
+                const subjectCode = $(this).find('select[name$="-subject_code"]').val();
+                const maxScore = $(this).find('input[name$="-max_score"]').val();
+                
+                if (subjectCode && maxScore && subjectCode !== '') {
+                    hasValidSubject = true;
+                }
             }
         });
         
         if (!hasValidSubject) {
             e.preventDefault();
-            alert('至少需要配置一个科目！');
+            alert('至少需要配置一个有效科目！');
             return false;
         }
         
-        // 检查重复科目（排除隐藏的模板表单）
+        // 检查重复科目（只检查可见且未删除的表单）
         const subjects = [];
         let hasDuplicate = false;
         let duplicateSubject = '';
         
-        $('.subject-form').not('#empty-form .subject-form').each(function() {
-            const subjectCode = $(this).find('select[name$="-subject_code"]').val();
+        $('.subject-form:visible').each(function() {
+            const deleteCheckbox = $(this).find('input[type="checkbox"][name$="-DELETE"]');
+            const isDeleted = deleteCheckbox.length > 0 && deleteCheckbox.prop('checked');
             
-            if (subjectCode && subjectCode !== '') {
-                if (subjects.includes(subjectCode)) {
-                    hasDuplicate = true;
-                    duplicateSubject = subjectCode;
-                    return false;
+            if (!isDeleted) {
+                const subjectCode = $(this).find('select[name$="-subject_code"]').val();
+                
+                if (subjectCode && subjectCode !== '') {
+                    if (subjects.includes(subjectCode)) {
+                        hasDuplicate = true;
+                        duplicateSubject = subjectCode;
+                        return false;
+                    }
+                    subjects.push(subjectCode);
                 }
-                subjects.push(subjectCode);
             }
         });
         

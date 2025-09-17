@@ -244,20 +244,44 @@ def student_batch_import(request):
 
                         # 处理日期字段的格式转换
                         for date_field in ['date_of_birth', 'entry_date', 'graduation_date']:
-                            if date_field in student_data and student_data[date_field]:
+                            if date_field in student_data:
+                                date_value = student_data[date_field]
+                                
+                                # 处理各种空值情况
+                                if date_value is None or date_value == '' or str(date_value).strip() == '':
+                                    student_data[date_field] = None
+                                    continue
+                                
                                 try:
-                                    if isinstance(student_data[date_field], datetime.datetime):
+                                    if isinstance(date_value, datetime.datetime):
                                         # openpyxl 可能会直接读取为 datetime 对象
-                                        student_data[date_field] = student_data[date_field].date()
-                                    elif isinstance(student_data[date_field], datetime.date):
+                                        student_data[date_field] = date_value.date()
+                                    elif isinstance(date_value, datetime.date):
                                         # 已经是 date 对象，直接使用
                                         pass
                                     else:
                                         # 尝试从字符串解析日期
-                                        student_data[date_field] = datetime.datetime.strptime(str(student_data[date_field]), '%Y-%m-%d').date()
-                                except ValueError:
+                                        date_str = str(date_value).strip()
+                                        if date_str:  # 确保不是空字符串
+                                            # 支持多种日期格式
+                                            for date_format in ['%Y-%m-%d', '%Y/%m/%d', '%Y.%m.%d']:
+                                                try:
+                                                    student_data[date_field] = datetime.datetime.strptime(date_str, date_format).date()
+                                                    break
+                                                except ValueError:
+                                                    continue
+                                            else:
+                                                # 如果所有格式都不匹配，设置为None并记录警告
+                                                student_data[date_field] = None
+                                                warning_messages.append(f"第 {row_idx} 行的 '{date_field}' 日期格式不正确 (值: '{date_value}')，支持格式: YYYY-MM-DD, YYYY/MM/DD, YYYY.MM.DD")
+                                        else:
+                                            student_data[date_field] = None
+                                except Exception as e:
                                     student_data[date_field] = None
-                                    warning_messages.append(f"第 {row_idx} 行的 '{date_field}' 日期格式不正确，已设置为空。")
+                                    warning_messages.append(f"第 {row_idx} 行的 '{date_field}' 日期处理出错: {e}")
+                            else:
+                                # 如果字段不存在，设置为None
+                                student_data[date_field] = None
 
                         # 处理性别字段的容错解析
                         if 'gender' in student_data and student_data['gender']:

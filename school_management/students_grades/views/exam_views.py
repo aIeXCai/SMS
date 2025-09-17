@@ -103,14 +103,27 @@ def exam_create_step2(request):
                     )
                     
                     # 创建考试科目
-                    for form in formset:
-                        if form.cleaned_data and not form.cleaned_data.get('DELETE', False):
-                            ExamSubject.objects.create(
-                                exam=exam,
-                                subject_code=form.cleaned_data['subject_code'],
-                                subject_name=form.cleaned_data['subject_code'],  # 使用科目代码作为名称
-                                max_score=form.cleaned_data['max_score']
-                            )
+                    created_subjects = []
+                    for i, form in enumerate(formset):
+                        # 检查表单是否有数据且未标记删除
+                        if form.cleaned_data:
+                            is_deleted = form.cleaned_data.get('DELETE', False)
+                            subject_code = form.cleaned_data.get('subject_code')
+                            max_score = form.cleaned_data.get('max_score')
+                            
+                            # 只创建未删除且有有效数据的科目
+                            if not is_deleted and subject_code and max_score:
+                                exam_subject = ExamSubject.objects.create(
+                                    exam=exam,
+                                    subject_code=subject_code,
+                                    subject_name=subject_code,  # 使用科目代码作为名称
+                                    max_score=max_score
+                                )
+                                created_subjects.append(exam_subject.subject_code)
+                    
+                    # 确保至少创建了一个科目
+                    if not created_subjects:
+                        raise ValueError("至少需要配置一个有效科目")
                     
                     # 清除session数据
                     del request.session['exam_create_data']

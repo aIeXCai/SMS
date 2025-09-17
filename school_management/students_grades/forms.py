@@ -637,8 +637,7 @@ class StudentForm(forms.ModelForm):
         model = Student
         fields = [
             'student_id', 'name', 'gender', 'date_of_birth',
-            'grade_level', 'current_class', 'status',
-            'id_card_number', 'student_enrollment_number',
+            'status', 'id_card_number', 'student_enrollment_number',
             'home_address', 'guardian_name', 'guardian_contact_phone',
             'entry_date', 'graduation_date'
         ]

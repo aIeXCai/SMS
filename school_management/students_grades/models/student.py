@@ -54,9 +54,9 @@ class Student(models.Model):
         ('男', '男'),
         ('女', '女'),
     ]
-    gender = models.CharField(max_length=5, choices=gender_choices, verbose_name="性别")
+    gender = models.CharField(max_length=5, choices=gender_choices, null=True, blank=True, verbose_name="性别")
     
-    date_of_birth = models.DateField(verbose_name="出生日期")
+    date_of_birth = models.DateField(null=True, blank=True, verbose_name="出生日期")
     grade_level = models.CharField(
         max_length=10,
         choices=GRADE_LEVEL_CHOICES,
@@ -95,7 +95,7 @@ class Student(models.Model):
             )
         ]
     )
-    entry_date = models.DateField(verbose_name="入学日期")
+    entry_date = models.DateField(null=True, blank=True, verbose_name="入学日期")
     graduation_date = models.DateField(null=True, blank=True, verbose_name="毕业日期")
 
     class Meta:

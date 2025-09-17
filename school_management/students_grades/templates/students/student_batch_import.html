@@ -224,22 +224,53 @@
                 </div>
                 <div class="card-body">
                     <!-- 使用说明 -->
-                    <div class="info-box text-center">
-                        <div class="info-icon">
-                            <i class="fas fa-lightbulb"></i>
+                    <div class="info-box">
+                        <div class="text-center mb-3">
+                            <div class="info-icon">
+                                <i class="fas fa-lightbulb"></i>
+                            </div>
+                            <h6 class="text-info fw-bold mb-2">使用说明</h6>
+                            <p class="mb-0 text-muted">请选择一个 Excel 文件进行学生数据批量导入。文件应包含学生学号、姓名、性别、年级、班级等信息。</p>
                         </div>
-                        <h6 class="text-info fw-bold mb-2">使用说明</h6>
-                        <p class="mb-0 text-muted">请选择一个 Excel 文件进行学生数据批量导入。文件应包含学生学号、姓名、性别、年级、班级等信息。</p>
+                        
+                        <!-- 必填字段说明 -->
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6 class="text-danger fw-bold mb-2">
+                                    <i class="fas fa-exclamation-triangle me-1"></i>必填字段 (必须填写)
+                                </h6>
+                                <ul class="list-unstyled text-danger mb-0">
+                                    <li><i class="fas fa-star me-1"></i><strong>学号</strong> - 学生唯一标识</li>
+                                    <li><i class="fas fa-star me-1"></i><strong>姓名</strong> - 学生姓名</li>
+                                    <li><i class="fas fa-star me-1"></i><strong>年级</strong> - 学生所在年级</li>
+                                    <li><i class="fas fa-star me-1"></i><strong>班级名称</strong> - 学生所在班级</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <h6 class="text-secondary fw-bold mb-2">
+                                    <i class="fas fa-info-circle me-1"></i>可选字段 (可以留空)
+                                </h6>
+                                <ul class="list-unstyled text-muted mb-0 small">
+                                    <li><i class="fas fa-circle me-1" style="font-size: 0.3rem;"></i>性别、出生日期、身份证号码</li>
+                                    <li><i class="fas fa-circle me-1" style="font-size: 0.3rem;"></i>学籍号、家庭地址</li>
+                                    <li><i class="fas fa-circle me-1" style="font-size: 0.3rem;"></i>监护人信息、入学日期等</li>
+                                </ul>
+                            </div>
+                        </div>
                     </div>
                     
                     <!-- 模板下载 -->
                     <div class="template-download">
                         <h6 class="text-warning fw-bold mb-3">
-                            <i class="fas fa-download me-2"></i>重要提示
+                            <i class="fas fa-download me-2"></i>下载导入模板
                         </h6>
-                        <p class="mb-3 text-muted">请使用提供的模板文件，以确保数据格式正确。模板包含了所有必需的字段和格式要求。</p>
+                        <p class="mb-2 text-muted">请使用提供的模板文件，以确保数据格式正确。模板包含了所有必需的字段和格式要求。</p>
+                        <div class="small text-muted mb-3">
+                            <i class="fas fa-info-circle me-1"></i>
+                            模板中已标明必填字段（学号、姓名、年级、班级），其他字段可根据实际情况填写
+                        </div>
                         <a href="{% url 'students_grades:download_student_import_template' %}" target="_blank" class="btn btn-warning btn-custom">
-                            <i class="fas fa-file-excel me-2"></i>下载导入模板
+                            <i class="fas fa-file-excel me-2"></i>下载Excel模板
                         </a>
                     </div>
                     
