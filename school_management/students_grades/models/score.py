@@ -144,4 +144,6 @@ class Score(models.Model):
 
     def __str__(self):
         subject_name = self.exam_subject.subject_name if self.exam_subject else self.get_subject_display()
-        return f"{self.student.name} - {self.exam.academic_year} {self.exam.name} ({subject_name}): {self.score_value}"
+        # avoid showing the literal 'None' when academic_year is not set
+        academic_prefix = f"{self.exam.academic_year} " if getattr(self.exam, 'academic_year', None) else ''
+        return f"{self.student.name} - {academic_prefix}{self.exam.name} ({subject_name}): {self.score_value}"
