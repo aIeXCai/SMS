@@ -15,7 +15,7 @@ How to run these tests locally:
 """
 
 from django.test import TestCase
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.core.exceptions import ValidationError
 from decimal import Decimal
 
@@ -23,6 +23,79 @@ from decimal import Decimal
 from school_management.students_grades.models.exam import Exam, ExamSubject, SUBJECT_DEFAULT_MAX_SCORES
 from school_management.students_grades.models.student import Student, Class
 from school_management.students_grades.models.score import Score
+
+
+class StudentTests(TestCase):
+    """Tests covering Student model behaviors and validations."""
+
+    def test_student_str_and_unique(self):
+        """Student.__str__ should include name and student_id; uniqueness of student_id is enforced."""
+        c = Class.objects.create(grade_level='初一', class_name='1班')
+        # with class
+        s = Student.objects.create(student_id='SSTR1', name='张三', current_class=c, grade_level='初一')
+        self.assertEqual(str(s), '张三 (SSTR1) - 初一1班')
+
+        # without class
+        s2 = Student.objects.create(student_id='SSTR2', name='李四', grade_level='初二')
+        self.assertIn('未分班', str(s2))
+
+        # duplicate student_id should raise IntegrityError at DB level
+        with transaction.atomic():
+            with self.assertRaises(IntegrityError):
+                Student.objects.create(student_id='SSTR1', name='重复', grade_level='初一')
+
+    def test_student_validators(self):
+        """Test validators for id_card_number and guardian_contact_phone."""
+        # Test valid id_card_number (use a realistic example matching the project's regex)
+        s = Student(student_id='S202', name='学生丙', id_card_number='110101198001011234')
+        try:
+            s.full_clean()  # This should not raise a ValidationError
+        except ValidationError:
+            self.fail("id_card_number validation failed for a valid number.")
+
+        # Test invalid id_card_number
+        s.id_card_number = 'invalid_id'
+        with self.assertRaises(ValidationError):
+            s.full_clean()
+
+        # restore a known-valid id_card_number before testing guardian_contact_phone
+        s.id_card_number = '110101200605151234'
+
+        # Test valid guardian_contact_phone
+        s.guardian_contact_phone = '13800138000'
+        try:
+            s.full_clean()  # This should not raise a ValidationError
+        except ValidationError:
+            self.fail("guardian_contact_phone validation failed for a valid number.")
+
+        # Test invalid guardian_contact_phone
+        s.guardian_contact_phone = 'invalid_phone'
+        with self.assertRaises(ValidationError):
+            s.full_clean()
+
+    def test_student_id_and_id_card_uniqueness(self):
+        """Ensure student_id and id_card_number uniqueness constraints are enforced at DB level."""
+        c = Class.objects.create(grade_level='高一', class_name='1班')
+        # student_id uniqueness
+        Student.objects.create(student_id='UNQID1', name='A', current_class=c, grade_level='高一')
+        with transaction.atomic():
+            with self.assertRaises(IntegrityError):
+                Student.objects.create(student_id='UNQID1', name='B', current_class=c, grade_level='高一')
+
+        # id_card_number uniqueness
+        good_id = '110101200605151234'
+        Student.objects.create(student_id='UNQID2', name='C', current_class=c, grade_level='高一', id_card_number=good_id)
+        with transaction.atomic():
+            with self.assertRaises(IntegrityError):
+                Student.objects.create(student_id='UNQID3', name='D', current_class=c, grade_level='高一', id_card_number=good_id)
+
+    def test_student_enrollment_number_uniqueness(self):
+        """Test uniqueness of student_enrollment_number."""
+        c = Class.objects.create(grade_level='初三', class_name='3班')
+        Student.objects.create(student_id='S203', name='学生丁', current_class=c, grade_level='初三', student_enrollment_number='ENR001')
+        with transaction.atomic():
+            with self.assertRaises(IntegrityError):
+                Student.objects.create(student_id='S204', name='学生戊', current_class=c, grade_level='初三', student_enrollment_number='ENR001')
 
 
 class ExamTests(TestCase):
@@ -139,6 +212,7 @@ class ClassStudentTests(TestCase):
         # duplicate student_id should raise IntegrityError
         with self.assertRaises(IntegrityError):
             Student.objects.create(student_id='S200', name='重复学号', grade_level='初二')
+    
 
     def test_class_without_homeroom_teacher_and_str(self):
         """Class 应允许 homeroom_teacher 为空，且 __str__ 在无班主任时仍然正常工作。"""

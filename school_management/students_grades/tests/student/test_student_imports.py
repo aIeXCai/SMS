@@ -215,3 +215,73 @@ class StudentImportViewTests(TestCase):
 
         student.refresh_from_db()
         self.assertEqual(student.name, '新名')
+
+    def test_download_student_import_template_returns_excel_and_headers(self):
+        """GET the download template endpoint and assert headers and first row content."""
+        url = reverse('students_grades:download_student_import_template')
+        resp = self.client.get(url)
+        self.assertEqual(resp.status_code, 200)
+        # Check content-type and content-disposition
+        self.assertIn('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', resp['Content-Type'])
+        self.assertIn('attachment; filename=', resp['Content-Disposition'])
+
+        # Parse returned bytes with openpyxl and assert header row
+        buf = BytesIO(resp.content)
+        wb = openpyxl.load_workbook(buf)
+        sheet = wb.active
+        headers = [cell.value for cell in sheet[1]]
+
+        expected_headers = [
+            "学号 (必填)", "姓名 (必填)", "性别 (男/女)", "出生日期 (YYYY-MM-DD)",
+            "年级 (初一/初二/初三/高一/高二/高三)", "班级名称 (1班-20班)", "在校状态 (在读/转学/休学/复学/毕业)",
+            "身份证号码", "学籍号", "家庭地址", "监护人姓名", "监护人联系电话",
+            "入学日期 (YYYY-MM-DD)", "毕业日期 (YYYY-MM-DD, 毕业状态必填)"
+        ]
+        self.assertEqual(headers, expected_headers)
+
+    def test_import_view_handles_missing_file_and_wrong_extension(self):
+        """Test missing file and non-excel extension branches for student_batch_import."""
+        # Missing file in POST
+        resp = self.client.post(self.url, {}, format='multipart')
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertFalse(data.get('success'))
+        self.assertIn('error', data)
+
+        # Wrong extension uploaded
+        fake = SimpleUploadedFile('notes.txt', b'not an excel', content_type='text/plain')
+        resp2 = self.client.post(self.url, {'file': fake}, format='multipart')
+        self.assertEqual(resp2.status_code, 200)
+        data2 = resp2.json()
+        self.assertFalse(data2.get('success'))
+        self.assertIn('文件格式不正确', data2.get('error'))
+
+    def test_import_view_handles_corrupted_workbook_and_parsing_warnings(self):
+        """Test handling of workbook read errors and date parsing warnings.
+
+        - corrupted workbook -> top-level JSON error
+        - date parsing mismatch -> warning_messages contains an entry
+        """
+        # Corrupted file that raises when openpyxl tries to read it.
+        bad_buf = BytesIO(b'not-a-valid-xlsx')
+        bad_upload = SimpleUploadedFile('students.xlsx', bad_buf.getvalue(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        resp = self.client.post(self.url, {'file': bad_upload}, format='multipart')
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        # The view wraps workbook loading in try/except and returns success=False with error
+        self.assertFalse(data.get('success'))
+        self.assertIn('error', data)
+
+        # Now construct a workbook with an invalid date string for a row to trigger warning_messages
+        rows = [
+            ['W1', 'WarnDate', '男', '31-12-2025', '初一', '1班', '在读', '', '', '', '', '', '', '']
+        ]
+        buf = self.make_workbook_bytes(rows)
+        upload = SimpleUploadedFile('students.xlsx', buf.getvalue(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        resp2 = self.client.post(self.url, {'file': upload}, format='multipart')
+        self.assertEqual(resp2.status_code, 200)
+        data2 = resp2.json()
+        # Should succeed (row may be imported with date None) and warning_messages should include a message
+        self.assertTrue(data2.get('success'))
+        self.assertTrue(isinstance(data2.get('warning_messages'), list))
+        self.assertGreaterEqual(len(data2.get('warning_messages')), 1)

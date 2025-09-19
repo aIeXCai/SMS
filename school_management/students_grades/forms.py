@@ -677,21 +677,40 @@ class StudentForm(forms.ModelForm):
 
     # 重寫 save 方法，以便處理 current_class 的關聯邏輯
     def save(self, commit=True):
+        # If editing an existing instance, fetch the original from DB so we can
+        # preserve fields that were not included in the submitted data.
+        editing = bool(self.instance and self.instance.pk)
+        original = None
+        if editing:
+            try:
+                original = Student.objects.get(pk=self.instance.pk)
+            except Student.DoesNotExist:
+                original = None
+
         student = super().save(commit=False)
-        
+
+        # Preserve any model fields that were not part of the submitted POST data
+        # (i.e. user did not provide them in the form). This avoids accidentally
+        # clearing fields when the edit form omits optional fields.
+        if editing and original is not None:
+            # self.Meta.fields lists the model fields the form manages
+            for field_name in getattr(self.Meta, 'fields', []):
+                # Only restore when the field was not provided in the submitted data
+                if field_name not in self.data and hasattr(original, field_name):
+                    setattr(student, field_name, getattr(original, field_name))
+
         grade_level = self.cleaned_data.get('grade_level')
         class_name = self.cleaned_data.get('class_name')
 
         if grade_level and class_name:
             # 查找或創建對應的 Class 物件
-            # get_or_create 會返回 (object, created)
             current_class, created = Class.objects.get_or_create(
                 grade_level=grade_level,
                 class_name=class_name
             )
             student.current_class = current_class
         else:
-            student.current_class = None # 如果沒有選擇年級班級，則設置為 None
+            student.current_class = None
 
         if commit:
             student.save()
