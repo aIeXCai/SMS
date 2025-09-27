@@ -2280,8 +2280,13 @@ def _analyze_grade(exam, grade_level):
     total_max_score = sum([subject['max_score'] for subject in subjects])
     
     # 计算年级优秀率（95%以上）
-    excellent_count = sum(1 for score in total_scores_list if score >= total_max_score * 0.95)
-    excellent_rate = (excellent_count / len(total_scores_list) * 100) if total_scores_list else 0
+    # 如果 total_max_score 为 0（没有 ExamSubject），应返回 0 而不是将所有分数视作优秀
+    if total_max_score > 0:
+        excellent_count = sum(1 for score in total_scores_list if score >= total_max_score * 0.95)
+        excellent_rate = (excellent_count / len(total_scores_list) * 100) if total_scores_list else 0
+    else:
+        excellent_count = 0
+        excellent_rate = 0
     
     # 各班级详细统计
     for class_obj in classes:
@@ -2310,15 +2315,20 @@ def _analyze_grade(exam, grade_level):
         
         # 计算各等级人数和比例（按照新的5级划分）
         student_count = len(class_total_scores)
-        excellent_plus_count = sum(1 for score in class_total_scores if score >= total_max_score * 0.95)  # 特优(95%+)
-        excellent_count = sum(1 for score in class_total_scores if total_max_score * 0.85 <= score < total_max_score * 0.95)  # 优秀(85%-95%)
-        good_count = sum(1 for score in class_total_scores if total_max_score * 0.70 <= score < total_max_score * 0.85)  # 良好(70%-85%)
-        pass_count = sum(1 for score in class_total_scores if total_max_score * 0.60 <= score < total_max_score * 0.70)  # 及格(60%-70%)
-        fail_count = sum(1 for score in class_total_scores if score < total_max_score * 0.60)  # 不及格(<60%)
-        
-        excellent_rate = ((excellent_plus_count + excellent_count) / student_count * 100) if student_count > 0 else 0  # 优秀率（包含特优+优秀）
-        good_rate = ((good_count + excellent_count + excellent_plus_count) / student_count * 100) if student_count > 0 else 0  # 良好率
-        pass_rate = ((pass_count + good_count + excellent_count + excellent_plus_count) / student_count * 100) if student_count > 0 else 0  # 及格率
+        if total_max_score > 0:
+            class_excellent_plus_count = sum(1 for score in class_total_scores if score >= total_max_score * 0.95)  # 特优(95%+)
+            class_excellent_count = sum(1 for score in class_total_scores if total_max_score * 0.85 <= score < total_max_score * 0.95)  # 优秀(85%-95%)
+            class_good_count = sum(1 for score in class_total_scores if total_max_score * 0.70 <= score < total_max_score * 0.85)  # 良好(70%-85%)
+            class_pass_count = sum(1 for score in class_total_scores if total_max_score * 0.60 <= score < total_max_score * 0.70)  # 及格(60%-70%)
+            class_fail_count = sum(1 for score in class_total_scores if score < total_max_score * 0.60)  # 不及格(<60%)
+
+            class_excellent_rate = ((class_excellent_plus_count + class_excellent_count) / student_count * 100) if student_count > 0 else 0  # 优秀率（包含特优+优秀）
+            class_good_rate = ((class_good_count + class_excellent_count + class_excellent_plus_count) / student_count * 100) if student_count > 0 else 0  # 良好率
+            class_pass_rate = ((class_pass_count + class_good_count + class_excellent_count + class_excellent_plus_count) / student_count * 100) if student_count > 0 else 0  # 及格率
+        else:
+            # 没有满分定义时，各等级计数和比率应为 0（避免把 0 视为满分导致所有学生被计为优秀）
+            class_excellent_plus_count = class_excellent_count = class_good_count = class_pass_count = class_fail_count = 0
+            class_excellent_rate = class_good_rate = class_pass_rate = 0
 
         # 各科目平均分
         subject_averages = []
@@ -2330,37 +2340,38 @@ def _analyze_grade(exam, grade_level):
                 subject_averages.append(decimal_to_float(avg))
             else:
                 subject_averages.append(0)
-        
+
         class_statistics.append({
             'class_name': class_name,
             'student_count': student_count,
             'avg_total': decimal_to_float(avg_total),
             'max_total': decimal_to_float(max_total),
             'min_total': decimal_to_float(min_total),
-            'excellent_rate': excellent_rate,
-            'good_rate': good_rate,
-            'pass_rate': pass_rate,
+            'excellent_rate': class_excellent_rate,
+            'good_rate': class_good_rate,
+            'pass_rate': class_pass_rate,
             'subject_averages': subject_averages
         })
-        
+
         # 班级等级分布（用于堆叠柱状图）- 5个等级（从底部到顶部：不及格→及格→良好→优秀→特优）
-        class_grade_distribution[class_name] = [fail_count, pass_count, good_count, excellent_count, excellent_plus_count]
+        class_grade_distribution[class_name] = [class_fail_count, class_pass_count, class_good_count, class_excellent_count, class_excellent_plus_count]
     
     # 年级成绩分布（总分分段统计）
     score_ranges = ['特优(95%+)', '优秀(85%-95%)', '良好(70%-85%)', '及格(60%-70%)', '不及格(<60%)']
     score_distribution = [0, 0, 0, 0, 0]
     
-    for total_score in total_scores_list:
-        if total_score >= total_max_score * 0.95:
-            score_distribution[0] += 1
-        elif total_score >= total_max_score * 0.85:
-            score_distribution[1] += 1
-        elif total_score >= total_max_score * 0.70:
-            score_distribution[2] += 1
-        elif total_score >= total_max_score * 0.60:
-            score_distribution[3] += 1
-        else:
-            score_distribution[4] += 1
+    if total_max_score > 0:
+        for total_score in total_scores_list:
+            if total_score >= total_max_score * 0.95:
+                score_distribution[0] += 1
+            elif total_score >= total_max_score * 0.85:
+                score_distribution[1] += 1
+            elif total_score >= total_max_score * 0.70:
+                score_distribution[2] += 1
+            elif total_score >= total_max_score * 0.60:
+                score_distribution[3] += 1
+            else:
+                score_distribution[4] += 1
     
     # 科目难度系数计算（平均分/满分）
     difficulty_coefficients = []

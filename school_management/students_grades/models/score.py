@@ -85,6 +85,15 @@ class Score(models.Model):
         """
         from django.core.exceptions import ValidationError
         
+        # 验证 score_value 必须是数字且不可为负
+        if self.score_value is not None:
+            try:
+                # Decimal/float-compatible comparison
+                if float(self.score_value) < 0:
+                    raise ValidationError("分数不能为负数")
+            except (TypeError, ValueError):
+                raise ValidationError("分数必须为数字")
+        
         # 如果有exam_subject关联，验证分数不超过满分
         if self.exam_subject and self.score_value > self.exam_subject.max_score:
             raise ValidationError(

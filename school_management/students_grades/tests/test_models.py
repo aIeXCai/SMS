@@ -351,3 +351,52 @@ class ScoreTests(TestCase):
         expected_default = ExamSubject.get_default_max_score(exam.grade_level, score.subject)
         self.assertEqual(score.get_max_score(), expected_default)
 
+    def test_score_equal_to_max_is_valid_and_percentage_100(self):
+        """边界测试：score_value 等于 exam_subject.max_score 应当合法，百分比为 100，等级为优秀（阈值 >=85）。"""
+        exam = Exam.objects.create(name='等值测', grade_level='初一', date='2025-10-10')
+        es = ExamSubject.objects.create(exam=exam, subject_code='物理', subject_name='物理', max_score=100)
+        c = Class.objects.create(grade_level='初一', class_name='1班')
+        s = Student.objects.create(student_id='S1000', name='边界生', current_class=c, grade_level='初一')
+
+        # 等于 max 值应被接受
+        score = Score.objects.create(student=s, exam=exam, exam_subject=es, subject='物理', score_value=100)
+        self.assertEqual(score.get_max_score(), 100)
+        self.assertAlmostEqual(score.get_score_percentage(), 100.0, places=6)
+        # 百分之百应属于优秀等级（符合项目中 85 以上为优秀的规则）
+        self.assertEqual(score.get_grade_level(), '优秀')
+
+    def test_score_negative_or_non_numeric_value_raises_validation(self):
+        """验证负分和非数值输入会被模型校验拒绝（抛出 ValidationError）。"""
+        exam = Exam.objects.create(name='非法分测', grade_level='初一', date='2025-10-11')
+        es = ExamSubject.objects.create(exam=exam, subject_code='化学', subject_name='化学', max_score=100)
+        c = Class.objects.create(grade_level='初一', class_name='2班')
+        s = Student.objects.create(student_id='S1001', name='非法生', current_class=c, grade_level='初一')
+
+        # 负分应被拒绝
+        neg = Score(student=s, exam=exam, exam_subject=es, subject='化学', score_value=-1)
+        with self.assertRaises(ValidationError):
+            neg.full_clean()
+
+        # 非数值（字符串）应被拒绝或在 full_clean 时触发 ValidationError
+        nonnum = Score(student=s, exam=exam, exam_subject=es, subject='化学', score_value='not_a_number')
+        with self.assertRaises(ValidationError):
+            nonnum.full_clean()
+
+    def test_score_save_without_student_or_exam_raises(self):
+        """缺少必需的外键（student 或 exam）在保存时应触发 DB 层或验证错误（IntegrityError/TypeError）。"""
+        exam = Exam.objects.create(name='缺关联测', grade_level='初一', date='2025-10-12')
+        es = ExamSubject.objects.create(exam=exam, subject_code='生物', subject_name='生物', max_score=100)
+
+        # 尝试在 DB 层插入缺少 student 的记录 -> IntegrityError
+        with transaction.atomic():
+            with self.assertRaises(Exception):
+                # 使用 create 直接写入，会触发 integrity error（NOT NULL 约束）
+                Score.objects.create(student=None, exam=exam, exam_subject=es, subject='生物', score_value=50)
+
+        # 尝试缺少 exam 的情况
+        c = Class.objects.create(grade_level='初一', class_name='3班')
+        s = Student.objects.create(student_id='S1002', name='缺考生', current_class=c, grade_level='初一')
+        with transaction.atomic():
+            with self.assertRaises(Exception):
+                Score.objects.create(student=s, exam=None, exam_subject=es, subject='生物', score_value=50)
+
