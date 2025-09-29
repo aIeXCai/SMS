@@ -296,7 +296,11 @@
                                 </div>
                                 <div class="class-dropdown-menu" id="examDropdownMenu">
                                     {% for exam in exams %}
-                                        <div class="class-dropdown-item" onclick="selectExam('{{ exam.pk }}', '{{ exam.name }}', '{{ exam.get_grade_level_display }}')">
+                                        <!-- add data-academic-year for client-side filtering -->
+                                        <div class="class-dropdown-item"
+                                             data-academic-year="{{ exam.academic_year }}"
+                                             data-exam-id="{{ exam.pk }}"
+                                             onclick="selectExam('{{ exam.pk }}', '{{ exam.name|escapejs }}', '{{ exam.get_grade_level_display|escapejs }}')">
                                             <i class="fas fa-file-alt me-2"></i>{{ exam.name }} <span class="text-muted">({{ exam.get_grade_level_display }})</span>
                                         </div>
                                     {% endfor %}
@@ -485,6 +489,12 @@
      function selectAcademicYear(value, label) {
          document.getElementById('academicYearDropdownText').textContent = label;
          document.getElementById('selectedAcademicYear').value = value;
+         // filter exams by selected academic year
+         try {
+             filterExamsByYear(value);
+         } catch (e) {
+             console.error('filterExamsByYear error', e);
+         }
          closeAllDropdowns();
      }
 
@@ -494,6 +504,48 @@
          document.getElementById('selectedExam').value = value;
          closeAllDropdowns();
      }
+
+    // 客户端根据学年过滤考试下拉项
+    function filterExamsByYear(academicYear) {
+        const examMenu = document.getElementById('examDropdownMenu');
+        if (!examMenu) return;
+        const items = examMenu.querySelectorAll('.class-dropdown-item');
+        let anyVisible = false;
+        items.forEach(item => {
+            const itemYear = item.dataset.academicYear || '';
+            if (!academicYear || academicYear === '' || itemYear === academicYear) {
+                item.style.display = '';
+                anyVisible = true;
+            } else {
+                item.style.display = 'none';
+            }
+        });
+
+        // 如果当前选择的考试不在可见范围内，则清空已选考试
+        const selectedExamInput = document.getElementById('selectedExam');
+        const examText = document.getElementById('examDropdownText');
+        if (selectedExamInput && selectedExamInput.value) {
+            const selItem = examMenu.querySelector(`[data-exam-id="${selectedExamInput.value}"]`);
+            if (selItem && selItem.style.display === 'none') {
+                selectedExamInput.value = '';
+                if (examText) examText.textContent = '请选择考试';
+            }
+        }
+
+        // 占位提示：如果没有任何考试可见，显示一个提示项
+        let placeholder = examMenu.querySelector('.exam-placeholder-item');
+        if (!anyVisible) {
+            if (!placeholder) {
+                placeholder = document.createElement('div');
+                placeholder.className = 'class-dropdown-item exam-placeholder-item text-muted';
+                placeholder.innerText = '该学年下暂无考试';
+                examMenu.appendChild(placeholder);
+            }
+            placeholder.style.display = '';
+        } else if (placeholder) {
+            placeholder.style.display = 'none';
+        }
+    }
 
      // 选择年级
      function selectGrade(value, label) {

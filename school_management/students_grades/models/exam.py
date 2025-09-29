@@ -4,7 +4,7 @@ from .student import GRADE_LEVEL_CHOICES
 
 # 学年选择
 ACADEMIC_YEAR_CHOICES = []
-for year in range(2025, 2030): # 從2025年到2029年
+for year in range(2023, 2030): # 從2023年到2029年
     academic_year_str = f"{year}-{year+1}"
     ACADEMIC_YEAR_CHOICES.append((academic_year_str, academic_year_str))
 

@@ -2438,7 +2438,9 @@ def get_student_analysis_data(request):
     
     try:
         student = Student.objects.get(id=student_id)
-        exams = Exam.objects.filter(id__in=exam_id_list).order_by('-date')
+        # 按考试日期升序排列，确保趋势图横坐标按时间顺序（从早到晚）展示
+        # 使用 (date, id) 做稳定排序，避免同一天考试顺序不确定
+        exams = Exam.objects.filter(id__in=exam_id_list).order_by('date', 'id')
         
         if not exams.exists():
             return JsonResponse({'error': '未找到指定的考试'}, status=404)
