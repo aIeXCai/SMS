@@ -16,10 +16,22 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from django.conf import settings
+from django.conf.urls.static import static
+from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('django-rq/', include('django_rq.urls')),  # RQ任务管理界面
-    path('', include('school_management.students.urls')),
-    path('', include('school_management.exams.urls')),
+    
+    # 🔴 新的统一学生与成绩模块
+    path('', include('school_management.students_grades.urls')),
+    
+    # 🔴 原有模块（暂时保留，后续迁移完成后移除）
+    # path('', include('school_management.students.urls')),
+    # path('', include('school_management.exams.urls')),
 ]
+
+# 开发环境下提供静态文件
+if settings.DEBUG:
+    urlpatterns += staticfiles_urlpatterns()

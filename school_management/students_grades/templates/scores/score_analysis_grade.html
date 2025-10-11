@@ -1,0 +1,1173 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+<link rel="stylesheet" href="{% static 'css/score_analysis.css' %}">
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    /* 页面独特样式 */
+    .chart-container {
+        position: relative;
+        height: 350px;
+        margin-bottom: 10px;
+        padding: 10px;
+    }
+
+    .chart-container-large {
+        position: relative;
+        height: 450px;
+        margin-bottom: 10px;
+        padding: 10px;
+    }
+
+    .chart-container-small {
+        position: relative;
+        height: 300px;
+        margin-bottom: 10px;
+        padding: 10px;
+    }
+
+    /* 表格排序样式 */
+    .sortable {
+        cursor: pointer;
+        user-select: none;
+        position: relative;
+        transition: background-color 0.2s ease;
+    }
+
+    .sort-icon {
+        margin-left: 8px;
+        color: #0dd338ff;
+        font-size: 12px;
+    }
+
+    .sortable.sort-asc .sort-icon::before {
+        content: "\f0de";
+        color: #0dd338ff;
+    }
+
+    .sortable.sort-desc .sort-icon::before {
+        content: "\f0dd";
+        color: #0dd338ff;
+    }
+
+    /* 针对此页面的表格字体大小 */
+    table {
+        font-size: 14px;
+    }
+
+    /* ===== 简单直接的冻结表格实现 ===== */
+    .table-container-wrapper {
+        position: relative;
+        overflow: hidden;
+        border: 1px solid #dee2e6;
+        border-radius: 10px;
+        background: white;
+    }
+
+    .table-responsive {
+        overflow-x: auto;
+        overflow-y: visible; /* 改为visible，不限制垂直滚动 */
+        /* 移除 max-height 限制，让表格完全展开 */
+    }
+
+    .frozen-table {
+        margin: 0;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+
+    .frozen-table .frozen-col {
+        position: sticky;
+        background: #f8f9fa;
+        z-index: 10;
+        border-right: 1px solid #dee2e6;
+    }
+
+    .frozen-table .frozen-col:nth-child(1) {
+        left: 0px;
+        width: 100px;
+        min-width: 100px;
+    }
+
+    .frozen-table .frozen-col:nth-child(2) {
+        left: 100px;
+        width: 80px;
+        min-width: 80px;
+    }
+
+    .frozen-table th,
+    .frozen-table td {
+        padding: 0.75rem;
+        text-align: center;
+        white-space: nowrap;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .frozen-table thead th {
+        background: #017b6c;
+        color: white;
+        position: sticky;
+        top: 0;
+        z-index: 5;
+    }
+
+    .frozen-table thead .frozen-col {
+        z-index: 15;
+        background: #017b6c;
+        color: white;
+    }
+
+    .frozen-table .score-cell {
+        width: 60px;
+        min-width: 60px;
+    }
+
+    .student-info {
+        font-weight: 600;
+        color: #495057;
+        text-align: center;
+    }
+
+    /* 表格行悬停效果 */
+    .frozen-table tbody tr:hover {
+        background-color: #f5f5f5 !important;
+    }
+
+    .frozen-table tbody tr:hover .frozen-col {
+        background-color: #e9ecef !important;
+    }
+
+    /* 响应式调整 */
+    @media (max-width: 1200px) {
+        .frozen-table .frozen-col:nth-child(1) {
+            left: 0;
+            min-width: 90px;
+            width: 90px;
+            max-width: 90px;
+        }
+        
+        .frozen-table .frozen-col:nth-child(2) {
+            left: 90px;
+            min-width: 70px;
+            width: 70px;
+            max-width: 70px;
+        }
+        
+        /* 分数相关列 - 平均分、最高分、最低分 */
+        .frozen-table th:nth-child(3),
+        .frozen-table td:nth-child(3),
+        .frozen-table th:nth-child(4),
+        .frozen-table td:nth-child(4),
+        .frozen-table th:nth-child(5),
+        .frozen-table td:nth-child(5) {
+            min-width: 80px;
+            width: 80px;
+            max-width: 80px;
+        }
+
+        /* 率类列 - 优秀率、良好率、及格率 */
+        .frozen-table th:nth-child(6),
+        .frozen-table td:nth-child(6),
+        .frozen-table th:nth-child(7),
+        .frozen-table td:nth-child(7),
+        .frozen-table th:nth-child(8),
+        .frozen-table td:nth-child(8) {
+            min-width: 75px;
+            width: 75px;
+            max-width: 75px;
+        }
+        
+        .frozen-table th.score-cell,
+        .frozen-table td.score-cell {
+            min-width: 60px !important; /* 1200px以下稍微增加 */
+            width: 60px !important;
+            max-width: 60px !important;
+        }
+        
+        .frozen-border {
+            left: 160px; /* 更新边界线位置 90+70 = 160px */
+        }
+        
+        .frozen-table th, .frozen-table td {
+            padding: 0.5rem 0.25rem;
+            font-size: 0.8rem;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .frozen-table .frozen-col:nth-child(1) {
+            left: 0;
+            min-width: 80px;
+            width: 80px;
+            max-width: 80px;
+        }
+        
+        .frozen-table .frozen-col:nth-child(2) {
+            left: 80px;
+            min-width: 60px;
+            width: 60px;
+            max-width: 60px;
+        }
+        
+        /* 分数相关列 */
+        .frozen-table th:nth-child(3),
+        .frozen-table td:nth-child(3),
+        .frozen-table th:nth-child(4),
+        .frozen-table td:nth-child(4),
+        .frozen-table th:nth-child(5),
+        .frozen-table td:nth-child(5) {
+            min-width: 70px;
+            width: 70px;
+            max-width: 70px;
+        }
+
+        /* 率类列 */
+        .frozen-table th:nth-child(6),
+        .frozen-table td:nth-child(6),
+        .frozen-table th:nth-child(7),
+        .frozen-table td:nth-child(7),
+        .frozen-table th:nth-child(8),
+        .frozen-table td:nth-child(8) {
+            min-width: 65px;
+            width: 65px;
+            max-width: 65px;
+        }
+        
+        .frozen-table th.score-cell,
+        .frozen-table td.score-cell {
+            min-width: 50px !important; /* 768px以下保持紧凑 */
+            width: 50px !important;
+            max-width: 50px !important;
+        }
+        
+        .frozen-border {
+            left: 140px; /* 更新边界线位置 80+60 = 140px */
+        }
+    }
+
+    @media (max-width: 576px) {
+        .frozen-table .frozen-col:nth-child(1) {
+            left: 0;
+            min-width: 70px;
+            width: 70px;
+            max-width: 70px;
+        }
+        
+        .frozen-table .frozen-col:nth-child(2) {
+            left: 70px;
+            min-width: 50px;
+            width: 50px;
+            max-width: 50px;
+        }
+        
+        /* 分数相关列 */
+        .frozen-table th:nth-child(3),
+        .frozen-table td:nth-child(3),
+        .frozen-table th:nth-child(4),
+        .frozen-table td:nth-child(4),
+        .frozen-table th:nth-child(5),
+        .frozen-table td:nth-child(5) {
+            min-width: 60px;
+            width: 60px;
+            max-width: 60px;
+        }
+
+        /* 率类列 */
+        .frozen-table th:nth-child(6),
+        .frozen-table td:nth-child(6),
+        .frozen-table th:nth-child(7),
+        .frozen-table td:nth-child(7),
+        .frozen-table th:nth-child(8),
+        .frozen-table td:nth-child(8) {
+            min-width: 55px;
+            width: 55px;
+            max-width: 55px;
+        }
+        
+        .frozen-table th.score-cell,
+        .frozen-table td.score-cell {
+            min-width: 45px !important; /* 576px以下最小宽度 */
+            width: 45px !important;
+            max-width: 45px !important;
+        }
+        
+        .frozen-border {
+            left: 120px; /* 更新边界线位置 70+50 = 120px */
+        }
+        
+        .frozen-table {
+            font-size: 0.7rem;
+        }
+    }
+
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid fade-in">
+    <!-- 页面头部 -->
+    <div class="page-header">
+        <div class="container-fluid">
+            <div class="row align-items-center">
+                <div class="col">
+                    <h1><i class="fas fa-graduation-cap me-3"></i>{{ page_title }}</h1>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="{% url 'students_grades:score_analysis' %}">成绩分析</a></li>
+                            <li class="breadcrumb-item active" aria-current="page">年级分析</li>
+                        </ol>
+                    </nav>
+                </div>
+                <div class="col-auto">
+                    <a href="{% url 'students_grades:score_analysis' %}" class="btn btn-return">
+                        <i class="fas fa-arrow-left me-2"></i>返回选择
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container-fluid fade-in">
+        <!-- 分析条件显示 -->
+        {% if selected_exam %}
+        <div class="analysis-info-card alert alert-modern">
+            <div class="d-flex align-items-center">
+                <i class="fas fa-info-circle fa-2x me-3 text-success"></i>
+                <div>
+                    <h6 class="alert-heading mb-1 text-success">
+                        <i class="fas fa-filter me-1"></i>当前分析条件
+                    </h6>
+                    <p class="mb-0 text-success">
+                        <strong>学年：</strong>{{ academic_year }} | 
+                        <strong>考试：</strong>{{ selected_exam.name }} | 
+                        <strong>年级：</strong>{{ selected_grade }}
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 年级整体统计卡片 -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="stats-card text-center">
+                    <div class="stats-number">{{ total_students }}</div>
+                    <div class="stats-label">总参考学生数</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card text-center">
+                    <div class="stats-number">{{ total_classes }}</div>
+                    <div class="stats-label">参考班级数</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card text-center">
+                    <div class="stats-number">{{ grade_avg_score|floatformat:1 }}</div>
+                    <div class="stats-label">年级平均总分</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card text-center">
+                    <div class="stats-number">{{ total_max_score|default:0 }}</div>
+                    <div class="stats-label">本场考试满分</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 图表展示区域 -->
+        <div class="row">
+            <!-- 各班级平均分对比柱状图 -->
+            <div class="col-md-6">
+                <div class="chart-card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-chart-bar"></i> 各班级平均分对比</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="classAverageChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 各科目年级平均分标准化雷达图 -->
+            <div class="col-md-6">
+                <div class="chart-card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-chart-line"></i> 各科目年级平均分标准化雷达图</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="subjectRadarChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- 年级成绩分布直方图 -->
+            <div class="col-md-6">
+                <div class="chart-card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-chart-area"></i> 年级总分分布直方图</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container-large">
+                            <canvas id="gradeScoreDistributionChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 年级等级分布饼图 -->
+            <div class="col-md-6">
+                <div class="chart-card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-chart-pie"></i> 年级整体各等级分布饼图</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container-large">
+                            <canvas id="scoreDistributionChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- 各班级等级分布堆叠柱状图 -->
+            <div class="col-md-6">
+                <div class="chart-card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-chart-bar"></i> 各班级等级分布</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="classGradeDistributionChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 各科目难度系数折线图 -->
+            <div class="col-md-6">
+                <div class="chart-card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-chart-line"></i> 各科目难度系数</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="difficultyChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 详细数据表格 -->
+        <div class="row">
+            <div class="col-12">
+                <div class="chart-card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-table"></i> 年级详细数据统计</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-container-wrapper">
+                            <div class="table-responsive">
+                                <table class="table frozen-table" id="gradeComparisonTable">
+                                    <thead>
+                                        <tr>
+                                            <th class="frozen-col">班级</th>
+                                            <th class="frozen-col">人数</th>
+                                            <th class="sortable" data-column="2">
+                                                平均分 <i class="fas fa-sort sort-icon"></i>
+                                            </th>
+                                            <th class="sortable" data-column="3">
+                                                最高分 <i class="fas fa-sort sort-icon"></i>
+                                            </th>
+                                            <th class="sortable" data-column="4">
+                                                最低分 <i class="fas fa-sort sort-icon"></i>
+                                            </th>
+                                            <th class="sortable" data-column="5">
+                                                优秀率 <i class="fas fa-sort sort-icon"></i>
+                                            </th>
+                                            <th class="sortable" data-column="6">
+                                                良好率 <i class="fas fa-sort sort-icon"></i>
+                                            </th>
+                                            <th class="sortable" data-column="7">
+                                                及格率 <i class="fas fa-sort sort-icon"></i>
+                                            </th>
+                                            {% for subject in subjects %}
+                                            <th class="sortable score-cell" data-column="{{ forloop.counter|add:7 }}">
+                                                {{ subject.name }} <i class="fas fa-sort sort-icon"></i>
+                                            </th>
+                                            {% endfor %}
+                                        </tr>
+                                    </thead>
+                                    <tbody id="gradeTableBody">
+                                        {% for class_data in class_statistics %}
+                                        <tr>
+                                            <td class="frozen-col student-info">{{ class_data.class_name }}</td>
+                                            <td class="frozen-col">{{ class_data.student_count }}</td>
+                                            <td data-value="{{ class_data.avg_total }}">{{ class_data.avg_total|floatformat:1 }}</td>
+                                            <td data-value="{{ class_data.max_total }}">{{ class_data.max_total|floatformat:1 }}</td>
+                                            <td data-value="{{ class_data.min_total }}">{{ class_data.min_total|floatformat:1 }}</td>
+                                            <td data-value="{{ class_data.excellent_rate }}">{{ class_data.excellent_rate|floatformat:1 }}%</td>
+                                            <td data-value="{{ class_data.good_rate }}">{{ class_data.good_rate|floatformat:1 }}%</td>
+                                            <td data-value="{{ class_data.pass_rate }}">{{ class_data.pass_rate|floatformat:1 }}%</td>
+                                            {% for subject_avg in class_data.subject_averages %}
+                                            <td class="score-cell" data-value="{{ subject_avg }}">{{ subject_avg|floatformat:1 }}</td>
+                                            {% endfor %}
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <!-- 计算方式说明 -->
+                        <div class="mt-2 px-3 pb-0 mb-0">
+                            <small class="text-muted">
+                                <strong>注：</strong></br>
+                                <p>优秀率=(特优人数+优秀人数)/总人数；良好率=(特优人数+优秀人数+良好人数)/总人数；及格率=(特优人数+优秀人数+良好人数+及格人数)/总人数</p>
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        {% if chart_data_json %}
+        // 解析图表数据
+        const chartData = JSON.parse('{{ chart_data_json|escapejs }}');
+        
+        // 根据年级设置图表最大值
+        const selectedGrade = '{{ selected_grade }}';
+        const maxScore = (selectedGrade === '初一' || selectedGrade === '初二' || selectedGrade === '初三') ? 120 : 150;
+        // 使用本次考试总满分作为Y轴最大值
+        const totalMaxScore = (chartData && chartData.total_max_score) ? chartData.total_max_score : maxScore;
+        
+        // 定义颜色方案
+        const primaryColor = 'rgb(1,135,108)';
+        const primaryColorAlpha = 'rgba(1,135,108,0.8)';
+        const gradientColors = [
+            'rgba(1,135,108,0.8)', 'rgba(59,130,246,0.8)', 'rgba(245,158,11,0.8)',
+            'rgba(239,68,68,0.8)', 'rgba(16,185,129,0.8)', 'rgba(139,92,246,0.8)',
+            'rgba(236,72,153,0.8)', 'rgba(34,197,94,0.8)', 'rgba(249,115,22,0.8)'
+        ];
+
+        // 1. 各班级平均分对比柱状图
+        const classAverageCtx = document.getElementById('classAverageChart').getContext('2d');
+        new Chart(classAverageCtx, {
+            type: 'bar',
+            data: {
+                labels: chartData.class_names,
+                datasets: [{
+                    label: '班级平均分',
+                    data: chartData.class_averages,
+                    backgroundColor: gradientColors.slice(0, chartData.class_names.length),
+                    borderColor: gradientColors.slice(0, chartData.class_names.length).map(color => color.replace('0.8', '1')),
+                    borderWidth: 2,
+                    borderRadius: 6,
+                    borderSkipped: false
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0,0,0,0.8)',
+                        titleColor: '#fff',
+                        bodyColor: '#fff',
+                        borderColor: primaryColor,
+                        borderWidth: 1,
+                        cornerRadius: 8,
+                        callbacks: {
+                            label: function(context) {
+                                return '平均分: ' + context.parsed.y.toFixed(1) + '分';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: totalMaxScore,
+                        grid: {
+                            color: 'rgba(0,0,0,0.1)'
+                        },
+                        ticks: {
+                            color: '#6c757d',
+                            font: {
+                                size: 12
+                            }
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            color: '#6c757d',
+                            font: {
+                                size: 14
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // 2. 各科目年级平均分标准化雷达图
+        const subjectRadarCtx = document.getElementById('subjectRadarChart').getContext('2d');
+        
+        // 获取各科目的满分和平均分
+        const subjectScores = chartData.subject_averages;
+        const subjectMaxScores = chartData.subject_max_scores || [];
+        
+        // 如果没有各科目满分数据，使用统一的满分
+        let normalizedData;
+        if (subjectMaxScores.length > 0 && subjectMaxScores.length === subjectScores.length) {
+            // 标准化数据：将每科分数除以该科满分，得到0-1之间的比例
+            normalizedData = subjectScores.map((score, index) => {
+                const maxScoreForSubject = subjectMaxScores[index];
+                return maxScoreForSubject > 0 ? score / maxScoreForSubject : 0;
+            });
+        } else {
+            // 如果没有分科满分，使用统一满分标准化
+            normalizedData = subjectScores.map(score => score / maxScore);
+            console.warn('使用统一满分进行标准化，各科目满分数据不可用');
+        }
+        
+        new Chart(subjectRadarCtx, {
+            type: 'radar',
+            data: {
+                labels: chartData.subject_names,
+                datasets: [{
+                    label: '年级标准化平均分',
+                    data: normalizedData,
+                    backgroundColor: primaryColorAlpha,
+                    borderColor: primaryColor,
+                    borderWidth: 3,
+                    pointBackgroundColor: primaryColor,
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointRadius: 6,
+                    pointHoverBackgroundColor: '#fff',
+                    pointHoverBorderColor: primaryColor,
+                    pointHoverRadius: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    r: {
+                        beginAtZero: true,
+                        max: 1, // 标准化后最大值为1
+                        ticks: {
+                            color: '#6c757d',
+                            font: {
+                                size: 12
+                            },
+                            stepSize: 0.2,
+                            callback: function(value) {
+                                return (value * 100).toFixed(0) + '%';
+                            }
+                        },
+                        grid: {
+                            color: 'rgba(0,0,0,0.1)'
+                        },
+                        angleLines: {
+                            color: 'rgba(0,0,0,0.1)'
+                        },
+                        pointLabels: {
+                            color: '#495057',
+                            font: {
+                                size: 18,
+                                weight: '500'
+                            }
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0,0,0,0.8)',
+                        titleColor: '#fff',
+                        bodyColor: '#fff',
+                        borderColor: primaryColor,
+                        borderWidth: 1,
+                        cornerRadius: 8,
+                        callbacks: {
+                            label: function(context) {
+                                const originalIndex = context.dataIndex;
+                                const originalScore = subjectScores[originalIndex];
+                                const percentage = (context.parsed.r * 100).toFixed(1);
+                                let maxScoreText = '';
+                                if (subjectMaxScores.length > 0 && subjectMaxScores[originalIndex]) {
+                                    maxScoreText = `/${subjectMaxScores[originalIndex]}`;
+                                }
+                                return `实际分数: ${originalScore.toFixed(1)}${maxScoreText}分\n标准化分数: ${percentage}%`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // 3. 年级总分分布直方图
+        if (chartData.total_scores && chartData.total_scores.length > 0) {
+            const gradeScoreDistributionCtx = document.getElementById('gradeScoreDistributionChart').getContext('2d');
+            
+            // 生成总分分布数据
+            const totalScores = chartData.total_scores;
+            
+            // 计算分数区间和分布
+            const minScore = Math.min(...totalScores);
+            const maxScore = Math.max(...totalScores);
+            const scoreRange = maxScore - minScore;
+            
+            // 动态计算区间数，确保有意义的分布
+            let binCount = Math.min(12, Math.max(6, Math.ceil(Math.sqrt(totalScores.length))));
+            if (scoreRange < binCount) {
+                binCount = Math.max(3, scoreRange);
+            }
+            
+            const binWidth = Math.ceil(scoreRange / binCount);
+            
+            // 创建分数区间标签和统计数据
+            const bins = [];
+            const binCounts = [];
+            
+            for (let i = 0; i < binCount; i++) {
+                const binStart = minScore + (i * binWidth);
+                const binEnd = i === binCount - 1 ? maxScore : binStart + binWidth - 1;
+                
+                // 创建区间标签
+                bins.push(`${binStart}-${binEnd}`);
+                
+                // 统计该区间内的学生数量
+                const count = totalScores.filter(score => {
+                    if (i === binCount - 1) {
+                        return score >= binStart && score <= binEnd;
+                    } else {
+                        return score >= binStart && score < binStart + binWidth;
+                    }
+                }).length;
+                
+                binCounts.push(count);
+            }
+            
+            new Chart(gradeScoreDistributionCtx, {
+                type: 'bar',
+                data: {
+                    labels: bins,
+                    datasets: [{
+                        label: '学生人数',
+                        data: binCounts,
+                        backgroundColor: primaryColorAlpha,
+                        borderColor: primaryColor,
+                        borderWidth: 2,
+                        borderRadius: 6,
+                        borderSkipped: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(0,0,0,0.8)',
+                            titleColor: '#fff',
+                            bodyColor: '#fff',
+                            borderColor: primaryColor,
+                            borderWidth: 1,
+                            cornerRadius: 8,
+                            callbacks: {
+                                title: function(context) {
+                                    return `分数区间: ${context[0].label}分`;
+                                },
+                                label: function(context) {
+                                    const percentage = ((context.parsed.y / totalScores.length) * 100).toFixed(1);
+                                    return `学生人数: ${context.parsed.y}人 (${percentage}%)`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                display: false
+                            },
+                            ticks: {
+                                color: '#6c757d',
+                                font: {
+                                    size: 15
+                                },
+                                maxRotation: 45
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: '学生人数',
+                                color: '#6c757d',
+                                font: {
+                                    size: 15,
+                                    weight: '500'
+                                }
+                            },
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(0,0,0,0.1)'
+                            },
+                            ticks: {
+                                color: '#6c757d',
+                                font: {
+                                    size: 15
+                                },
+                                callback: function(value) {
+                                    return Number.isInteger(value) ? value : '';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+
+        // 4. 年级整体各等级分布饼图
+        const scoreDistributionCtx = document.getElementById('scoreDistributionChart').getContext('2d');
+        
+        // 等级颜色定义 - 按照后端数据顺序：['特优(95%+)', '优秀(85%-95%)', '良好(70%-85%)', '及格(60%-70%)', '不及格(<60%)']
+        const gradeColors = [
+            '#10B981',  // 特优 - 翠绿色
+            '#3B82F6',  // 优秀 - 蓝色  
+            '#F59E0B',  // 良好 - 橙色
+            '#EF4444',  // 及格 - 红色
+            '#6B7280'   // 不及格 - 灰色
+        ];
+        
+        // 准备饼图数据
+        const pieLabels = chartData.score_ranges;
+        const pieData = chartData.score_distribution;
+        
+        // 检查数据有效性
+        if (!pieLabels || !pieData || pieLabels.length === 0 || pieData.length === 0) {
+            console.error('饼图数据无效:', { pieLabels, pieData });
+            return;
+        }
+        
+        new Chart(scoreDistributionCtx, {
+            type: 'doughnut',
+            data: {
+                labels: pieLabels,
+                datasets: [{
+                    data: pieData,
+                    backgroundColor: gradeColors,
+                    borderColor: '#fff',
+                    borderWidth: 3,
+                    hoverBorderWidth: 5,
+                    hoverOffset: 10
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: {
+                    animateRotate: true,
+                    duration: 2000,
+                    easing: 'easeInOutQuart'
+                },
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 20,
+                            usePointStyle: true,
+                            font: {
+                                size: 15,
+                                weight: '500'
+                            }
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0,0,0,0.8)',
+                        titleColor: '#fff',
+                        bodyColor: '#fff',
+                        borderColor: primaryColor,
+                        borderWidth: 1,
+                        cornerRadius: 8,
+                        callbacks: {
+                            label: function(context) {
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((context.parsed / total) * 100).toFixed(1);
+                                return context.label + ': ' + context.parsed + '人 (' + percentage + '%)';
+                            }
+                        }
+                    }
+                },
+                cutout: '60%' // 制作甜甜圈样式
+            }
+        });
+
+        // 5. 各班级等级分布堆叠柱状图
+        const classGradeDistributionCtx = document.getElementById('classGradeDistributionChart').getContext('2d');
+        // 标签顺序：从底部到顶部（不及格→及格→良好→优秀→特优）
+        const gradeLabels = ['不及格(<60%)', '及格(60%-70%)', '良好(70%-85%)', '优秀(85%-95%)', '特优(95%+)'];
+        const stackedBarColors = [
+            'rgba(107,114,128,0.8)', // 灰色 - 不及格（底部）
+            'rgba(239,68,68,0.8)',   // 红色 - 及格
+            'rgba(245,158,11,0.8)',  // 橙色 - 良好
+            'rgba(59,130,246,0.8)',  // 蓝色 - 优秀
+            'rgba(16,185,129,0.8)'   // 绿色 - 特优（顶部）
+        ];
+
+        new Chart(classGradeDistributionCtx, {
+            type: 'bar',
+            data: {
+                labels: chartData.class_names,
+                datasets: gradeLabels.map((label, index) => ({
+                    label: label,
+                    data: chartData.class_names.map(className => chartData.class_grade_distribution[className][index]),
+                    backgroundColor: stackedBarColors[index],
+                    borderColor: stackedBarColors[index].replace('0.8', '1'),
+                    borderWidth: 1,
+                    borderRadius: 4
+                }))
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        stacked: true,
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            color: '#6c757d',
+                            font: {
+                                size: 14
+                            }
+                        }
+                    },
+                    y: {
+                        title: {
+                                display: true,
+                                text: '学生人数',
+                                color: '#6c757d',
+                                font: {
+                                    size: 15,
+                                    weight: '500'
+                                }
+                            },
+                        stacked: true,
+                        beginAtZero: true,
+                        grid: {
+                            color: 'rgba(0,0,0,0.1)'
+                        },
+                        ticks: {
+                            color: '#6c757d',
+                            font: {
+                                size: 15
+                            },
+                            callback: function(value) {
+                                return Number.isInteger(value) ? value : " ";
+                            }
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        reverse: true,  // 反转图例顺序，让特优显示在最上方
+                        labels: {
+                            padding: 15,
+                            usePointStyle: true,
+                            font: {
+                                size: 12
+                            }
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0,0,0,0.8)',
+                        titleColor: '#fff',
+                        bodyColor: '#fff',
+                        borderColor: primaryColor,
+                        borderWidth: 1,
+                        cornerRadius: 8,
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': ' + context.parsed.y + '人';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // 6. 各科目难度系数折线图
+        const difficultyCtx = document.getElementById('difficultyChart').getContext('2d');
+        new Chart(difficultyCtx, {
+            type: 'line',
+            data: {
+                labels: chartData.subject_names,
+                datasets: [{
+                    label: '难度系数',
+                    data: chartData.difficulty_coefficients,
+                    backgroundColor: primaryColorAlpha,
+                    borderColor: primaryColor,
+                    borderWidth: 3,
+                    pointBackgroundColor: primaryColor,
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointRadius: 6,
+                    pointHoverBackgroundColor: '#fff',
+                    pointHoverBorderColor: primaryColor,
+                    pointHoverRadius: 8,
+                    tension: 0.3,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0,0,0,0.8)',
+                        titleColor: '#fff',
+                        bodyColor: '#fff',
+                        borderColor: primaryColor,
+                        borderWidth: 1,
+                        cornerRadius: 8,
+                        callbacks: {
+                            label: function(context) {
+                                return '难度系数: ' + context.parsed.y.toFixed(3);
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 1,
+                        grid: {
+                            color: 'rgba(0,0,0,0.1)'
+                        },
+                        ticks: {
+                            color: '#6c757d',
+                            font: {
+                                size: 18
+                            },
+                            callback: function(value) {
+                                return value.toFixed(2);
+                            }
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            color: '#6c757d',
+                            font: {
+                                size: 18
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        {% endif %}
+
+        // 表格排序功能
+        initTableSorting();
+    });
+
+    // 表格排序功能实现
+    function initTableSorting() {
+        const table = document.getElementById('gradeComparisonTable');
+        if (!table) return;
+
+        const headers = table.querySelectorAll('.sortable');
+        let currentSort = { column: -1, direction: 'asc' };
+
+        headers.forEach((header, index) => {
+            header.addEventListener('click', function() {
+                const column = parseInt(this.dataset.column);
+                
+                // 重置所有列的排序样式
+                headers.forEach(h => {
+                    h.classList.remove('sort-asc', 'sort-desc');
+                });
+
+                // 确定排序方向
+                if (currentSort.column === column) {
+                    currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+                } else {
+                    currentSort.direction = 'asc';
+                }
+                currentSort.column = column;
+
+                // 添加当前列的排序样式
+                this.classList.add(currentSort.direction === 'asc' ? 'sort-asc' : 'sort-desc');
+
+                // 执行排序
+                sortTable(column, currentSort.direction);
+            });
+        });
+    }
+
+    function sortTable(columnIndex, direction) {
+        const tbody = document.getElementById('gradeTableBody');
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+
+        rows.sort((a, b) => {
+            const aCell = a.cells[columnIndex];
+            const bCell = b.cells[columnIndex];
+            
+            // 数值排序
+            const aValue = parseFloat(aCell.dataset.value || aCell.textContent);
+            const bValue = parseFloat(bCell.dataset.value || bCell.textContent);
+            
+            if (direction === 'asc') {
+                return aValue - bValue;
+            } else {
+                return bValue - aValue;
+            }
+        });
+
+        // 重新插入排序后的行
+        rows.forEach(row => tbody.appendChild(row));
+    }
+</script>
+{% endblock %}

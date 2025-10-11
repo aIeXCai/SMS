@@ -1,0 +1,583 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }} - 学校管理系统{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+<style>
+    .page-header {
+        background: rgb(1,135, 108);
+        color: white;
+        padding: 2rem 0;
+        margin-bottom: 2rem;
+        border-radius: 10px;
+    }
+
+    .page-header h1 {
+        margin: 0;
+        font-weight: 600;
+    }
+
+    .import-card {
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+        border-left: 4px solid #28a745;
+    }
+
+    .import-card .card-header {
+        background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+        border-bottom: 1px solid #c3e6cb;
+        padding: 1.5rem;
+    }
+
+    .import-card .card-body {
+        padding: 2rem;
+    }
+
+    .info-box {
+        background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%);
+        border: 1px solid #bee5eb;
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .info-box .info-icon {
+        font-size: 2rem;
+        color: #0c5460;
+        margin-bottom: 1rem;
+    }
+
+    .template-download {
+        background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+        border: 1px solid #ffeaa7;
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        text-align: center;
+    }
+
+    .file-upload-area {
+        border: 2px dashed #28a745;
+        border-radius: 10px;
+        padding: 2rem;
+        text-align: center;
+        background: #f8f9fa;
+        transition: all 0.3s ease;
+        margin-bottom: 2rem;
+    }
+
+    .file-upload-area:hover {
+        border-color: #20c997;
+        background: #e9ecef;
+    }
+
+    .file-upload-area.dragover {
+        border-color: #007bff;
+        background: #e3f2fd;
+    }
+
+    .file-input {
+        display: none;
+    }
+
+    .file-info {
+        margin-top: 1rem;
+        padding: 1rem;
+        background: #e9ecef;
+        border-radius: 8px;
+        display: none;
+    }
+
+    .btn-custom {
+        padding: 0.75rem 2rem;
+        font-weight: 500;
+        border-radius: 25px;
+        transition: all 0.3s ease;
+        min-width: 150px;
+    }
+
+    .btn-custom:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .btn-success-custom {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        border: none;
+        color: white;
+    }
+
+    .btn-success-custom:hover {
+        background: linear-gradient(135deg, #20c997 0%, #17a2b8 100%);
+        color: white;
+    }
+
+    .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        display: none;
+        z-index: 9999;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .loading-content {
+        background: white;
+        padding: 2rem;
+        border-radius: 10px;
+        text-align: center;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .spinner {
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #28a745;
+        border-radius: 50%;
+        width: 50px;
+        height: 50px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 1rem;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    .progress-container {
+        margin-top: 1rem;
+        display: none;
+    }
+
+    .result-item {
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #eee;
+    }
+
+    .result-item:last-child {
+        border-bottom: none;
+    }
+
+    .success-text { color: #28a745; }
+    .error-text { color: #dc3545; }
+    .warning-text { color: #ffc107; }
+
+    @media (max-width: 768px) {
+        .page-header {
+            padding: 1rem 0;
+            margin-bottom: 1rem;
+        }
+        
+        .import-card .card-body {
+            padding: 1rem;
+        }
+        
+        .file-upload-area {
+            padding: 1rem;
+        }
+        
+        .btn-custom {
+            width: 100%;
+            margin-bottom: 0.5rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- 页面头部 -->
+<div class="page-header">
+    <div class="container-fluid">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1>
+                    <i class="fas fa-file-import me-3"></i>{{ title }}
+                </h1>
+                <p class="mb-0 opacity-75">批量导入学生信息，支持Excel文件格式</p>
+            </div>
+            <div class="col-md-4 text-end">
+                <a href="{% url 'students_grades:student_list' %}" class="btn btn-outline-light">
+                    <i class="fas fa-arrow-left me-1"></i>返回列表
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <!-- 导入说明卡片 -->
+            <div class="card import-card">
+                <div class="card-header">
+                    <h5 class="mb-0 text-success">
+                        <i class="fas fa-info-circle me-2"></i>导入说明
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- 使用说明 -->
+                    <div class="info-box">
+                        <div class="text-center mb-3">
+                            <div class="info-icon">
+                                <i class="fas fa-lightbulb"></i>
+                            </div>
+                            <h6 class="text-info fw-bold mb-2">使用说明</h6>
+                            <p class="mb-0 text-muted">请选择一个 Excel 文件进行学生数据批量导入。文件应包含学生学号、姓名、性别、年级、班级等信息。</p>
+                        </div>
+                        
+                        <!-- 必填字段说明 -->
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6 class="text-danger fw-bold mb-2">
+                                    <i class="fas fa-exclamation-triangle me-1"></i>必填字段 (必须填写)
+                                </h6>
+                                <ul class="list-unstyled text-danger mb-0">
+                                    <li><i class="fas fa-star me-1"></i><strong>学号</strong> - 学生唯一标识</li>
+                                    <li><i class="fas fa-star me-1"></i><strong>姓名</strong> - 学生姓名</li>
+                                    <li><i class="fas fa-star me-1"></i><strong>年级</strong> - 学生所在年级</li>
+                                    <li><i class="fas fa-star me-1"></i><strong>班级名称</strong> - 学生所在班级</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <h6 class="text-secondary fw-bold mb-2">
+                                    <i class="fas fa-info-circle me-1"></i>可选字段 (可以留空)
+                                </h6>
+                                <ul class="list-unstyled text-muted mb-0 small">
+                                    <li><i class="fas fa-circle me-1" style="font-size: 0.3rem;"></i>性别、出生日期、身份证号码</li>
+                                    <li><i class="fas fa-circle me-1" style="font-size: 0.3rem;"></i>学籍号、家庭地址</li>
+                                    <li><i class="fas fa-circle me-1" style="font-size: 0.3rem;"></i>监护人信息、入学日期等</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 模板下载 -->
+                    <div class="template-download">
+                        <h6 class="text-warning fw-bold mb-3">
+                            <i class="fas fa-download me-2"></i>下载导入模板
+                        </h6>
+                        <p class="mb-2 text-muted">请使用提供的模板文件，以确保数据格式正确。模板包含了所有必需的字段和格式要求。</p>
+                        <div class="small text-muted mb-3">
+                            <i class="fas fa-info-circle me-1"></i>
+                            模板中已标明必填字段（学号、姓名、年级、班级），其他字段可根据实际情况填写
+                        </div>
+                        <a href="{% url 'students_grades:download_student_import_template' %}" target="_blank" class="btn btn-warning btn-custom">
+                            <i class="fas fa-file-excel me-2"></i>下载Excel模板
+                        </a>
+                    </div>
+                    
+                    <!-- 文件上传区域 -->
+                    <form id="importForm" method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        <div class="file-upload-area" id="fileUploadArea">
+                            <div class="upload-icon mb-3">
+                                <i class="fas fa-cloud-upload-alt" style="font-size: 3rem; color: #28a745;"></i>
+                            </div>
+                            <h5 class="mb-2">拖拽文件到此处或点击选择文件</h5>
+                            <p class="text-muted mb-3">支持 .xlsx, .xls 格式的Excel文件</p>
+                            <input type="file" id="fileInput" name="file" class="file-input" accept=".xlsx,.xls" required>
+                            <button type="button" class="btn btn-outline-success" onclick="document.getElementById('fileInput').click()">
+                                <i class="fas fa-folder-open me-2"></i>选择文件
+                            </button>
+                        </div>
+                        
+                        <!-- 文件信息显示 -->
+                        <div class="file-info" id="fileInfo">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-file-excel text-success me-2"></i>
+                                <span id="fileName"></span>
+                                <span class="badge bg-secondary ms-2" id="fileSize"></span>
+                                <button type="button" class="btn btn-sm btn-outline-danger ms-auto" onclick="clearFile()">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- 进度条 -->
+                        <div class="progress-container" id="progressContainer">
+                            <div class="progress mb-2">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated" id="progressBar" role="progressbar" style="width: 0%"></div>
+                            </div>
+                            <small class="text-muted" id="progressText">准备上传...</small>
+                        </div>
+                        
+                        <!-- 操作按钮 -->
+                        <div class="d-flex justify-content-center gap-3 mt-4">
+                            <button type="submit" class="btn btn-success-custom btn-custom" id="importBtn" disabled>
+                                <i class="fas fa-upload me-2"></i>开始导入
+                            </button>
+                            <a href="{% url 'students_grades:student_list' %}" class="btn btn-outline-secondary btn-custom">
+                                <i class="fas fa-times me-2"></i>取消操作
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 加载遮罩 -->
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-content">
+        <div class="spinner"></div>
+        <h5>正在处理文件...</h5>
+        <p class="text-muted mb-0">请稍候，正在导入学生数据</p>
+    </div>
+</div>
+
+<!-- 结果模态框 -->
+<div class="modal fade" id="resultModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalTitle">
+                    <i class="fas fa-check-circle text-success me-2"></i>导入结果
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="modalContent">
+                <!-- 动态内容 -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>关闭
+                </button>
+                <button type="button" class="btn btn-primary" onclick="goToStudentList()">
+                    <i class="fas fa-list me-1"></i>查看学生列表
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const fileInput = document.getElementById('fileInput');
+    const fileUploadArea = document.getElementById('fileUploadArea');
+    const fileInfo = document.getElementById('fileInfo');
+    const fileName = document.getElementById('fileName');
+    const fileSize = document.getElementById('fileSize');
+    const importBtn = document.getElementById('importBtn');
+    const importForm = document.getElementById('importForm');
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const progressContainer = document.getElementById('progressContainer');
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progressText');
+    
+    // 文件选择事件
+    fileInput.addEventListener('change', function(e) {
+        handleFileSelect(e.target.files[0]);
+    });
+    
+    // 拖拽事件
+    fileUploadArea.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        fileUploadArea.classList.add('dragover');
+    });
+    
+    fileUploadArea.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        fileUploadArea.classList.remove('dragover');
+    });
+    
+    fileUploadArea.addEventListener('drop', function(e) {
+        e.preventDefault();
+        fileUploadArea.classList.remove('dragover');
+        
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            handleFileSelect(files[0]);
+        }
+    });
+    
+    // 处理文件选择
+    function handleFileSelect(file) {
+        if (!file) return;
+        
+        // 验证文件类型
+        const allowedTypes = ['.xlsx', '.xls'];
+        const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
+        
+        if (!allowedTypes.includes(fileExtension)) {
+            alert('请选择Excel文件（.xlsx 或 .xls 格式）');
+            return;
+        }
+        
+        // 验证文件大小（限制为10MB）
+        const maxSize = 10 * 1024 * 1024; // 10MB
+        if (file.size > maxSize) {
+            alert('文件大小不能超过10MB');
+            return;
+        }
+        
+        // 显示文件信息
+        fileName.textContent = file.name;
+        fileSize.textContent = formatFileSize(file.size);
+        fileInfo.style.display = 'block';
+        importBtn.disabled = false;
+        
+        // 更新文件输入框
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        fileInput.files = dt.files;
+    }
+    
+    // 清除文件
+    window.clearFile = function() {
+        fileInput.value = '';
+        fileInfo.style.display = 'none';
+        importBtn.disabled = true;
+        progressContainer.style.display = 'none';
+    }
+    
+    // 格式化文件大小
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+    
+    // 表单提交
+    importForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        if (!fileInput.files[0]) {
+            alert('请先选择文件');
+            return;
+        }
+        
+        const formData = new FormData(this);
+        
+        // 显示加载遮罩
+        loadingOverlay.style.display = 'flex';
+        progressContainer.style.display = 'block';
+        importBtn.disabled = true;
+        
+        // 模拟进度更新
+        let progress = 0;
+        const progressInterval = setInterval(() => {
+            progress += Math.random() * 15;
+            if (progress > 90) progress = 90;
+            progressBar.style.width = progress + '%';
+            progressText.textContent = `上传进度: ${Math.round(progress)}%`;
+        }, 200);
+        
+        fetch('{% url "students_grades:student_batch_import" %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            clearInterval(progressInterval);
+            progressBar.style.width = '100%';
+            progressText.textContent = '处理完成';
+            
+            setTimeout(() => {
+                loadingOverlay.style.display = 'none';
+                showResultModal(data);
+                importBtn.disabled = false;
+            }, 500);
+        })
+        .catch(error => {
+            clearInterval(progressInterval);
+            loadingOverlay.style.display = 'none';
+            importBtn.disabled = false;
+            
+            showResultModal({
+                success: false,
+                error: '网络错误或服务器异常: ' + error.message
+            });
+        });
+    });
+    
+    // 显示结果模态框
+    function showResultModal(data) {
+        const modal = new bootstrap.Modal(document.getElementById('resultModal'));
+        const modalTitle = document.getElementById('modalTitle');
+        const modalContent = document.getElementById('modalContent');
+        
+        let content = '';
+        
+        if (data.success) {
+            modalTitle.innerHTML = '<i class="fas fa-check-circle text-success me-2"></i>导入成功';
+            
+            // 成功统计
+            content += `
+                <div class="alert alert-success" role="alert">
+                    <h5 class="alert-heading"><i class="fas fa-check-circle me-2"></i>导入完成！</h5>
+                    <p class="mb-1">成功导入 <strong>${data.imported_count}</strong> 条学生记录</p>
+                    ${data.failed_count > 0 ? `<p class="mb-0">失败记录 <strong>${data.failed_count}</strong> 条</p>` : ''}
+                </div>
+            `;
+            
+            // 成功记录
+            if (data.success_messages && data.success_messages.length > 0) {
+                content += '<div class="mb-3">';
+                content += '<h6 class="text-success"><i class="fas fa-check me-1"></i>成功记录</h6>';
+                content += '<div class="border rounded p-2" style="max-height: 200px; overflow-y: auto;">';
+                data.success_messages.forEach(msg => {
+                    content += `<div class="result-item success-text"><i class="fas fa-check-circle me-1"></i>${msg}</div>`;
+                });
+                content += '</div></div>';
+            }
+            
+            // 错误记录
+            if (data.error_messages && data.error_messages.length > 0) {
+                content += '<div class="mb-3">';
+                content += '<h6 class="text-danger"><i class="fas fa-times me-1"></i>错误记录</h6>';
+                content += '<div class="border rounded p-2" style="max-height: 200px; overflow-y: auto;">';
+                data.error_messages.forEach(msg => {
+                    content += `<div class="result-item error-text"><i class="fas fa-times-circle me-1"></i>${msg}</div>`;
+                });
+                content += '</div></div>';
+            }
+            
+            // 警告信息
+            if (data.warning_messages && data.warning_messages.length > 0) {
+                content += '<div class="mb-3">';
+                content += '<h6 class="text-warning"><i class="fas fa-exclamation-triangle me-1"></i>警告信息</h6>';
+                content += '<div class="border rounded p-2" style="max-height: 200px; overflow-y: auto;">';
+                data.warning_messages.forEach(msg => {
+                    content += `<div class="result-item warning-text"><i class="fas fa-exclamation-triangle me-1"></i>${msg}</div>`;
+                });
+                content += '</div></div>';
+            }
+        } else {
+            modalTitle.innerHTML = '<i class="fas fa-times-circle text-danger me-2"></i>导入失败';
+            content += `
+                <div class="alert alert-danger" role="alert">
+                    <h5 class="alert-heading"><i class="fas fa-times-circle me-2"></i>导入失败！</h5>
+                    <p class="mb-0">${data.error}</p>
+                </div>
+            `;
+        }
+        
+        modalContent.innerHTML = content;
+        modal.show();
+    }
+    
+    // 跳转到学生列表
+    window.goToStudentList = function() {
+        window.location.href = '{% url "students_grades:student_list" %}';
+    }
+});
+</script>
+{% endblock %}

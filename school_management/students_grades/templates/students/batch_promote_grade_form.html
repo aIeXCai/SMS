@@ -1,0 +1,712 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }} - 学校管理系统{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+<style>
+    .page-header {
+        background: rgb(1,135, 108);
+        color: white;
+        padding: 2rem 0;
+        margin-bottom: 2rem;
+        border-radius: 10px;
+    }
+
+    .page-header h1 {
+        margin: 0;
+        font-weight: 600;
+    }
+
+    .promote-card {
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+        border-left: 4px solid #17a2b8;
+    }
+
+    .promote-card .card-header {
+        background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%);
+        border-bottom: 1px solid #bee5eb;
+        padding: 1.5rem;
+    }
+
+    .promote-card .card-body {
+        padding: 2rem;
+    }
+
+    .info-box {
+        background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+        border: 1px solid #c3e6cb;
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        text-align: center;
+    }
+
+    .info-box .info-icon {
+        font-size: 2.5rem;
+        color: #155724;
+        margin-bottom: 1rem;
+    }
+
+    .warning-box {
+        background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+        border: 1px solid #ffeaa7;
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .warning-box .warning-icon {
+        font-size: 2rem;
+        color: #856404;
+        margin-bottom: 1rem;
+    }
+
+    .form-floating {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-floating > .form-control {
+        height: calc(3.5rem + 2px);
+        line-height: 1.25;
+        border-radius: 10px;
+        border: 2px solid #e9ecef;
+        transition: all 0.3s ease;
+    }
+
+    .form-floating > .form-control:focus {
+        border-color: #17a2b8;
+        box-shadow: 0 0 0 0.2rem rgba(23, 162, 184, 0.25);
+    }
+
+    .form-floating > label {
+        padding: 1rem 0.75rem;
+        color: #6c757d;
+    }
+
+    /* 优化选择框样式 */
+    .form-group-custom {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-group-custom label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+        color: #495057;
+        font-size: 0.95rem;
+    }
+
+    .form-group-custom .form-select {
+        height: calc(3.5rem + 2px);
+        padding: 1rem 0.75rem;
+        border-radius: 10px;
+        border: 2px solid #e9ecef;
+        transition: all 0.3s ease;
+        background-color: #fff;
+        font-size: 1rem;
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m1 6 7 7 7-7'/%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right 0.75rem center;
+        background-size: 16px 12px;
+    }
+
+    .form-group-custom .form-select:focus {
+        border-color: #17a2b8;
+        box-shadow: 0 0 0 0.2rem rgba(23, 162, 184, 0.25);
+        outline: 0;
+    }
+
+    .form-group-custom .form-select:hover {
+        border-color: #17a2b8;
+    }
+
+    .form-group-custom .form-text {
+        margin-top: 0.25rem;
+        font-size: 0.875rem;
+        color: #6c757d;
+    }
+
+    .form-group-custom .invalid-feedback {
+        margin-top: 0.25rem;
+        font-size: 0.875rem;
+        color: #dc3545;
+    }
+
+    /* 优化开关样式 */
+    .form-check-input:checked {
+        background-color: #17a2b8;
+        border-color: #17a2b8;
+    }
+
+    .form-check-input:focus {
+        border-color: #17a2b8;
+        outline: 0;
+        box-shadow: 0 0 0 0.2rem rgba(23, 162, 184, 0.25);
+    }
+
+    .form-switch .form-check-input {
+        width: 2em;
+        margin-left: -2.5em;
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='rgba%28255,255,255,1%29'/%3e%3c/svg%3e");
+        background-position: left center;
+        border-radius: 2em;
+        transition: background-position .15s ease-in-out;
+    }
+
+    .form-switch .form-check-input:checked {
+        background-position: right center;
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='rgba%28255,255,255,1%29'/%3e%3c/svg%3e");
+    }
+
+    /* 优化确认框样式 */
+    .alert-warning {
+        background-color: rgba(255, 243, 205, 0.8);
+        border-color: #ffeaa7;
+        border-left: 4px solid #f39c12;
+    }
+
+    .alert-warning .form-check-label {
+        color: #856404;
+        line-height: 1.5;
+    }
+
+    .alert-warning .form-check-input {
+        margin-top: 0.125rem;
+    }
+
+    .btn-custom {
+        padding: 0.75rem 2rem;
+        font-weight: 500;
+        border-radius: 25px;
+        transition: all 0.3s ease;
+        min-width: 150px;
+    }
+
+    .btn-custom:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .btn-info-custom {
+        background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+        border: none;
+        color: white;
+    }
+
+    .btn-info-custom:hover {
+        background: linear-gradient(135deg, #138496 0%, #117a8b 100%);
+        color: white;
+    }
+
+    .selected-students-preview {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        border-left: 4px solid #007bff;
+    }
+
+    .student-count {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #007bff;
+    }
+
+    @media (max-width: 768px) {
+        .page-header {
+            padding: 1rem 0;
+            margin-bottom: 1rem;
+        }
+        
+        .promote-card .card-body {
+            padding: 1rem;
+        }
+        
+        .btn-custom {
+            width: 100%;
+            margin-bottom: 0.5rem;
+        }
+        
+        .info-box, .warning-box {
+            padding: 1rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- 页面头部 -->
+<div class="page-header">
+    <div class="container-fluid">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1>
+                    <i class="fas fa-level-up-alt me-3"></i>{{ title }}
+                </h1>
+                <p class="mb-0 opacity-75">批量升级学生年级，自动调整班级信息</p>
+            </div>
+            <div class="col-md-4 text-end">
+                <a href="{% url 'students_grades:student_list' %}" class="btn btn-outline-light">
+                    <i class="fas fa-arrow-left me-1"></i>返回列表
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 消息提示 -->
+{% if messages %}
+<div class="container-fluid mb-3">
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">
+        <i class="fas fa-info-circle me-2"></i>{{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <!-- 升年级操作卡片 -->
+            <div class="card promote-card">
+                <div class="card-header">
+                    <h5 class="mb-0 text-info">
+                        <i class="fas fa-graduation-cap me-2"></i>批量升年级操作
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- 选中学生信息 -->
+                    <div class="selected-students-preview text-center">
+                        <div class="row align-items-center">
+                            <div class="col-md-4">
+                                <div class="student-count" id="selectedCount">0</div>
+                                <small class="text-muted">选中学生</small>
+                            </div>
+                            <div class="col-md-8">
+                                <h6 class="mb-2">
+                                    <i class="fas fa-users text-primary me-2"></i>已选择学生
+                                </h6>
+                                <p class="mb-0 text-muted">您已选择了 <span class="fw-bold text-primary" id="selectedCountText">0</span> 名学生进行升年级操作</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 操作说明 -->
+                    <div class="info-box">
+                        <div class="info-icon">
+                            <i class="fas fa-lightbulb"></i>
+                        </div>
+                        <h6 class="text-success fw-bold mb-2">操作说明</h6>
+                        <p class="mb-0 text-muted">升年级操作将自动为学生分配到对应年级的班级。如果目标班级不存在，系统将自动创建新班级。</p>
+                    </div>
+                    
+                    <!-- 警告提示 -->
+                    <div class="warning-box">
+                        <div class="warning-icon text-center">
+                            <i class="fas fa-exclamation-triangle"></i>
+                        </div>
+                        <h6 class="text-warning fw-bold mb-2">
+                            <i class="fas fa-exclamation-triangle me-2"></i>重要提示
+                        </h6>
+                        <ul class="mb-0 text-muted">
+                            <li>升年级操作将修改学生所属班级信息</li>
+                            <li>如果目标班级不存在，系统可能会自动创建</li>
+                            <li>此操作执行后不可撤销，请谨慎操作</li>
+                            <li>建议在操作前备份相关数据</li>
+                        </ul>
+                    </div>
+                    
+                    <!-- 升年级表单 -->
+                    <form method="post" id="promoteForm">
+                        {% csrf_token %}
+                        
+                        <!-- 年级选择 -->
+                        <div class="form-group-custom">
+                            {% for field in form %}
+                                {% if field.name == 'target_grade_level' %}
+                                    <label for="{{ field.id_for_label }}" class="form-label">
+                                        <i class="fas fa-graduation-cap me-2 text-info"></i>{{ field.label }}
+                                    </label>
+                                    <select class="form-select" name="{{ field.name }}" id="{{ field.id_for_label }}" required>
+                                        {% for choice in field.field.choices %}
+                                            <option value="{{ choice.0 }}" {% if choice.0 == field.value %}selected{% endif %}>{{ choice.1 }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    {% if field.help_text %}
+                                        <div class="form-text">
+                                            <i class="fas fa-info-circle me-1"></i>{{ field.help_text }}
+                                        </div>
+                                    {% endif %}
+                                    {% if field.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            <i class="fas fa-exclamation-triangle me-1"></i>
+                                            {% for error in field.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                        
+                        <!-- 当前年级选择（可选） -->
+                        <div class="form-group-custom">
+                            {% for field in form %}
+                                {% if field.name == 'current_grade_level' %}
+                                    <label for="{{ field.id_for_label }}" class="form-label">
+                                        <i class="fas fa-filter me-2 text-secondary"></i>{{ field.label }}
+                                    </label>
+                                    <select class="form-select" name="{{ field.name }}" id="{{ field.id_for_label }}">
+                                        <option value="">请选择当前年级（可选）</option>
+                                        {% for choice in field.field.choices %}
+                                            <option value="{{ choice.0 }}" {% if choice.0 == field.value %}selected{% endif %}>{{ choice.1 }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    {% if field.help_text %}
+                                        <div class="form-text">
+                                            <i class="fas fa-info-circle me-1"></i>{{ field.help_text }}
+                                        </div>
+                                    {% endif %}
+                                    {% if field.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            <i class="fas fa-exclamation-triangle me-1"></i>
+                                            {% for error in field.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                        
+                        <!-- 自动创建班级选项 -->
+                        <div class="form-group-custom">
+                            <div class="form-check form-switch">
+                                {% for field in form %}
+                                    {% if field.name == 'auto_create_classes' %}
+                                        <input type="checkbox" class="form-check-input" name="{{ field.name }}" id="{{ field.id_for_label }}" {% if field.value %}checked{% endif %}>
+                                        <label class="form-check-label fw-medium" for="{{ field.id_for_label }}">
+                                            <i class="fas fa-plus-circle me-2 text-success"></i>{{ field.label }}
+                                        </label>
+                                        {% if field.help_text %}
+                                            <div class="form-text mt-2">
+                                                <i class="fas fa-info-circle me-1"></i>{{ field.help_text }}
+                                            </div>
+                                        {% endif %}
+                                        {% if field.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                <i class="fas fa-exclamation-triangle me-1"></i>
+                                                {% for error in field.errors %}
+                                                    {{ error }}
+                                                {% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                        </div>
+                        
+                        <!-- 确认复选框 -->
+                        <div class="form-group-custom">
+                            <div class="alert alert-warning d-flex align-items-start" role="alert">
+                                <div class="form-check">
+                                    <input class="form-check-input mt-1" type="checkbox" id="confirmPromote" required>
+                                    <label class="form-check-label fw-medium" for="confirmPromote">
+                                        <i class="fas fa-shield-alt me-2 text-warning"></i>
+                                        <strong>确认操作：</strong>我已了解升年级操作的影响，确认要为选中的学生执行升年级操作
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 隐藏的学生ID字段 -->
+                        <div id="hiddenSelectedStudents"></div>
+                        
+                        <!-- 操作按钮 -->
+                        <div class="d-flex justify-content-center gap-3">
+                            <button type="submit" class="btn btn-info-custom btn-custom" id="promoteBtn" disabled>
+                                <i class="fas fa-level-up-alt me-2"></i>确认升年级
+                            </button>
+                            <a href="{% url 'students_grades:student_list' %}" class="btn btn-outline-secondary btn-custom">
+                                <i class="fas fa-times me-2"></i>取消操作
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 批量升年级确认模态窗口 -->
+<div class="modal fade" id="batchPromoteConfirmModal" tabindex="-1" aria-labelledby="batchPromoteConfirmModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title" id="batchPromoteConfirmModalLabel">
+                    <i class="fas fa-exclamation-triangle me-2"></i>确认升年级操作
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center mb-3">
+                    <i class="fas fa-level-up-alt text-warning" style="font-size: 3rem;"></i>
+                </div>
+                <p class="text-center mb-3" id="batchPromoteConfirmMessage">确认要执行升年级操作吗？</p>
+                <div class="alert alert-warning mb-0">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>注意：</strong>此操作将修改学生的班级信息，且不可撤销！
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>取消
+                </button>
+                <button type="button" class="btn btn-warning" id="confirmBatchPromoteBtn">
+                    <i class="fas fa-level-up-alt me-1"></i>确认升年级
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 提示选择学生模态窗口 -->
+<div class="modal fade" id="noStudentSelectedModal" tabindex="-1" aria-labelledby="noStudentSelectedModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title" id="noStudentSelectedModalLabel">
+                    <i class="fas fa-exclamation-triangle me-2"></i>提示
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center mb-3">
+                    <i class="fas fa-users text-warning" style="font-size: 3rem;"></i>
+                </div>
+                <p class="text-center mb-3">您尚未选择学生，请先返回学生列表选择需要升年级的学生。</p>
+                <div class="alert alert-info mb-0">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>操作提示：</strong>请在学生列表页面选择需要升年级的学生后，再进入此页面进行操作。
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-warning" id="goToStudentListBtn">
+                    <i class="fas fa-arrow-left me-1"></i>返回学生列表
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 批量操作结果模态窗口 -->
+<div class="modal fade" id="batchOperationResultModal" tabindex="-1" aria-labelledby="batchOperationResultModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header" id="resultModalHeader">
+                <h5 class="modal-title" id="batchOperationResultModalLabel">
+                    <i class="fas fa-info-circle me-2"></i>操作结果
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center mb-3">
+                    <i id="resultIcon" class="fas fa-check-circle text-success" style="font-size: 3rem;"></i>
+                </div>
+                <p class="text-center mb-3" id="resultMessage">操作完成</p>
+                <div id="resultDetails" class="alert alert-info" style="display: none;">
+                    <!-- 详细信息将在这里显示 -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal" id="resultOkBtn">
+                    <i class="fas fa-check me-1"></i>确定
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const confirmCheckbox = document.getElementById('confirmPromote');
+    const promoteBtn = document.getElementById('promoteBtn');
+    const promoteForm = document.getElementById('promoteForm');
+    const selectedCountSpan = document.getElementById('selectedCount');
+    const selectedCountText = document.getElementById('selectedCountText');
+    const hiddenDiv = document.getElementById('hiddenSelectedStudents');
+    
+    // 监听确认复选框变化
+    confirmCheckbox.addEventListener('change', function() {
+        promoteBtn.disabled = !this.checked;
+        if (this.checked) {
+            promoteBtn.classList.remove('btn-outline-info');
+            promoteBtn.classList.add('btn-info-custom');
+        } else {
+            promoteBtn.classList.add('btn-outline-info');
+            promoteBtn.classList.remove('btn-info-custom');
+        }
+    });
+    
+    // 从 localStorage 读取选中的学生 ID 并添加到表单中
+    const selectedIdsJson = localStorage.getItem('selectedStudentIdsForPromote');
+    if (selectedIdsJson) {
+        const selectedIds = JSON.parse(selectedIdsJson);
+        
+        selectedIds.forEach(id => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'selected_students'; // 与 views.py 中 getlist('selected_students') 对应
+            input.value = id;
+            hiddenDiv.appendChild(input);
+        });
+        
+        // 更新显示的学生数量
+        selectedCountSpan.textContent = selectedIds.length;
+        selectedCountText.textContent = selectedIds.length;
+        
+        // 用完后清除
+        localStorage.removeItem('selectedStudentIdsForPromote');
+    } else {
+        // 如果没有从列表页跳转过来，显示提示模态窗口
+        const noStudentModal = new bootstrap.Modal(document.getElementById('noStudentSelectedModal'));
+        noStudentModal.show();
+    }
+    
+    // 返回学生列表按钮点击事件
+    document.getElementById('goToStudentListBtn').addEventListener('click', function() {
+        window.location.href = "{% url 'students_grades:student_list' %}";
+    })
+    
+    // 表单提交前最后确认
+    promoteForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        if (!confirmCheckbox.checked) {
+            alert('请先勾选确认复选框！');
+            return false;
+        }
+        
+        const studentCount = selectedCountSpan.textContent;
+        // 显示确认模态窗口
+        document.getElementById('batchPromoteConfirmMessage').textContent = 
+            `最后确认：您真的要为 ${studentCount} 名学生执行升年级操作吗？`;
+        
+        const confirmModal = new bootstrap.Modal(document.getElementById('batchPromoteConfirmModal'));
+        confirmModal.show();
+    });
+    
+    // 确认升年级按钮点击事件
+    document.getElementById('confirmBatchPromoteBtn').addEventListener('click', function() {
+        // 隐藏确认模态窗口
+        const confirmModal = bootstrap.Modal.getInstance(document.getElementById('batchPromoteConfirmModal'));
+        confirmModal.hide();
+        
+        // 提交表单
+        submitBatchPromote();
+    });
+    
+    // AJAX提交批量升年级
+    function submitBatchPromote() {
+        // 显示处理进度
+        promoteBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>处理中...';
+        promoteBtn.disabled = true;
+        
+        // 准备表单数据
+        const formData = new FormData(promoteForm);
+        
+        fetch(promoteForm.action || window.location.href, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            showBatchOperationResult(data);
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showBatchOperationResult({
+                success: false,
+                message: '操作失败，请稍后重试',
+                error: '网络错误或服务器异常'
+            });
+        })
+        .finally(() => {
+            // 恢复按钮状态
+            promoteBtn.innerHTML = '<i class="fas fa-level-up-alt me-2"></i>确认升年级';
+            promoteBtn.disabled = !confirmCheckbox.checked;
+        });
+    }
+    
+    // 显示批量操作结果
+    function showBatchOperationResult(data) {
+        const resultModal = document.getElementById('batchOperationResultModal');
+        const resultModalHeader = document.getElementById('resultModalHeader');
+        const resultIcon = document.getElementById('resultIcon');
+        const resultMessage = document.getElementById('resultMessage');
+        const resultDetails = document.getElementById('resultDetails');
+        const resultOkBtn = document.getElementById('resultOkBtn');
+        
+        if (data.success) {
+            // 成功状态
+            resultModalHeader.className = 'modal-header bg-success text-white';
+            resultIcon.className = 'fas fa-check-circle text-success';
+            resultMessage.textContent = data.message || '升年级操作完成';
+            
+            // 显示详细信息
+            if (data.promoted_count !== undefined) {
+                resultDetails.className = 'alert alert-success';
+                resultDetails.innerHTML = `
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>操作详情：</strong><br>
+                    成功升年级学生数量：${data.promoted_count} 名
+                `;
+                resultDetails.style.display = 'block';
+            }
+            
+            // 确定按钮点击后跳转到学生列表
+            resultOkBtn.onclick = function() {
+                window.location.href = "{% url 'students_grades:student_list' %}";
+            };
+        } else {
+            // 失败状态
+            resultModalHeader.className = 'modal-header bg-danger text-white';
+            resultIcon.className = 'fas fa-times-circle text-danger';
+            resultMessage.textContent = data.message || '升年级操作失败';
+            
+            if (data.error) {
+                resultDetails.className = 'alert alert-danger';
+                resultDetails.innerHTML = `
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>错误信息：</strong><br>
+                    ${data.error}
+                `;
+                resultDetails.style.display = 'block';
+            }
+            
+            // 失败时不自动跳转
+            resultOkBtn.onclick = function() {
+                const modal = bootstrap.Modal.getInstance(resultModal);
+                modal.hide();
+            };
+        }
+        
+        // 显示结果模态窗口
+        const modal = new bootstrap.Modal(resultModal);
+        modal.show();
+    }
+});
+</script>
+{% endblock %}

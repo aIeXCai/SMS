@@ -1,0 +1,149 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}编辑考试 - 第一步{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/edit_exam.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- 步骤指示器 -->
+    <div class="step-indicator">
+        <div class="step active">
+            <div class="step-number">1</div>
+            <span>基本信息</span>
+        </div>
+        <div class="step inactive">
+            <div class="step-number">2</div>
+            <span>科目配置</span>
+        </div>
+    </div>
+
+    <div class="form-container">
+        <h2 class="text-center mb-4">编辑考试 - 基本信息</h2>
+        
+        <!-- 显示当前编辑的考试信息 -->
+        <div class="alert alert-info">
+            <strong>正在编辑：</strong>{{ exam.name }} ({{ exam.get_grade_level_display }})
+        </div>
+        
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <form method="post" id="examForm">
+            {% csrf_token %}
+            
+            <div class="form-group">
+                <label for="{{ form.name.id_for_label }}">{{ form.name.label }}</label>
+                {{ form.name }}
+                {% if form.name.errors %}
+                    <ul class="errorlist">
+                        {% for error in form.name.errors %}
+                            <li>{{ error }}</li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.academic_year.id_for_label }}">{{ form.academic_year.label }}</label>
+                {{ form.academic_year }}
+                {% if form.academic_year.errors %}
+                    <ul class="errorlist">
+                        {% for error in form.academic_year.errors %}
+                            <li>{{ error }}</li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.date.id_for_label }}">{{ form.date.label }}</label>
+                {{ form.date }}
+                {% if form.date.errors %}
+                    <ul class="errorlist">
+                        {% for error in form.date.errors %}
+                            <li>{{ error }}</li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.grade_level.id_for_label }}">{{ form.grade_level.label }}</label>
+                {{ form.grade_level }}
+                {% if form.grade_level.errors %}
+                    <ul class="errorlist">
+                        {% for error in form.grade_level.errors %}
+                            <li>{{ error }}</li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.description.id_for_label }}">{{ form.description.label }}</label>
+                {{ form.description }}
+                {% if form.description.errors %}
+                    <ul class="errorlist">
+                        {% for error in form.description.errors %}
+                            <li>{{ error }}</li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+            </div>
+
+            <div class="button-group">
+                <a href="{% url 'students_grades:exam_list' %}" class="btn btn-secondary">取消</a>
+                <button type="submit" class="btn btn-primary">下一步</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// 表单验证
+document.getElementById('examForm').addEventListener('submit', function(e) {
+    const name = document.getElementById('id_name').value.trim();
+    const academicYear = document.getElementById('id_academic_year').value;
+    const date = document.getElementById('id_date').value;
+    const gradeLevel = document.getElementById('id_grade_level').value;
+    
+    if (!name) {
+        alert('请输入考试名称');
+        e.preventDefault();
+        return;
+    }
+    
+    if (!academicYear) {
+        alert('请选择学年');
+        e.preventDefault();
+        return;
+    }
+    
+    if (!date) {
+        alert('请选择考试日期');
+        e.preventDefault();
+        return;
+    }
+    
+    if (!gradeLevel) {
+        alert('请选择年级');
+        e.preventDefault();
+        return;
+    }
+});
+
+// 年级选择变化时的处理
+document.getElementById('id_grade_level').addEventListener('change', function() {
+    console.log('选择的年级:', this.value);
+});
+</script>
+{% endblock %}

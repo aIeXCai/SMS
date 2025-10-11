@@ -96,6 +96,18 @@
             list-style: none;
         }
         
+        /* 去掉所有导航列表的圆点 */
+        .sidebar-nav ul,
+        .sidebar-nav li {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .sidebar-nav ul {
+            padding-left: 0;
+        }
+        
         .nav-section {
             padding: 15px 15px 8px 15px;
         }
@@ -142,6 +154,50 @@
             margin-right: 12px;
             font-size: 16px;
             text-align: center;
+        }
+        
+        /* 简单的子菜单样式 */
+        .nav-item.has-submenu .nav-link {
+            position: relative;
+        }
+        
+        .nav-item.has-submenu .nav-link::after {
+            content: '\f107'; /* Font Awesome 下拉箭头 */
+            font-family: 'Font Awesome 6 Free';
+            font-weight: 900;
+            position: absolute;
+            right: 15px;
+            font-size: 12px;
+            transition: transform 0.3s ease;
+        }
+        
+        .nav-item.has-submenu.open .nav-link::after {
+            transform: rotate(180deg);
+        }
+        
+        .nav-submenu {
+            display: none;
+            padding-left: 20px;
+        }
+        
+        .nav-item.has-submenu.open .nav-submenu {
+            display: block;
+        }
+        
+        .nav-submenu .nav-link {
+            padding: 8px 15px;
+            font-size: 13px;
+            color: #666;
+            position: relative;
+        }
+        
+        /* 子菜单项不显示箭头 */
+        .nav-submenu .nav-link::after {
+            display: none !important;
+        }
+        
+        .nav-submenu .nav-link:hover {
+            color: #01876c;
         }
         
         /* 主内容区域 */
@@ -333,11 +389,23 @@
                             成绩查询
                         </a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/scores/analysis/">
+                    <li class="nav-item has-submenu">
+                        <a class="nav-link" href="javascript:void(0);" onclick="toggleSubmenu(this)">
                             <i class="fas fa-chart-bar"></i>
                             成绩分析
                         </a>
+                        <ul class="nav-submenu">
+                            <li class="nav-item">
+                                <a class="nav-link" href="/analysis/class-grade/">
+                                    班级/年级分析
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="/analysis/student/">
+                                    个人成绩分析
+                                </a>
+                            </li>
+                        </ul>
                     </li>
                 </ul>
             </div>
@@ -474,6 +542,12 @@
             }
         });
         
+        // 简单的子菜单切换函数
+        function toggleSubmenu(element) {
+            const navItem = element.closest('.nav-item.has-submenu');
+            navItem.classList.toggle('open');
+        }
+        
         // 设置当前页面的导航链接为活跃状态
         document.addEventListener('DOMContentLoaded', function() {
             const currentPath = window.location.pathname;
@@ -483,6 +557,15 @@
                 link.classList.remove('active');
                 if (link.getAttribute('href') === currentPath) {
                     link.classList.add('active');
+                    
+                    // 如果是子菜单项，展开父菜单
+                    const parentSubmenu = link.closest('.nav-submenu');
+                    if (parentSubmenu) {
+                        const parentNavItem = parentSubmenu.closest('.nav-item.has-submenu');
+                        if (parentNavItem) {
+                            parentNavItem.classList.add('open');
+                        }
+                    }
                 }
             });
         });

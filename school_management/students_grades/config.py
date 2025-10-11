@@ -1,0 +1,20 @@
+# 分页配置
+PAGINATION_CONFIG = {
+    'DEFAULT_PER_PAGE': 100,
+    'MIN_PER_PAGE': 10,
+    'MAX_PER_PAGE': 100,
+    'PER_PAGE_OPTIONS': [10, 20, 50, 100]
+}
+
+# 表格配置
+TABLE_CONFIG = {
+    'MAX_COLUMNS': 20,
+    'FROZEN_COLUMNS': 2
+}
+
+# 导入配置
+IMPORT_CONFIG = {
+    'MAX_FILE_SIZE': 10 * 1024 * 1024,  # 10MB
+    'ALLOWED_EXTENSIONS': ['.xlsx', '.xls'],
+    'BATCH_SIZE': 1000
+}

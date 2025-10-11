@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>排名系统调试页面</title>
+    <style>
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .controls {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .controls select, .controls button {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .controls button {
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+            border: none;
+        }
+        .controls button:hover {
+            background: #0056b3;
+        }
+        .controls button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        .statistics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #007bff;
+        }
+        .stat-card h3 {
+            margin: 0 0 10px 0;
+            color: #495057;
+            font-size: 14px;
+        }
+        .stat-card .value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+        }
+        .stat-card .percentage {
+            font-size: 12px;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+        .students-table {
+            overflow-x: auto;
+            margin-bottom: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+        th {
+            background: #f8f9fa;
+            font-weight: bold;
+            position: sticky;
+            top: 0;
+        }
+        .student-row:nth-child(even) {
+            background: #f8f9fa;
+        }
+        .rank-good {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .rank-missing {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .subject-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+            gap: 5px;
+            font-size: 11px;
+        }
+        .subject-item {
+            padding: 2px 4px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            background: white;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏆 排名系统调试页面</h1>
+            <p>查看总分和各学科的班级排名、年级排名是否正确应用</p>
+        </div>
+
+        <div class="controls">
+            <label>
+                选择考试：
+                <select id="examSelect">
+                    <option value="">请选择考试</option>
+                    {% for exam in exams %}
+                    <option value="{{ exam.id }}">{{ exam.name }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            
+            <label>
+                选择年级：
+                <select id="gradeSelect">
+                    <option value="">请选择年级</option>
+                    {% for grade in grade_levels %}
+                    <option value="{{ grade }}">{{ grade }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            
+            <button id="loadData">加载排名数据</button>
+            <button id="updateRanking">提交排名更新任务（异步）</button>
+        </div>
+
+        <div id="message"></div>
+
+        <div id="statistics" class="statistics" style="display: none;">
+            <div class="stat-card">
+                <h3>总学生数</h3>
+                <div class="value" id="totalStudents">-</div>
+            </div>
+            <div class="stat-card">
+                <h3>总成绩记录数</h3>
+                <div class="value" id="totalRecords">-</div>
+            </div>
+            <div class="stat-card">
+                <h3>年级总分排名覆盖</h3>
+                <div class="value" id="gradeTotalRank">-</div>
+                <div class="percentage" id="gradeTotalRankPct">-</div>
+            </div>
+            <div class="stat-card">
+                <h3>班级总分排名覆盖</h3>
+                <div class="value" id="classTotalRank">-</div>
+                <div class="percentage" id="classTotalRankPct">-</div>
+            </div>
+            <div class="stat-card">
+                <h3>年级学科排名覆盖</h3>
+                <div class="value" id="gradeSubjectRank">-</div>
+                <div class="percentage" id="gradeSubjectRankPct">-</div>
+            </div>
+            <div class="stat-card">
+                <h3>班级学科排名覆盖</h3>
+                <div class="value" id="classSubjectRank">-</div>
+                <div class="percentage" id="classSubjectRankPct">-</div>
+            </div>
+        </div>
+
+        <div class="students-table">
+            <div id="tableContainer"></div>
+        </div>
+    </div>
+
+    <script>
+        const examSelect = document.getElementById('examSelect');
+        const gradeSelect = document.getElementById('gradeSelect');
+        const loadDataBtn = document.getElementById('loadData');
+        const updateRankingBtn = document.getElementById('updateRanking');
+        const messageDiv = document.getElementById('message');
+        const statisticsDiv = document.getElementById('statistics');
+        const tableContainer = document.getElementById('tableContainer');
+
+        function showMessage(message, type = 'success') {
+            messageDiv.innerHTML = `<div class="${type}">${message}</div>`;
+            setTimeout(() => {
+                messageDiv.innerHTML = '';
+            }, 5000);
+        }
+
+        function setLoading(isLoading) {
+            loadDataBtn.disabled = isLoading;
+            updateRankingBtn.disabled = isLoading;
+            if (isLoading) {
+                tableContainer.innerHTML = '<div class="loading">⏳ 加载中...</div>';
+            }
+        }
+
+        function updateStatistics(stats) {
+            document.getElementById('totalStudents').textContent = stats.total_students;
+            document.getElementById('totalRecords').textContent = stats.total_records;
+            document.getElementById('gradeTotalRank').textContent = stats.grade_total_rank_coverage;
+            document.getElementById('gradeTotalRankPct').textContent = `${stats.grade_total_rank_percentage}%`;
+            document.getElementById('classTotalRank').textContent = stats.class_total_rank_coverage;
+            document.getElementById('classTotalRankPct').textContent = `${stats.class_total_rank_percentage}%`;
+            document.getElementById('gradeSubjectRank').textContent = stats.grade_subject_rank_coverage;
+            document.getElementById('gradeSubjectRankPct').textContent = `${stats.grade_subject_rank_percentage}%`;
+            document.getElementById('classSubjectRank').textContent = stats.class_subject_rank_coverage;
+            document.getElementById('classSubjectRankPct').textContent = `${stats.class_subject_rank_percentage}%`;
+            
+            statisticsDiv.style.display = 'grid';
+        }
+
+        function createStudentsTable(students) {
+            if (students.length === 0) {
+                return '<div class="loading">📊 没有找到学生数据</div>';
+            }
+
+            // 获取所有科目
+            const allSubjects = [...new Set(students.flatMap(s => s.subjects.map(sub => sub.subject)))];
+            
+            let html = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th rowspan="2">排名</th>
+                            <th rowspan="2">学生姓名</th>
+                            <th rowspan="2">班级</th>
+                            <th colspan="3">总分</th>
+                            <th colspan="${allSubjects.length * 2}">各科排名</th>
+                        </tr>
+                        <tr>
+                            <th>分数</th>
+                            <th>年级排名</th>
+                            <th>班级排名</th>
+                            ${allSubjects.map(subject => `<th>${subject}年级</th><th>${subject}班级</th>`).join('')}
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            students.forEach((student, index) => {
+                const subjectMap = {};
+                student.subjects.forEach(sub => {
+                    subjectMap[sub.subject] = sub;
+                });
+
+                html += `
+                    <tr class="student-row">
+                        <td>${index + 1}</td>
+                        <td>${student.student_name}</td>
+                        <td>${student.class_name}</td>
+                        <td>${student.total_score}</td>
+                        <td class="${student.grade_total_rank ? 'rank-good' : 'rank-missing'}">
+                            ${student.grade_total_rank || 'N/A'}
+                        </td>
+                        <td class="${student.class_total_rank ? 'rank-good' : 'rank-missing'}">
+                            ${student.class_total_rank || 'N/A'}
+                        </td>
+                        ${allSubjects.map(subject => {
+                            const sub = subjectMap[subject];
+                            if (sub) {
+                                return `
+                                    <td class="${sub.grade_rank ? 'rank-good' : 'rank-missing'}">
+                                        ${sub.grade_rank || 'N/A'}
+                                    </td>
+                                    <td class="${sub.class_rank ? 'rank-good' : 'rank-missing'}">
+                                        ${sub.class_rank || 'N/A'}
+                                    </td>
+                                `;
+                            } else {
+                                return '<td class="rank-missing">N/A</td><td class="rank-missing">N/A</td>';
+                            }
+                        }).join('')}
+                    </tr>
+                `;
+            });
+
+            html += '</tbody></table>';
+            return html;
+        }
+
+        loadDataBtn.addEventListener('click', function() {
+            const examId = examSelect.value;
+            const gradeLevel = gradeSelect.value;
+
+            if (!examId || !gradeLevel) {
+                showMessage('请选择考试和年级', 'error');
+                return;
+            }
+
+            setLoading(true);
+
+            fetch(`/ranking_debug/data/?exam_id=${examId}&grade_level=${gradeLevel}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        updateStatistics(data.statistics);
+                        tableContainer.innerHTML = createStudentsTable(data.students);
+                        showMessage('数据加载成功！');
+                    } else {
+                        showMessage(data.error, 'error');
+                    }
+                })
+                .catch(error => {
+                    showMessage('加载数据失败: ' + error.message, 'error');
+                })
+                .finally(() => {
+                    setLoading(false);
+                });
+        });
+
+        updateRankingBtn.addEventListener('click', function() {
+            const examId = examSelect.value;
+            const gradeLevel = gradeSelect.value;
+
+            if (!examId || !gradeLevel) {
+                showMessage('请选择考试和年级', 'error');
+                return;
+            }
+
+            setLoading(true);
+
+            const formData = new FormData();
+            formData.append('exam_id', examId);
+            formData.append('grade_level', gradeLevel);
+
+            fetch('/ranking_debug/update/', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                }
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showMessage(data.message);
+                        // 自动重新加载数据
+                        loadDataBtn.click();
+                    } else {
+                        showMessage(data.error, 'error');
+                    }
+                })
+                .catch(error => {
+                    showMessage('更新排名失败: ' + error.message, 'error');
+                })
+                .finally(() => {
+                    setLoading(false);
+                });
+        });
+    </script>
+    {% csrf_token %}
+</body>
+</html>
