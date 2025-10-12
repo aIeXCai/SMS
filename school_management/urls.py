@@ -27,9 +27,9 @@ urlpatterns = [
     # 🔴 新的统一学生与成绩模块
     path('', include('school_management.students_grades.urls')),
     
-    # 🔴 原有模块（暂时保留，后续迁移完成后移除）
-    # path('', include('school_management.students.urls')),
-    # path('', include('school_management.exams.urls')),
+    # API 路由
+    path('api/users/', include('school_management.users.urls', namespace='users_api')),
+    path('api/', include('school_management.students_grades.urls')), # 包含 students_grades 的 API URL
 ]
 
 # 开发环境下提供静态文件

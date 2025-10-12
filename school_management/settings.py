@@ -11,9 +11,14 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+import os  # 确保导入 os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# 将项目根目录添加到 Python 路径
+import sys
+sys.path.insert(0, os.path.join(BASE_DIR))
 
 
 # Quick-start development settings - unsuitable for production
@@ -38,18 +43,21 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django_rq',  # 添加异步任务支持
+    'corsheaders',  # 添加CORS支持
+    'django_filters', # 添加过滤支持
     
-    # 🔴 新的统一学生与成绩模块
     'school_management.students_grades',
-    
-    # 🔴 原有模块（暂时注释掉，迁移完成后移除）
-    # 'school_management.students',
-    # 'school_management.exams'
+    'school_management.users.apps.UsersConfig',
+    'rest_framework',
+    'rest_framework_simplejwt',
 ]
+
+AUTH_USER_MODEL = 'users.CustomUser'  # 指定自定义用户模型
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware', # 添加CORS中间件
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -122,12 +130,10 @@ AUTH_PASSWORD_VALIDATORS = [
 
 
 # Internationalization
-# https://docs.djangoproject.com/en/5.2/topics/i18n/
+# https://docs.djangoproject.com/en/5.0/topics/i18n/
 
-# LANGUAGE_CODE = 'en-us'
 LANGUAGE_CODE = 'zh-hans'
 
-# TIME_ZONE = 'UTC'
 TIME_ZONE = 'Asia/Shanghai'
 
 USE_I18N = True
@@ -151,9 +157,22 @@ STATICFILES_DIRS = [
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Default primary key field type
-# https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
+# https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
+    ),
+    'DEFAULT_FILTER_BACKENDS': (
+        'django_filters.rest_framework.DjangoFilterBackend',
+        'rest_framework.filters.SearchFilter',
+    )
+}
 
 # Redis和RQ配置（异步任务处理）
 RQ_QUEUES = {
@@ -185,3 +204,14 @@ RQ_QUEUES = {
 
 # RQ管理界面配置
 RQ_SHOW_ADMIN_LINK = True  # 在Django admin中显示RQ链接
+
+# CORS 配置
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",  # 允许你的 Next.js 前端访问
+    "http://127.0.0.1:3000",
+]
+
+# 如果需要允许所有源（在开发中可以，但生产中要小心）
+# CORS_ALLOW_ALL_ORIGINS = True
+
+CORS_ALLOW_CREDENTIALS = True # 允许发送 cookies

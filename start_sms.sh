@@ -194,10 +194,10 @@ echo "========================================="
 echo -e "${GREEN}🎉 成绩管理系统已启动！${NC}"
 echo ""
 echo "📱 访问地址:"
-echo "   🏠 主页: http://127.0.0.1:8001"
-echo "   📊 成绩管理: http://127.0.0.1:8001/exams/scores/"
-echo "   📤 批量导入: http://127.0.0.1:8001/exams/scores/batch-import/"
-echo "   📈 任务监控: http://127.0.0.1:8001/django-rq/"
+echo "   🏠 主页: http://127.0.0.1:8000"
+echo "   📊 成绩管理: http://127.0.0.0:8001/exams/scores/"
+echo "   📤 批量导入: http://127.0.0.0:8001/exams/scores/batch-import/"
+echo "   📈 任务监控: http://127.0.0.0:8001/django-rq/"
 echo ""
 echo "🔧 后台服务:"
 echo "   ⚡ RQ Worker: 正在运行 (PID: $WORKER_PID)"
@@ -208,7 +208,7 @@ echo "========================================="
 echo ""
 
 # 启动 Django 服务器（这会阻塞直到收到信号）
-python manage.py runserver 8001 &
+python manage.py runserver 8000 &
 DJANGO_PID=$!
 
 # 等待服务器进程

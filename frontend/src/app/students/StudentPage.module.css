@@ -1,0 +1,283 @@
+.pageHeader {
+    background: rgb(1,135, 108);
+    color: white;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    border-radius: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.pageHeader h1 {
+    margin: 0;
+    font-weight: 600;
+    font-size: 1.75rem;
+}
+
+.pageHeader p {
+    margin: 0;
+    opacity: 0.8;
+}
+
+.headerActions {
+    display: flex;
+    gap: 1rem;
+}
+
+.actionButton {
+    background-color: white;
+    color: rgb(1,135, 108);
+    border: 1px solid transparent;
+    padding: 0.6rem 1.2rem;
+    border-radius: 0.375rem;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    font-weight: 500;
+    transition: all 0.2s ease-in-out;
+}
+
+.actionButton:hover {
+    background-color: rgba(255, 255, 255, 0.9);
+    transform: translateY(-2px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.statsContainer {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.statCard {
+    background-color: white;
+    border: none;
+    border-radius: 15px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease;
+    padding: 1.5rem;
+}
+
+.statCard:hover {
+    transform: translateY(-5px);
+}
+
+.statCardContent {
+    display: flex;
+    align-items: center;
+}
+
+.statsIcon {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    color: white;
+    margin-right: 1rem;
+}
+
+.statsIcon.bg-primary { background-color: #0d6efd; }
+.statsIcon.bg-success { background-color: #198754; }
+.statsIcon.bg-info { background-color: #0dcaf0; }
+.statsIcon.bg-warning { background-color: #ffc107; }
+
+
+.statCard h5 {
+    margin-bottom: 0;
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+.statCard p {
+    margin-bottom: 0;
+    color: #6c757d;
+}
+
+
+.filterContainer {
+    background: white;
+    border: none;
+    border-radius: 15px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    margin-bottom: 2rem;
+    padding: 1.5rem;
+}
+
+.filterHeader {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-bottom: 1px solid #dee2e6;
+    border-radius: 15px 15px 0 0;
+    padding: 1rem 1.5rem;
+    margin: -1.5rem -1.5rem 1.5rem -1.5rem;
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+.filterBody {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: flex-end;
+}
+
+.filterGroup {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+}
+
+.filterGroup label {
+    font-size: 0.875rem;
+    color: #495057;
+    margin-bottom: 0.5rem;
+}
+
+.filterInput, .filterSelect {
+    padding: 0.6rem 0.8rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.375rem;
+    font-size: 0.9rem;
+}
+
+.filterButtons {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.filterButton, .resetButton {
+    padding: 0.6rem 1.2rem;
+    border: none;
+    border-radius: 0.375rem;
+    color: white;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.filterButton {
+    background-color: #0d6efd;
+}
+
+.filterButton:hover {
+    background-color: #0b5ed7;
+}
+
+.resetButton {
+    background-color: #6c757d;
+}
+
+.resetButton:hover {
+    background-color: #5c636a;
+}
+
+.actionBtn {
+    padding: 5px 10px;
+    border: none;
+    border-radius: 4px;
+    color: white;
+    cursor: pointer;
+    font-size: 12px;
+    margin-right: 5px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.editBtn {
+    background-color: #2196F3; /* Blue */
+}
+
+.editBtn:hover {
+    background-color: #1976D2;
+}
+
+.deleteBtn {
+    background-color: #f44336; /* Red */
+}
+
+.deleteBtn:hover {
+    background-color: #d32f2f;
+}
+
+.tableContainer {
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.table th {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border: none;
+    font-weight: 600;
+    color: #495057;
+    padding: 1rem 0.75rem;
+    text-align: center;
+}
+
+.table td {
+    border-top: 1px solid #dee2e6;
+    padding: 1rem 0.75rem;
+    vertical-align: middle;
+    text-align: center;
+}
+
+.table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+.statusBadge {
+    padding: 0.375rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: #212529;
+}
+
+.status_在读 { background-color: #d4edda; color: #155724; }
+.status_休学 { background-color: #fff3cd; color: #856404; }
+.status_转学 { background-color: #f8d7da; color: #721c24; }
+.status_毕业 { background-color: #d1ecf1; color: #0c5460; }
+.status_复学 { background-color: #cce5ff; color: #004085; }
+
+
+.emptyState {
+    text-align: center;
+    padding: 3rem;
+    color: #6c757d;
+}
+
+.emptyState i {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+}
+
+.loading {
+    text-align: center;
+    padding: 4rem;
+    font-size: 1.2rem;
+    color: #6b7280;
+}
+
+.error {
+    color: #721c24;
+    background-color: #f8d7da;
+    border-color: #f5c6cb;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    margin-bottom: 1rem;
+}

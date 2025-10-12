@@ -1,5 +1,19 @@
 # =============================================================================
-# 学生与成绩模块URL配置
+# API URL 配置
+# =============================================================================
+from rest_framework.routers import DefaultRouter
+from .views.api_views import StudentViewSet
+
+# 创建一个路由器并注册我们的视图集
+router = DefaultRouter()
+router.register(r'students', StudentViewSet, basename='student-api')
+
+# API URL可以直接包含在 urlpatterns 中
+api_urlpatterns = router.urls
+
+
+# =============================================================================
+# 学生与成绩模块URL配置 (旧模板视图)
 # =============================================================================
 
 from django.urls import path
@@ -30,7 +44,8 @@ from .views.ranking_debug_view import (
 
 app_name = 'students_grades'
 
-urlpatterns = [
+# 这些是旧的、基于模板的视图的URL，我们暂时保留它们
+template_urlpatterns = [
     # === 基础学生管理 ===
     path('', student_list, name='student_list'),                    # 学生列表页面（主页）
     path('students/', student_list, name='student_list_alt'),       # 备用学生列表路径
@@ -107,3 +122,7 @@ urlpatterns = [
     path('ranking_debug/data/', get_ranking_data, name='get_ranking_data'),
     path('ranking_debug/update/', ranking_update_test, name='ranking_update_test'),
 ]
+
+# 合并 API URL 和旧模板 URL
+# 在这个阶段，我们让它们共存，但最终目标是只保留 API URL
+urlpatterns = api_urlpatterns + template_urlpatterns

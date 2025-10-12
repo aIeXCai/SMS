@@ -1,6 +1,6 @@
 from random import choices
+from django.conf import settings
 from django.db import models
-from django.contrib.auth.models import User # Django 内建的用户模型
 from django.core.validators import RegexValidator
 # 如果你在 settings.py 中配置了 AUTH_USER_MODEL 为自定义用户模型，则需要导入你自己的用户模型
 
@@ -31,7 +31,13 @@ class Class(models.Model):
     grade_level = models.CharField(max_length=10, choices=GRADE_LEVEL_CHOICES, verbose_name="年级")
     class_name = models.CharField(max_length=20, choices=CLASS_NAME_CHOICES, verbose_name="班级名称") # 例如 '1班', '2班'
     # full_class_name 可以在 Model 方法中生成，無需單獨儲存
-    homeroom_teacher = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="班主任")
+    homeroom_teacher = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        verbose_name="班主任"
+    )
 
     class Meta:
         # 确保在同一學年（年級）下，班級名稱是唯一的
