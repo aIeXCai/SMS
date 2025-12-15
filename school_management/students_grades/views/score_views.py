@@ -2534,13 +2534,15 @@ def get_student_analysis_data(request):
                         'class_ranks': [],
                         'grade_ranks': [],
                         'scores': [],
-                        'exam_names': []
+                        'exam_names': [],
+                        'exam_ids': []  # 添加考试ID数组
                     }
                 
                 analysis_data['trend_data'][subject_name]['class_ranks'].append(score.class_rank_in_subject)
                 analysis_data['trend_data'][subject_name]['grade_ranks'].append(score.grade_rank_in_subject)
                 analysis_data['trend_data'][subject_name]['scores'].append(score_data['score_value'])
                 analysis_data['trend_data'][subject_name]['exam_names'].append(exam.name)
+                analysis_data['trend_data'][subject_name]['exam_ids'].append(exam.id)  # 添加考试ID
             
             # 计算考试总分和平均分
             exam_data['total_score'] = round(total_score, 1)
@@ -2571,7 +2573,8 @@ def get_student_analysis_data(request):
             'class_ranks': [exam_data['class_total_rank'] for exam_data in analysis_data['exams']],
             'grade_ranks': [exam_data['grade_total_rank'] for exam_data in analysis_data['exams']],
             'scores': [exam_data['total_score'] for exam_data in analysis_data['exams']],
-            'exam_names': [exam_data['name'] for exam_data in analysis_data['exams']]
+            'exam_names': [exam_data['name'] for exam_data in analysis_data['exams']],
+            'exam_ids': [exam_data['id'] for exam_data in analysis_data['exams']]  # 添加考试ID
         }
         
         return JsonResponse({

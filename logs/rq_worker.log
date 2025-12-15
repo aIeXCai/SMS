@@ -1,6 +1,4 @@
-20:09:24 Worker 3e1e6edc2b214e3c84f3ff03bb8ac31e: started with PID 70620, version 2.5.0
-20:09:24 Worker 3e1e6edc2b214e3c84f3ff03bb8ac31e: subscribing to channel rq:pubsub:3e1e6edc2b214e3c84f3ff03bb8ac31e
-20:09:24 *** Listening on default...
-20:09:24 Worker 3e1e6edc2b214e3c84f3ff03bb8ac31e: cleaning registries for queue: default
-20:22:54 Worker 3e1e6edc2b214e3c84f3ff03bb8ac31e: cleaning registries for queue: default
-20:36:24 Worker 3e1e6edc2b214e3c84f3ff03bb8ac31e: cleaning registries for queue: default
+19:00:53 Worker 0c42624c4ace48d3a1cc691bd9a016ed: started with PID 63906, version 2.5.0
+19:00:53 Worker 0c42624c4ace48d3a1cc691bd9a016ed: subscribing to channel rq:pubsub:0c42624c4ace48d3a1cc691bd9a016ed
+19:00:53 *** Listening on default...
+19:00:53 Worker 0c42624c4ace48d3a1cc691bd9a016ed: cleaning registries for queue: default

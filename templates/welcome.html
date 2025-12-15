@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+
+{% block title %}欢迎使用白云实验学校管理系统{% endblock %}
+
+{% block content %}
+<div class="container-fluid d-flex align-items-center justify-content-center" style="min-height: 80vh;">
+    <div class="text-center">
+        <div class="mb-4">
+            <i class="fas fa-school" style="font-size: 4rem; color: #01876c;"></i>
+        </div>
+        <h1 class="mb-3">白云实验学校管理系统</h1>
+        <p class="lead text-muted mb-4">请先登录以使用系统功能</p>
+
+        <div class="card mx-auto" style="max-width: 400px;">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="fas fa-info-circle text-info me-2"></i>系统说明
+                </h5>
+                <p class="card-text text-start">
+                    • 请使用前端登录页面进行身份验证<br>
+                    • 登录成功后会自动跳转到此系统<br>
+                    • 支持学生、考试、成绩等全面管理功能
+                </p>
+                <a href="#"
+                    onclick="window.location.href = 'http://' + window.location.hostname + ':3000/login'; return false;"
+                    class="btn btn-primary">
+                    <i class="fas fa-sign-in-alt me-2"></i>前往登录
+                </a>
+            </div>
+        </div>
+
+        <div class="mt-4">
+            <p class="text-muted small">
+                如果您已经登录但看到此页面，请检查您的认证状态或联系系统管理员
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}

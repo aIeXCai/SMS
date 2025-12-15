@@ -1,10 +1,10 @@
 #!/bin/bash
 
 # 成绩管理系统完整启动脚本
-# 同时启动 Django 服务器和 RQ Worker
+# 同时启动 Django 服务器、RQ Worker 和 Next.js 前端服务器
 
 echo "========================================"
-echo "🚀 启动成绩管理系统 (完整版)"
+echo "🚀 启动成绩管理系统 (完整版 - 前后端)"
 echo "时间: $(date)"
 echo "========================================"
 
@@ -105,6 +105,36 @@ if [ ! -z "$CONDA_DEFAULT_ENV" ]; then
     echo "  Conda 环境: $CONDA_DEFAULT_ENV"
 fi
 
+# 检查前端环境
+echo -e "${BLUE}📦 检查前端环境...${NC}"
+if [ -d "frontend" ]; then
+    echo "发现前端目录: frontend/"
+    
+    # 检查 package.json
+    if [ -f "frontend/package.json" ]; then
+        echo "✅ package.json 存在"
+        
+        # 检查 node_modules
+        if [ -d "frontend/node_modules" ]; then
+            echo "✅ node_modules 存在"
+        else
+            echo -e "${YELLOW}⚠️  node_modules 不存在，需要安装依赖${NC}"
+            echo "请先运行: cd frontend && npm install"
+        fi
+        
+        # 检查 npm 脚本
+        if grep -q '"dev"' frontend/package.json; then
+            echo "✅ dev 脚本存在"
+        else
+            echo -e "${YELLOW}⚠️  未找到 dev 脚本${NC}"
+        fi
+    else
+        echo -e "${YELLOW}⚠️  frontend/package.json 不存在${NC}"
+    fi
+else
+    echo -e "${YELLOW}⚠️  frontend 目录不存在${NC}"
+fi
+
 # 检查Django和依赖
 echo -e "${BLUE}🔧 检查 Django 环境...${NC}"
 python -c "import django; print('Django版本:', django.get_version())" || {
@@ -160,6 +190,14 @@ cleanup() {
         kill $WORKER_PID 2>/dev/null || true
     fi
     
+    # 停止前端服务器（通过端口查找）
+    echo "检查前端服务器..."
+    FRONTEND_PID=$(lsof -ti:3000 2>/dev/null || true)
+    if [ ! -z "$FRONTEND_PID" ]; then
+        echo "停止前端服务器 (PID: $FRONTEND_PID)..."
+        kill $FRONTEND_PID 2>/dev/null || true
+    fi
+    
     echo -e "${GREEN}✅ 服务已停止${NC}"
     exit 0
 }
@@ -169,6 +207,34 @@ trap cleanup SIGINT SIGTERM
 
 echo -e "${GREEN}🚀 启动服务...${NC}"
 echo ""
+
+# 启动前端服务器 (在新终端窗口)
+echo -e "${BLUE}🌐 启动前端服务器...${NC}"
+if [ -d "frontend" ] && [ -f "frontend/package.json" ]; then
+    # 使用 osascript 在新的 Terminal 窗口中启动前端
+    osascript -e "
+    tell application \"Terminal\"
+        activate
+        do script \"cd '$SCRIPT_DIR/frontend' && echo '🌐 启动 Next.js 前端服务器...' && npm run dev\"
+    end tell
+    " &
+    
+    echo "✅ 前端服务器启动命令已发送到新终端窗口"
+    echo "📱 前端将在 http://localhost:3000 运行"
+    
+    # 等待前端服务器启动
+    echo "等待前端服务器启动..."
+    sleep 5
+    
+    # 检查前端是否启动成功
+    if lsof -i:3000 >/dev/null 2>&1; then
+        echo -e "${GREEN}✅ 前端服务器启动成功${NC}"
+    else
+        echo -e "${YELLOW}⚠️  前端服务器可能仍在启动中...${NC}"
+    fi
+else
+    echo -e "${YELLOW}⚠️  跳过前端启动（目录或配置文件不存在）${NC}"
+fi
 
 # 启动 RQ Worker (后台)
 echo -e "${BLUE}⚡ 启动 RQ Worker...${NC}"
@@ -194,21 +260,23 @@ echo "========================================="
 echo -e "${GREEN}🎉 成绩管理系统已启动！${NC}"
 echo ""
 echo "📱 访问地址:"
-echo "   🏠 主页: http://127.0.0.1:8001"
-echo "   📊 成绩管理: http://127.0.0.1:8001/exams/scores/"
-echo "   📤 批量导入: http://127.0.0.1:8001/exams/scores/batch-import/"
-echo "   📈 任务监控: http://127.0.0.1:8001/django-rq/"
+echo "   🏠 前端主页: http://localhost:3000"
+echo "   🏠 后端主页: http://127.0.0.1:8000"
+echo "   📊 成绩管理: http://127.0.0.1:8000/exams/scores/"
+echo "   📤 批量导入: http://127.0.0.1:8000/exams/scores/batch-import/"
+echo "   📈 任务监控: http://127.0.0.1:8000/django-rq/"
 echo ""
 echo "🔧 后台服务:"
+echo "   🌐 Next.js 前端: http://localhost:3000 (新终端窗口)"
 echo "   ⚡ RQ Worker: 正在运行 (PID: $WORKER_PID)"
 echo "   📝 Worker 日志: logs/rq_worker.log"
 echo ""
-echo -e "${YELLOW}💡 提示: 按 Ctrl+C 停止所有服务${NC}"
+echo -e "${YELLOW}💡 提示: 按 Ctrl+C 停止后端服务，请手动关闭前端终端窗口${NC}"
 echo "========================================="
 echo ""
 
 # 启动 Django 服务器（这会阻塞直到收到信号）
-python manage.py runserver 8001 &
+python manage.py runserver 0.0.0.0:8000 &
 DJANGO_PID=$!
 
 # 等待服务器进程

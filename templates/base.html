@@ -90,6 +90,42 @@
             font-size: 12px;
         }
         
+        /* 确保侧边栏按钮样式不被页面CSS覆盖 */
+        .sidebar .btn,
+        .sidebar .btn-sm,
+        .user-info .btn,
+        .user-info .btn-sm {
+            padding: 0.25rem 0.5rem !important;
+            font-size: 0.875rem !important;
+            border-radius: 6px !important;
+            font-weight: 400 !important;
+            border: 1px solid transparent !important;
+            margin: 0 !important;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+        
+        .sidebar .btn-light,
+        .user-info .btn-light {
+            background-color: #f8f9fa !important;
+            border-color: #f8f9fa !important;
+            color: #212529 !important;
+        }
+        
+        .sidebar .btn-primary,
+        .user-info .btn-primary {
+            background-color: #0d6efd !important;
+            border-color: #0d6efd !important;
+            color: #fff !important;
+        }
+        
+        .sidebar .btn:hover,
+        .user-info .btn:hover {
+            transform: none !important;
+            box-shadow: none !important;
+            opacity: 0.85;
+        }
+        
         .sidebar-nav {
             padding: 0;
             margin: 0;
@@ -113,7 +149,7 @@
         }
         
         .nav-section-title {
-            font-size: 11px;
+            font-size: 15px;
             font-weight: 600;
             color: #666;
             text-transform: uppercase;
@@ -132,7 +168,7 @@
             color: #666;
             text-decoration: none;
             border-radius: 8px;
-            margin: 0 15px;
+            margin: 0 0px;
             transition: all 0.2s ease;
             font-size: 13px;
         }
@@ -309,16 +345,35 @@
 
         <!-- 用户信息 -->
         <div class="user-info d-flex align-items-center">
-            <div class="user-avatar">
-                <i class="fas fa-user" style="color: white; font-size: 16px;"></i>
-            </div>
-            <div class="user-details">
-                <p class="user-name">管理员</p>
-                <p class="user-role">系统管理员</p>
-            </div>
-            <button class="btn btn-sm btn-light" style="margin-left: auto; border-radius: 6px;">
-                <i class="fas fa-chevron-left"></i>
-            </button>
+            {% if user.is_authenticated %}
+                <div class="user-avatar">
+                    {% if user.profile.avatar_url %}
+                        <img src="{{ user.profile.avatar_url }}" alt="头像" style="width: 28px; height: 28px; border-radius: 6px; object-fit: cover;" />
+                    {% else %}
+                        <i class="fas fa-user" style="color: white; font-size: 16px;"></i>
+                    {% endif %}
+                </div>
+                <div class="user-details">
+                    <p class="user-name">{{ user.get_full_name|default:user.username }}</p>
+                    <p class="user-role">{{ user.get_role_display|default:"未分配角色" }}</p>
+                </div>
+                <button class="btn btn-sm btn-light logout-btn" style="margin-left: auto; border-radius: 6px;" onclick="logoutAndRedirect(event)">
+                    <i class="fas fa-sign-out-alt"></i>
+                </button>
+            {% else %}
+                <div class="user-avatar">
+                    <i class="fas fa-user-slash" style="color: #ccc; font-size: 16px;"></i>
+                </div>
+                <div class="user-details">
+                    <p class="user-name" style="color: #ccc;">未登录</p>
+                    <p class="user-role" style="color: #ccc;">请先登录</p>
+                </div>
+                <a href="#"
+                    onclick="window.location.href = 'http://' + window.location.hostname + ':3000/login'; return false;"
+                    class="btn btn-sm btn-primary" style="margin-left: auto; border-radius: 6px;">
+                    登录
+                </a>
+            {% endif %}
         </div>
 
         <!-- 导航菜单 -->
@@ -336,50 +391,25 @@
                 </ul>
             </div>
 
-            <!-- 学生管理 -->
+            <!-- 教学管理 -->
             <div class="nav-section">
-                <h6 class="nav-section-title">学生管理</h6>
+                <h6 class="nav-section-title">教学管理</h6>
                 <ul class="nav flex-column">
                     <li class="nav-item">
                         <a class="nav-link" href="/students/">
-                            <i class="fas fa-chart-line"></i>
+                            <i class="fas fa-user-graduate"></i>
                             学生信息
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="/students/attendance/">
-                            <i class="fas fa-calendar-check"></i>
-                            出勤管理
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/students/schedule/">
-                            <i class="fas fa-calendar-alt"></i>
-                            课程安排
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/students/registration/">
-                            <i class="fas fa-user-plus"></i>
-                            学生注册
-                        </a>
-                    </li>
-                </ul>
-            </div>
-
-            <!-- 考试与成绩 -->
-            <div class="nav-section">
-                <h6 class="nav-section-title">考试与成绩</h6>
-                <ul class="nav flex-column">
-                    <li class="nav-item">
                         <a class="nav-link" href="/exams/">
-                            <i class="fas fa-network-wired"></i>
+                            <i class="fas fa-clipboard-list"></i>
                             考试管理
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="/scores/">
-                            <i class="fas fa-users"></i>
+                            <i class="fas fa-chart-line"></i>
                             成绩管理
                         </a>
                     </li>
@@ -591,6 +621,33 @@
         });
     </script>
     {% endif %}
+    <script>
+        // 尝试调用后端登出（如果后端提供），然后清理本地 token 并跳转到前端登录页
+        async function logoutAndRedirect(e) {
+            e.preventDefault();
+            try {
+                // 尝试常见登出端点 (可根据后端实际接口调整)
+                await fetch('/api/auth/logout/', { method: 'POST', credentials: 'include' }).catch(()=>{});
+                await fetch('/logout/', { method: 'POST', credentials: 'include' }).catch(()=>{});
+            } catch (err) {
+                // 忽略错误，继续执行本地清理
+                console.warn('后端登出请求失败:', err);
+            }
+
+            // 清理 localStorage 中的 token（若使用前端 JWT 存储）
+            try {
+                if (window.localStorage) {
+                    localStorage.removeItem('accessToken');
+                    localStorage.removeItem('refreshToken');
+                }
+            } catch (err) {
+                console.warn('清理 localStorage 失败', err);
+            }
+
+            // 跳转到前端登录页
+            window.location.href = 'http://' + window.location.hostname + ':3000/login';
+        }
+    </script>
     
     {% block extra_js %}{% endblock %}
 </body>

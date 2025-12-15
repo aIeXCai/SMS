@@ -140,8 +140,8 @@ select.form-select option:checked:hover {
     color: white;
 }
 
-/* ===== 按钮样式 ===== */
-.btn {
+/* ===== 按钮样式（只应用于主内容区域） ===== */
+.main-content .btn {
     border-radius: var(--border-radius-small);
     font-weight: 500;
     padding: 0.75rem 1.5rem;
@@ -151,20 +151,25 @@ select.form-select option:checked:hover {
     border: none;
 }
 
-.btn:hover {
+.main-content .btn-sm {
+    padding: 6px 12px;
+    font-size: 12px;
+}
+
+.main-content .btn:hover {
     transform: translateY(-1px);
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
 
-.btn-primary {
+.main-content .btn-primary {
     background: var(--primary-gradient);
 }
 
-.btn-success {
+.main-content .btn-success {
     background: var(--success-gradient);
 }
 
-.btn-secondary {
+.main-content .btn-secondary {
     background: var(--secondary-gradient);
 }
 
@@ -796,7 +801,7 @@ select.form-select option:checked:hover {
         max-width: 50px;
     }
     
-    .btn {
+    .main-content .btn {
         width: 100%;
         margin-bottom: 0.5rem;
         margin-right: 0;

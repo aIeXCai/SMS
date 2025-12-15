@@ -2,7 +2,9 @@
 # 学生与成绩模块URL配置
 # =============================================================================
 
-from django.urls import path
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from .api_views import StudentViewSet, ClassViewSet
 from .views.student_views import (
     student_list, student_add, student_edit, student_delete,
     student_update_status, student_batch_import, student_batch_delete,
@@ -30,11 +32,16 @@ from .views.ranking_debug_view import (
 
 app_name = 'students_grades'
 
+# API 路由配置
+router = DefaultRouter()
+router.register(r'students', StudentViewSet)
+router.register(r'classes', ClassViewSet)
+
 urlpatterns = [
     # === 基础学生管理 ===
-    path('', student_list, name='student_list'),                    # 学生列表页面（主页）
-    path('students/', student_list, name='student_list_alt'),       # 备用学生列表路径
-    path('students/add/', student_add, name='student_add'),         # 添加学生
+    path('students/', student_list, name='student_list'),                    # 学生列表页面
+    path('students/list/', student_list, name='student_list_alt'),           # 备用学生列表路径
+    path('students/add/', student_add, name='student_add'),                  # 添加学生
     path('students/edit/<int:pk>/', student_edit, name='student_edit'),      # 编辑学生
     path('students/delete/<int:pk>/', student_delete, name='student_delete'), # 删除学生
     

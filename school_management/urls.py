@@ -19,17 +19,36 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
+from rest_framework_simplejwt.views import (
+    TokenObtainPairView,
+    TokenRefreshView,
+)
+from . import views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('django-rq/', include('django_rq.urls')),  # RQ任务管理界面
     
+    # 主页 - 处理JWT认证跳转
+    path('', views.home_view, name='home'),
+    path('dashboard/', views.dashboard_view, name='dashboard'),
+    path('api/dashboard/stats/', views.dashboard_stats_api, name='dashboard_stats_api'),
+    
+    # 认证 - 支持有无斜杠两种格式
+    path('api/token', TokenObtainPairView.as_view(), name='token_obtain_pair_no_slash'),
+    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/token/refresh', TokenRefreshView.as_view(), name='token_refresh_no_slash'),
+    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    
+    # 🔴 学生与成绩 API
+    path('api/', include('school_management.students_grades.api_urls')),
+    
     # 🔴 新的统一学生与成绩模块
     path('', include('school_management.students_grades.urls')),
     
-    # 🔴 原有模块（暂时保留，后续迁移完成后移除）
-    # path('', include('school_management.students.urls')),
-    # path('', include('school_management.exams.urls')),
+    # 🔴 用户与权限接口
+    path('api/users/', include('school_management.users.urls')),
+
 ]
 
 # 开发环境下提供静态文件

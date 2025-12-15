@@ -4,8 +4,8 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
 
-    // 转发到后端 Django 登录接口（按需修改目标 URL）
-    const backendRes = await fetch('http://127.0.0.1:8000/api/login/', {
+    // 转发到后端 Django JWT token 接口
+    const backendRes = await fetch('http://127.0.0.1:8000/api/token/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
