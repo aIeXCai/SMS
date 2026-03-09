@@ -1,4 +1,124 @@
-19:00:53 Worker 0c42624c4ace48d3a1cc691bd9a016ed: started with PID 63906, version 2.5.0
-19:00:53 Worker 0c42624c4ace48d3a1cc691bd9a016ed: subscribing to channel rq:pubsub:0c42624c4ace48d3a1cc691bd9a016ed
-19:00:53 *** Listening on default...
-19:00:53 Worker 0c42624c4ace48d3a1cc691bd9a016ed: cleaning registries for queue: default
+23:14:02 Worker 83bf3f39881f4cca8bf8df259a154fa8: started with PID 37742, version 2.5.0
+23:14:02 Worker 83bf3f39881f4cca8bf8df259a154fa8: subscribing to channel rq:pubsub:83bf3f39881f4cca8bf8df259a154fa8
+23:14:02 *** Listening on default...
+23:14:02 Worker 83bf3f39881f4cca8bf8df259a154fa8: cleaning registries for queue: default
+23:43:05 Worker 83bf3f39881f4cca8bf8df259a154fa8: cleaning registries for queue: default
+23:55:32 Worker 83bf3f39881f4cca8bf8df259a154fa8: cleaning registries for queue: default
+00:13:27 Worker 83bf3f39881f4cca8bf8df259a154fa8: cleaning registries for queue: default
+00:25:33 Worker 83bf3f39881f4cca8bf8df259a154fa8: cleaning registries for queue: default
+00:40:34 Worker 83bf3f39881f4cca8bf8df259a154fa8: cleaning registries for queue: default
+00:57:15 Worker 83bf3f39881f4cca8bf8df259a154fa8: cleaning registries for queue: default
+01:12:17 Worker 83bf3f39881f4cca8bf8df259a154fa8: cleaning registries for queue: default
+01:25:37 Worker 83bf3f39881f4cca8bf8df259a154fa8: cleaning registries for queue: default
+01:44:56 Worker 83bf3f39881f4cca8bf8df259a154fa8: cleaning registries for queue: default
+02:00:07 Worker 83bf3f39881f4cca8bf8df259a154fa8: cleaning registries for queue: default
+02:10:42 Worker 83bf3f39881f4cca8bf8df259a154fa8: cleaning registries for queue: default
+02:25:42 Worker 83bf3f39881f4cca8bf8df259a154fa8: cleaning registries for queue: default
+02:42:02 Worker 83bf3f39881f4cca8bf8df259a154fa8: cleaning registries for queue: default
+02:58:40 Worker 83bf3f39881f4cca8bf8df259a154fa8: cleaning registries for queue: default
+03:10:45 Worker 83bf3f39881f4cca8bf8df259a154fa8: cleaning registries for queue: default
+03:28:50 Worker 83bf3f39881f4cca8bf8df259a154fa8: cleaning registries for queue: default
+03:44:12 Worker 83bf3f39881f4cca8bf8df259a154fa8: cleaning registries for queue: default
+03:55:48 Worker 83bf3f39881f4cca8bf8df259a154fa8: cleaning registries for queue: default
+04:10:49 Worker 83bf3f39881f4cca8bf8df259a154fa8: cleaning registries for queue: default
+04:29:20 Worker 83bf3f39881f4cca8bf8df259a154fa8: cleaning registries for queue: default
+04:40:52 Worker 83bf3f39881f4cca8bf8df259a154fa8: cleaning registries for queue: default
+04:58:11 Worker 83bf3f39881f4cca8bf8df259a154fa8: cleaning registries for queue: default
+05:13:22 Worker 83bf3f39881f4cca8bf8df259a154fa8: cleaning registries for queue: default
+05:24:48 Worker 83bf3f39881f4cca8bf8df259a154fa8: cleaning registries for queue: default
+05:40:59 Worker 83bf3f39881f4cca8bf8df259a154fa8: cleaning registries for queue: default
+05:56:32 Worker 83bf3f39881f4cca8bf8df259a154fa8: cleaning registries for queue: default
+06:11:47 Worker 83bf3f39881f4cca8bf8df259a154fa8: cleaning registries for queue: default
+06:26:00 Worker 83bf3f39881f4cca8bf8df259a154fa8: cleaning registries for queue: default
+06:42:10 Worker 83bf3f39881f4cca8bf8df259a154fa8: cleaning registries for queue: default
+06:56:02 Worker 83bf3f39881f4cca8bf8df259a154fa8: cleaning registries for queue: default
+07:17:46 Worker 83bf3f39881f4cca8bf8df259a154fa8: cleaning registries for queue: default
+07:41:05 Worker 83bf3f39881f4cca8bf8df259a154fa8: cleaning registries for queue: default
+07:53:53 Worker 83bf3f39881f4cca8bf8df259a154fa8: cleaning registries for queue: default
+08:12:01 Worker 83bf3f39881f4cca8bf8df259a154fa8: cleaning registries for queue: default
+08:26:09 Worker 83bf3f39881f4cca8bf8df259a154fa8: cleaning registries for queue: default
+08:39:39 Worker 83bf3f39881f4cca8bf8df259a154fa8: cleaning registries for queue: default
+08:48:22 default: school_management.students_grades.tasks.update_all_rankings_async(7) (33ff3860-5cde-4de1-8ea5-01ad1abbcccd)
+开始优化版异步更新完整排名，考试ID: 7
+正在处理年级: 初二
+  获取到 673 个学生的总分数据
+  总分排名计算完成
+Found 7 subjects to process: ['语文', '数学', '英语', '政治', '历史', '物理', '化学']
+  需要处理 7 个科目的排名: ['语文', '数学', '英语', '政治', '历史', '物理', '化学']
+  正在计算班级排名...
+  科目排名计算完成
+  开始批量更新排名...
+    批量更新第 1-500 条记录...
+    批量更新第 501-1000 条记录...
+    批量更新第 1001-1500 条记录...
+    批量更新第 1501-2000 条记录...
+    批量更新第 2001-2500 条记录...
+    批量更新第 2501-3000 条记录...
+    批量更新第 3001-3500 条记录...
+    批量更新第 3501-4000 条记录...
+    批量更新第 4001-4500 条记录...
+    批量更新最后 187 条记录...
+排名更新完成！年级: 初二, 共更新 4687 条记录，耗时 1.82 秒
+年级 初二 处理完成，耗时 1.83 秒，更新 4687 条记录
+优化版排名更新完成！共更新 4687 条记录，耗时 1.85 秒
+08:48:24 Successfully completed school_management.students_grades.tasks.update_all_rankings_async(7) job in 0:00:01.861097s on worker 83bf3f39881f4cca8bf8df259a154fa8
+08:48:24 default: Job OK (33ff3860-5cde-4de1-8ea5-01ad1abbcccd)
+08:48:24 Result is kept for 500 seconds
+08:52:32 default: school_management.students_grades.tasks.update_all_rankings_async(7) (54b34e0f-0428-4e6a-8963-f3ec45cf4cb3)
+开始优化版异步更新完整排名，考试ID: 7
+正在处理年级: 初二
+  获取到 675 个学生的总分数据
+  总分排名计算完成
+Found 7 subjects to process: ['语文', '数学', '英语', '政治', '历史', '物理', '化学']
+  需要处理 7 个科目的排名: ['语文', '数学', '英语', '政治', '历史', '物理', '化学']
+  正在计算班级排名...
+  科目排名计算完成
+  开始批量更新排名...
+    批量更新第 1-500 条记录...
+    批量更新第 501-1000 条记录...
+    批量更新第 1001-1500 条记录...
+    批量更新第 1501-2000 条记录...
+    批量更新第 2001-2500 条记录...
+    批量更新第 2501-3000 条记录...
+    批量更新第 3001-3500 条记录...
+    批量更新第 3501-4000 条记录...
+    批量更新第 4001-4500 条记录...
+    批量更新最后 201 条记录...
+排名更新完成！年级: 初二, 共更新 4701 条记录，耗时 1.81 秒
+年级 初二 处理完成，耗时 1.81 秒，更新 4701 条记录
+优化版排名更新完成！共更新 4701 条记录，耗时 1.83 秒
+08:52:34 Successfully completed school_management.students_grades.tasks.update_all_rankings_async(7) job in 0:00:01.840422s on worker 83bf3f39881f4cca8bf8df259a154fa8
+08:52:34 default: Job OK (54b34e0f-0428-4e6a-8963-f3ec45cf4cb3)
+08:52:34 Result is kept for 500 seconds
+08:52:34 Worker 83bf3f39881f4cca8bf8df259a154fa8: cleaning registries for queue: default
+08:57:34 default: school_management.students_grades.tasks.update_all_rankings_async(8) (ed55acef-bef2-4244-a390-39871d6c65f3)
+开始优化版异步更新完整排名，考试ID: 8
+正在处理年级: 初二
+  获取到 674 个学生的总分数据
+  总分排名计算完成
+Found 7 subjects to process: ['语文', '数学', '英语', '政治', '历史', '物理', '化学']
+  需要处理 7 个科目的排名: ['语文', '数学', '英语', '政治', '历史', '物理', '化学']
+  正在计算班级排名...
+  科目排名计算完成
+  开始批量更新排名...
+    批量更新第 1-500 条记录...
+    批量更新第 501-1000 条记录...
+    批量更新第 1001-1500 条记录...
+    批量更新第 1501-2000 条记录...
+    批量更新第 2001-2500 条记录...
+    批量更新第 2501-3000 条记录...
+    批量更新第 3001-3500 条记录...
+    批量更新第 3501-4000 条记录...
+    批量更新第 4001-4500 条记录...
+    批量更新最后 205 条记录...
+排名更新完成！年级: 初二, 共更新 4705 条记录，耗时 1.80 秒
+年级 初二 处理完成，耗时 1.80 秒，更新 4705 条记录
+优化版排名更新完成！共更新 4705 条记录，耗时 1.82 秒
+08:57:35 Successfully completed school_management.students_grades.tasks.update_all_rankings_async(8) job in 0:00:01.827592s on worker 83bf3f39881f4cca8bf8df259a154fa8
+08:57:35 default: Job OK (ed55acef-bef2-4244-a390-39871d6c65f3)
+08:57:35 Result is kept for 500 seconds
+09:04:21 Worker 83bf3f39881f4cca8bf8df259a154fa8: cleaning registries for queue: default
+09:17:51 Worker 83bf3f39881f4cca8bf8df259a154fa8: cleaning registries for queue: default
+09:31:21 Worker 83bf3f39881f4cca8bf8df259a154fa8: cleaning registries for queue: default
+09:44:51 Worker 83bf3f39881f4cca8bf8df259a154fa8: cleaning registries for queue: default
+09:58:21 Worker 83bf3f39881f4cca8bf8df259a154fa8: cleaning registries for queue: default
