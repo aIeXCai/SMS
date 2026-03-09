@@ -263,7 +263,7 @@
                         <div class="col-6">
                             <div class="p-2 bg-white bg-opacity-10 rounded">
                                 <small class="d-block text-white-50">负责年级</small>
-                                <span class="fw-bold">{{ user.managed_grade|default:"全校" }}</span>
+                                <span class="fw-bold">{{ user.get_managed_grade_display|default:"全校" }}</span>
                             </div>
                         </div>
                     </div>

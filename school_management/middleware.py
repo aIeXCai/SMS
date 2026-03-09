@@ -20,12 +20,23 @@ class JWTAuthenticationMiddleware:
         self.jwt_auth = JWTAuthentication()
 
     def __call__(self, request):
-        # 如果用户还未认证，或者是AnonymousUser，尝试从JWT token中获取用户
-        if not request.user.is_authenticated or request.user.is_anonymous:
+        # 1. 如果 URL 中包含 token，说明是显式的 SSO 跳转，优先级最高
+        # 这种情况下，我们强制使用 JWT 进行认证，并更新 Session
+        if request.GET.get('token'):
             redirect_response = self.authenticate_via_jwt(request)
             if redirect_response:
                 return redirect_response
         
+        # 2. 检查 Cookie 中的 JWT Token
+        # 如果 Cookie 中有 Token，我们需要验证它是否与当前 Session 用户一致
+        # 如果不一致（例如 Session 是 Admin，但 Cookie 是 Manager），通常意味着前端切换了用户
+        # 此时我们应该优先信任前端的状态（因为它是主入口）
+        elif request.COOKIES.get('jwt_token'):
+             self.authenticate_via_jwt(request)
+             
+        # 3. 如果没有 JWT Token，则保持原有的 Session 状态（如果有）
+        # 这允许纯 Django Admin 的正常使用
+
         response = self.get_response(request)
         return response
 
@@ -50,7 +61,14 @@ class JWTAuthenticationMiddleware:
             
             if auth_result:
                 user, token = auth_result
-                # 强制设置用户到request中，覆盖任何现有的认证状态
+                
+                # 关键修改：如果 JWT 用户与当前 Session 用户不一致，强制更新 Session
+                if request.user != user:
+                    # 指定 backend 以便 login 函数能正常工作
+                    user.backend = 'django.contrib.auth.backends.ModelBackend'
+                    login(request, user)
+                
+                # 确保 request.user 是最新的
                 request.user = user
                 
                 # 如果token来自URL参数，重定向到清理后的URL以避免token暴露
@@ -65,6 +83,9 @@ class JWTAuthenticationMiddleware:
                     return response
             
         except InvalidToken:
-            pass  # 静默处理无效token
+            # 如果 Token 无效（过期或错误），且当前有 Session 登录
+            # 我们可能需要考虑是否要登出 Session？
+            # 暂时保持保守策略：只记录日志，不强制登出 Session，以免影响 Admin 使用
+            pass  
         except Exception as e:
             logger.error(f"JWT认证过程中出现错误: {str(e)}")

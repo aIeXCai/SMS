@@ -685,6 +685,11 @@
         let currentPage = 1;
         let pageSize = 10;
 
+        // 趋势图筛选变量 - 必须在这里声明，确保所有函数都能访问
+        let selectedTrendExams = [];
+        let selectedTrendSubjects = [];
+        let selectedRankType = 'grade'; // 默认选择年级排名
+
     // 立即清理所有加载状态
     clearAllLoadingStates();
 
@@ -843,6 +848,7 @@
             initializeDefaultSelections();
             drawRadarChart();
             drawBarChart();
+            drawTrendChart(); // 添加趋势图初始绘制
         }, 200);
 
         // 填充数据表格
@@ -1847,9 +1853,7 @@
     };
 
     // 趋势图多选逻辑
-    let selectedTrendExams = [];
-    let selectedTrendSubjects = [];
-    let selectedRankType = 'grade'; // 默认选择年级排名
+    // 变量已移到脚本顶部声明 (selectedTrendExams, selectedTrendSubjects, selectedRankType)
 
     // 切换所有考试选择
     window.toggleAllTrendExams = function () {
