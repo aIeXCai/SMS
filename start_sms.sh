@@ -238,7 +238,7 @@ fi
 
 # 启动 RQ Worker (后台)
 echo -e "${BLUE}⚡ 启动 RQ Worker...${NC}"
-python manage.py rqworker default > logs/rq_worker.log 2>&1 &
+python manage.py rqworker default --worker-class rq.SimpleWorker > logs/rq_worker.log 2>&1 &
 WORKER_PID=$!
 echo "RQ Worker PID: $WORKER_PID"
 

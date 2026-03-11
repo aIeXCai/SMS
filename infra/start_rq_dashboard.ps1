@@ -129,7 +129,7 @@ Write-Host ""
 
 try {
     # 在新窗口启动RQ Worker
-    Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$PWD'; Write-Host 'RQ Worker 启动中...' -ForegroundColor Green; python manage.py rqworker default"
+    Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$PWD'; Write-Host 'RQ Worker 启动中 (SimpleWorker)...' -ForegroundColor Green; python manage.py rqworker default --worker-class rq.SimpleWorker"
     
     Start-Sleep -Seconds 2
     

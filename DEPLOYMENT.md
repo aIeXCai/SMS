@@ -77,11 +77,32 @@ npm --version
 choco install redis-64
 ```
 
-**方法二：手动安装**
+**方法二：手动安装（不推荐：微软 Archive 版本较旧）**
 
-1. 访问 Redis Windows 版本下载：https://github.com/microsoftarchive/redis/releases
-2. 下载最新的 `.msi` 安装包
-3. 双击安装包运行
+> ⚠️ 注意：`https://github.com/microsoftarchive/redis/releases` 提供的 Redis 版本较旧（通常是 3.x），对于本项目的 `django-rq`/`rq` 可能会出现 “wrong number of arguments for 'hset'” 的错误。
+
+如果必须在 Windows 本机运行 Redis，可以考虑：
+
+1. **使用 Memurai（兼容 Redis）**：访问 https://www.memurai.com/ 下载最新版（推荐）。
+2. 或者切换到更稳定的运行方式（见下方“推荐：Docker/WSL”）。
+
+---
+
+**推荐：Docker（最简单）或 WSL（更接近 Linux）**
+
+- **Docker（推荐）**：在 Windows 上直接使用官方 Redis 镜像，确保版本最新。
+  ```bash
+  docker pull redis:latest
+  docker run -d --name redis -p 6379:6379 redis:latest
+  ```
+
+- **WSL（Ubuntu）**：如果你启用了 WSL，可以安装官方包：
+  ```bash
+  sudo apt update
+  sudo apt install -y redis-server
+  ```
+
+---
 
 **启动 Redis（每次启动系统前）：**
 在命令提示符中输入：
@@ -398,7 +419,7 @@ ready - started server on 0.0.0.0:3000
 用于处理异步任务（如成绩排名计算）：
 
 ```bash
-python manage.py rqworker default
+python manage.py rqworker default --worker-class rq.SimpleWorker
 ```
 
 ---

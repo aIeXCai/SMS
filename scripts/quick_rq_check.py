@@ -70,7 +70,7 @@ try:
     
     # 如果有问题，给出建议
     if worker_count == 0:
-        print("💡 建议: 运行 'python manage.py rqworker' 启动工作进程")
+        print("💡 建议: 运行 'python manage.py rqworker default --worker-class rq.SimpleWorker' 启动工作进程")
     elif queued_count > 0 and all(not w.get_current_job() for w in workers):
         print("💡 建议: 工作进程空闲但有任务等待，可能需要重启工作进程")
 
