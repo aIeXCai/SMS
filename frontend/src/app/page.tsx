@@ -333,7 +333,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Main Content */}
-      <div style={{ marginLeft: '220px', padding: '30px' }}>
+      <div>
         {/* Header */}
         <div style={{
           display: 'flex',

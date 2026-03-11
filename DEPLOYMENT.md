@@ -44,7 +44,7 @@
 
 **验证安装：**
 打开命令提示符（Win+R，输入 `cmd`，回车），输入：
-```bash
+```
 python --version
 ```
 如果看到类似 `Python 3.12.x` 的输出，说明安装成功。
@@ -59,7 +59,7 @@ python --version
 
 **验证安装：**
 打开命令提示符，输入：
-```bash
+```
 node --version
 npm --version
 ```
@@ -73,7 +73,7 @@ npm --version
 
 1. 打开管理员权限的命令提示符
 2. 输入以下命令：
-```bash
+```
 choco install redis-64
 ```
 
@@ -85,7 +85,7 @@ choco install redis-64
 
 **启动 Redis（每次启动系统前）：**
 在命令提示符中输入：
-```bash
+```
 redis-server
 ```
 
@@ -225,7 +225,7 @@ cd SMS
 在项目根目录下（包含 `manage.py` 文件的文件夹），打开命令行工具，输入：
 
 **Windows:**
-```bash
+```
 pip install -r requirements.txt
 ```
 
@@ -269,7 +269,7 @@ cd ..
 
 **Windows:**
 在命令提示符中输入：
-```bash
+```
 redis-server
 ```
 保持这个窗口打开，不要关闭。
@@ -290,7 +290,7 @@ sudo systemctl start redis
 
 **Windows:**
 打开新的命令提示符，输入：
-```bash
+```
 redis-cli ping
 ```
 如果返回 `PONG`，说明 Redis 正在运行。
@@ -340,7 +340,26 @@ python manage.py createsuperuser
 
 ## 启动服务
 
-### 方式一：macOS 使用一键启动脚本（推荐）
+### 方式一：Windows 使用一键启动脚本（推荐）
+
+如果您使用 Windows，项目提供了一个一键启动脚本 `start_sms.bat`。
+
+双击 `start_sms.bat` 文件，或在命令提示符中进入项目根目录，输入：
+```
+start_sms.bat
+```
+
+脚本会自动完成以下操作：
+1. 检查并启动 Redis
+2. 安装/验证 Python 依赖
+3. 执行数据库迁移
+4. 在新窗口启动前端服务
+5. 在新窗口启动异步任务处理器（RQ Worker）
+6. 启动 Django 后端服务
+
+---
+
+### 方式二：macOS 使用一键启动脚本（推荐）
 
 如果您使用 macOS，项目提供了一个一键启动脚本 `start_sms.sh`。
 
@@ -351,7 +370,7 @@ bash start_sms.sh
 
 脚本会自动完成以下操作：
 1. 检查并启动 Redis
-2. 安装/验证 Python 依赖
+2. 激活 conda 环境
 3. 执行数据库迁移
 4. 在新终端窗口启动前端服务
 5. 在后台启动异步任务处理器
@@ -359,7 +378,7 @@ bash start_sms.sh
 
 ---
 
-### 方式二：手动启动（通用）
+### 方式三：手动启动（通用）
 
 如果您使用 Windows 或 Linux，或者想手动控制启动过程：
 
@@ -455,13 +474,13 @@ Address already in use
 
 **Windows:**
 查找占用端口的进程：
-```bash
+```
 netstat -ano | findstr :8000
 netstat -ano | findstr :3000
 ```
 
 结束进程：
-```bash
+```
 taskkill /PID <进程ID> /F
 ```
 
