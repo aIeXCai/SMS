@@ -121,7 +121,12 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
               {makeLink("/exams", "考试管理", "fa-clipboard-list", pathname.startsWith("/exams"))}
             </li>
             <li className="nav-item">
-              {makeLink("/scores", "成绩管理", "fa-chart-line", pathname.startsWith("/scores"))}
+              {makeLink(
+                "/scores",
+                "成绩管理",
+                "fa-chart-line",
+                pathname === "/scores" || pathname.startsWith("/scores/add") || pathname.startsWith("/scores/batch-edit")
+              )}
             </li>
             <li className="nav-item">
               {makeLink("/scores/query", "成绩查询", "fa-search", pathname.startsWith("/scores/query"))}

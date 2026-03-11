@@ -1,9 +1,11 @@
 import openpyxl
 import datetime
+from collections import defaultdict
 from django.http import HttpResponse
-from django.db import transaction
+from django.db import transaction, models
 from django.utils import timezone
-from rest_framework.parsers import MultiPartParser, FormParser
+from django.core.paginator import Paginator
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -13,9 +15,9 @@ from .models.student import (
     Student, Class,
     STATUS_CHOICES, GRADE_LEVEL_CHOICES, CLASS_NAME_CHOICES,
 )
-from .models.score import Score
-from .models.exam import Exam, ExamSubject, ACADEMIC_YEAR_CHOICES
-from .serializers import StudentSerializer, ClassSerializer, ExamSerializer
+from .models.score import Score, SUBJECT_CHOICES as SCORE_SUBJECT_CHOICES
+from .models.exam import Exam, ExamSubject, ACADEMIC_YEAR_CHOICES, SUBJECT_DEFAULT_MAX_SCORES
+from .serializers import StudentSerializer, ClassSerializer, ExamSerializer, ScoreSerializer
 from .tasks import update_all_rankings_async
 
 
@@ -490,3 +492,780 @@ class ExamViewSet(viewsets.ModelViewSet):
             'subjects': subjects,
             'all_subjects': all_subjects,
         })
+
+
+class ScoreViewSet(viewsets.ModelViewSet):
+    """
+    成绩管理 API
+    - 列表：按(学生,考试)聚合，输出与 score_list.html 一致的数据结构
+    - 批量：导出选中、删除选中
+    - 导入：Excel 批量导入
+    """
+    queryset = Score.objects.all().select_related('student', 'student__current_class', 'exam', 'exam_subject')
+    serializer_class = ScoreSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
+
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy', 'batch_delete_selected', 'batch_import']:
+            return [permissions.IsAuthenticated(), IsAdminOrGradeManager()]
+        return [permissions.IsAuthenticated()]
+
+    def _get_subject_max_scores(self, exam):
+        exam_subjects = ExamSubject.objects.filter(exam=exam)
+        max_scores = {subject.subject_code: float(subject.max_score) for subject in exam_subjects}
+
+        default_config = SUBJECT_DEFAULT_MAX_SCORES.get(exam.grade_level, {})
+        for subject_code, _ in SCORE_SUBJECT_CHOICES:
+            if subject_code not in max_scores:
+                max_scores[subject_code] = float(default_config.get(subject_code, 100))
+
+        return max_scores
+
+    def _filter_scores(self, request):
+        scores = Score.objects.select_related('student', 'student__current_class', 'exam').order_by(
+            'student__student_id', 'exam__date', 'subject'
+        )
+
+        student_id_filter = request.query_params.get('student_id_filter')
+        student_name_filter = request.query_params.get('student_name_filter')
+        exam_filter = request.query_params.get('exam_filter')
+        subject_filter = request.query_params.get('subject_filter')
+        subject_filters = request.query_params.getlist('subject_filters')
+        subject_multi = request.query_params.getlist('subject')
+        grade_filter = request.query_params.get('grade_filter')
+        class_filter = request.query_params.get('class_filter')
+        academic_year_filter = request.query_params.get('academic_year_filter')
+        date_from_filter = request.query_params.get('date_from_filter')
+        date_to_filter = request.query_params.get('date_to_filter')
+
+        if subject_filter and isinstance(subject_filter, str) and ',' in subject_filter:
+            subject_filters.extend([x.strip() for x in subject_filter.split(',') if x.strip()])
+        if subject_multi:
+            subject_filters.extend([x for x in subject_multi if x])
+
+        if student_id_filter:
+            scores = scores.filter(student__student_id__icontains=student_id_filter)
+        if student_name_filter:
+            scores = scores.filter(student__name__icontains=student_name_filter)
+        if exam_filter:
+            scores = scores.filter(exam__pk=exam_filter)
+        if subject_filters:
+            scores = scores.filter(subject__in=list(set(subject_filters)))
+        elif subject_filter:
+            scores = scores.filter(subject=subject_filter)
+        if grade_filter:
+            scores = scores.filter(student__grade_level=grade_filter)
+        if class_filter:
+            scores = scores.filter(student__current_class__class_name=class_filter)
+        if academic_year_filter:
+            scores = scores.filter(exam__academic_year=academic_year_filter)
+        if date_from_filter:
+            scores = scores.filter(exam__date__gte=date_from_filter)
+        if date_to_filter:
+            scores = scores.filter(exam__date__lte=date_to_filter)
+
+        return scores
+
+    def _aggregate_rows(self, scores):
+        grade_label_map = {value: label for value, label in GRADE_LEVEL_CHOICES}
+        aggregated_data = defaultdict(lambda: {
+            'student_obj': None,
+            'class_obj': None,
+            'exam_obj': None,
+            'scores': {},
+            'total_score': 0.0,
+            'grade_rank': None,
+        })
+
+        for score in scores:
+            key = (score.student.pk, score.exam.pk)
+            if aggregated_data[key]['student_obj'] is None:
+                aggregated_data[key]['student_obj'] = score.student
+                aggregated_data[key]['class_obj'] = score.student.current_class
+                aggregated_data[key]['exam_obj'] = score.exam
+                aggregated_data[key]['grade_rank'] = score.total_score_rank_in_grade
+            aggregated_data[key]['scores'][score.subject] = float(score.score_value)
+            aggregated_data[key]['total_score'] += float(score.score_value)
+
+        rows = []
+        for key, data in aggregated_data.items():
+            student = data['student_obj']
+            class_obj = data['class_obj']
+            exam = data['exam_obj']
+            rows.append({
+                'record_key': f"{student.pk}_{exam.pk}",
+                'student_id': student.pk,
+                'exam_id': exam.pk,
+                'student': {
+                    'student_id': student.student_id,
+                    'name': student.name,
+                    'grade_level': student.grade_level,
+                    'grade_level_display': grade_label_map.get(student.grade_level, student.grade_level),
+                },
+                'class': {
+                    'class_name': class_obj.class_name if class_obj else None,
+                },
+                'exam': {
+                    'id': exam.pk,
+                    'name': exam.name,
+                    'academic_year': exam.academic_year,
+                    'date': exam.date.strftime('%Y-%m-%d') if exam.date else '',
+                },
+                'scores': data['scores'],
+                'total_score': round(data['total_score'], 2),
+                'grade_rank': data['grade_rank'],
+            })
+        return rows
+
+    def _sort_rows(self, rows, request):
+        sort_by = request.query_params.get('sort_by')
+        subject_sort = request.query_params.get('subject_sort')
+        sort_order = request.query_params.get('sort_order', 'desc')
+        reverse = sort_order == 'desc'
+
+        if subject_sort:
+            if subject_sort == 'total_score':
+                rows.sort(key=lambda x: float(x.get('total_score') or 0), reverse=reverse)
+            elif subject_sort == 'grade_rank':
+                rows.sort(
+                    key=lambda x: (x.get('grade_rank') is None, x.get('grade_rank') if x.get('grade_rank') is not None else 999999),
+                    reverse=reverse,
+                )
+            else:
+                rows.sort(key=lambda x: float(x.get('scores', {}).get(subject_sort, -1)), reverse=reverse)
+            return rows
+
+        if sort_by == 'total_score_desc':
+            rows.sort(key=lambda x: float(x.get('total_score') or 0), reverse=True)
+        elif sort_by == 'total_score_asc':
+            rows.sort(key=lambda x: float(x.get('total_score') or 0), reverse=False)
+        elif sort_by == 'student_name':
+            rows.sort(key=lambda x: x.get('student', {}).get('name') or '')
+        elif sort_by == 'exam_date':
+            rows.sort(key=lambda x: x.get('exam', {}).get('date') or '', reverse=True)
+        elif sort_by == 'grade_rank':
+            rows.sort(key=lambda x: x.get('grade_rank') if x.get('grade_rank') is not None else 999999)
+
+        return rows
+
+    def _build_export_workbook(self, rows):
+        workbook = openpyxl.Workbook()
+        sheet = workbook.active
+        sheet.title = "成绩导出"
+
+        all_subjects = [subject_code for subject_code, _ in SCORE_SUBJECT_CHOICES]
+        headers = ["学号", "学生姓名", "年级", "班级", "考试名称", "学年", "考试日期"] + all_subjects
+        sheet.append(headers)
+
+        for row in rows:
+            output_row = [
+                row['student']['student_id'],
+                row['student']['name'],
+                row['student']['grade_level_display'],
+                row['class']['class_name'] or "N/A",
+                row['exam']['name'],
+                row['exam']['academic_year'] or "N/A",
+                row['exam']['date'] or "",
+            ]
+            for subject in all_subjects:
+                value = row['scores'].get(subject)
+                output_row.append(value if value is not None else "-")
+            sheet.append(output_row)
+
+        return workbook
+
+    def _build_query_export_workbook(self, rows, all_subjects):
+        workbook = openpyxl.Workbook()
+        sheet = workbook.active
+        sheet.title = "成绩查询导出"
+
+        headers = ["学号", "学生姓名", "年级", "班级", "考试名称", "学年", "考试日期"] + all_subjects + ["总分", "年级排名"]
+        sheet.append(headers)
+
+        for row in rows:
+            output_row = [
+                row['student']['student_id'],
+                row['student']['name'],
+                row['student']['grade_level_display'],
+                row['class']['class_name'] or "N/A",
+                row['exam']['name'],
+                row['exam']['academic_year'] or "N/A",
+                row['exam']['date'] or "",
+            ]
+
+            for subject in all_subjects:
+                value = row['scores'].get(subject)
+                output_row.append(value if value is not None else "-")
+
+            output_row.append(row.get('total_score', 0))
+            output_row.append(row.get('grade_rank') if row.get('grade_rank') is not None else "-")
+            sheet.append(output_row)
+
+        return workbook
+
+    @action(detail=False, methods=['get'], url_path='options')
+    def options(self, request):
+        exams = Exam.objects.all().order_by('-academic_year', '-date', 'name')[:100]
+        academic_year_values = sorted(
+            {
+                value
+                for value in Exam.objects.exclude(academic_year__isnull=True)
+                .exclude(academic_year='')
+                .values_list('academic_year', flat=True)
+                if value
+            },
+            reverse=True,
+        )
+        return Response({
+            'exams': [
+                {
+                    'value': str(exam.pk),
+                    'label': f"{exam.academic_year} {exam.name} ({exam.get_grade_level_display()})"
+                }
+                for exam in exams
+            ],
+            'grade_levels': [{'value': value, 'label': label} for value, label in GRADE_LEVEL_CHOICES],
+            'class_name_choices': [{'value': value, 'label': label} for value, label in CLASS_NAME_CHOICES],
+            'subjects': [{'value': value, 'label': label} for value, label in SCORE_SUBJECT_CHOICES],
+            'academic_years': [{'value': value, 'label': value} for value in academic_year_values],
+            'sort_by_options': [
+                {'value': '', 'label': '--- 默认排序 ---'},
+                {'value': 'total_score_desc', 'label': '总分降序'},
+                {'value': 'total_score_asc', 'label': '总分升序'},
+                {'value': 'student_name', 'label': '学生姓名'},
+                {'value': 'exam_date', 'label': '考试日期'},
+                {'value': 'grade_rank', 'label': '年级排名'},
+            ],
+            'all_subjects': [value for value, _ in SCORE_SUBJECT_CHOICES],
+            'per_page_options': [10, 20, 50, 100],
+        })
+
+    @action(detail=False, methods=['get'], url_path='student-search')
+    def student_search(self, request):
+        query = (request.query_params.get('q') or '').strip()
+        if not query:
+            return Response({'results': []})
+
+        students = Student.objects.select_related('current_class').filter(
+            models.Q(name__icontains=query)
+            | models.Q(student_id__icontains=query)
+            | models.Q(current_class__class_name__icontains=query)
+        ).order_by('name', 'student_id')[:20]
+
+        return Response({
+            'results': [
+                {
+                    'id': student.pk,
+                    'student_id': student.student_id,
+                    'name': student.name,
+                    'grade_level': student.grade_level,
+                    'grade_level_display': student.get_grade_level_display() if student.grade_level else '',
+                    'class_name': student.current_class.class_name if student.current_class else '',
+                    'display': f"{student.name} ({student.student_id}) - {student.get_grade_level_display() if student.grade_level else ''}{student.current_class.class_name if student.current_class else ''}",
+                }
+                for student in students
+            ]
+        })
+
+    @action(detail=False, methods=['post'], url_path='manual-add')
+    def manual_add(self, request):
+        student_id = request.data.get('student_id')
+        exam_id = request.data.get('exam_id')
+        scores = request.data.get('scores', {})
+
+        if not student_id or not exam_id:
+            return Response({'success': False, 'message': '学生和考试为必填项'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            student = Student.objects.get(pk=student_id)
+        except Student.DoesNotExist:
+            return Response({'success': False, 'message': '选择的学生不存在'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            exam = Exam.objects.get(pk=exam_id)
+        except Exam.DoesNotExist:
+            return Response({'success': False, 'message': '选择的考试不存在'}, status=status.HTTP_400_BAD_REQUEST)
+
+        valid_scores = {}
+        for subject_code, _ in SCORE_SUBJECT_CHOICES:
+            raw_value = scores.get(subject_code)
+            if raw_value in [None, '']:
+                continue
+            try:
+                valid_scores[subject_code] = float(raw_value)
+            except (TypeError, ValueError):
+                return Response({'success': False, 'message': f'{subject_code} 分数格式不正确'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not valid_scores:
+            return Response({'success': False, 'message': '请至少输入一个科目的成绩'}, status=status.HTTP_400_BAD_REQUEST)
+
+        existing_subjects = []
+        subject_name_map = {code: name for code, name in SCORE_SUBJECT_CHOICES}
+        for subject_code in valid_scores.keys():
+            if Score.objects.filter(student=student, exam=exam, subject=subject_code).exists():
+                existing_subjects.append(subject_name_map.get(subject_code, subject_code))
+
+        if existing_subjects:
+            return Response({
+                'success': False,
+                'code': 'duplicate_scores',
+                'message': f"以下科目的成绩已存在：{', '.join(existing_subjects)}。",
+                'duplicate_subjects': existing_subjects,
+                'student_id': student.pk,
+                'exam_id': exam.pk,
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        exam_subject_map = {s.subject_code: s for s in exam.exam_subjects.all()}
+
+        created_count = 0
+        with transaction.atomic():
+            for subject_code, score_value in valid_scores.items():
+                score = Score(
+                    student=student,
+                    exam=exam,
+                    subject=subject_code,
+                    score_value=score_value,
+                    exam_subject=exam_subject_map.get(subject_code)
+                )
+                score.save()
+                created_count += 1
+
+        try:
+            update_all_rankings_async.delay(exam.pk, student.grade_level)
+        except Exception:
+            pass
+
+        return Response({
+            'success': True,
+            'message': f'成功添加 {created_count} 个科目的成绩',
+            'created_count': created_count,
+        })
+
+    @action(detail=False, methods=['get'], url_path='batch-edit-detail')
+    def batch_edit_detail(self, request):
+        student_id = request.query_params.get('student') or request.query_params.get('student_id')
+        exam_id = request.query_params.get('exam') or request.query_params.get('exam_id')
+
+        if not student_id or not exam_id:
+            return Response({'success': False, 'message': '缺少必要参数：学生ID或考试ID'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            student = Student.objects.select_related('current_class').get(pk=student_id)
+        except Student.DoesNotExist:
+            return Response({'success': False, 'message': '学生不存在'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            exam = Exam.objects.get(pk=exam_id)
+        except Exam.DoesNotExist:
+            return Response({'success': False, 'message': '考试不存在'}, status=status.HTTP_404_NOT_FOUND)
+
+        existing_scores = {
+            score.subject: float(score.score_value)
+            for score in Score.objects.filter(student=student, exam=exam)
+        }
+
+        return Response({
+            'success': True,
+            'student': {
+                'id': student.pk,
+                'name': student.name,
+                'student_id': student.student_id,
+                'grade_level': student.grade_level,
+                'grade_level_display': student.get_grade_level_display() if student.grade_level else '',
+                'class_name': student.current_class.class_name if student.current_class else '',
+            },
+            'exam': {
+                'id': exam.pk,
+                'name': exam.name,
+                'academic_year': exam.academic_year,
+                'date': exam.date.strftime('%Y-%m-%d') if exam.date else '',
+            },
+            'subjects': [{'value': code, 'label': label} for code, label in SCORE_SUBJECT_CHOICES],
+            'existing_scores': existing_scores,
+            'subject_max_scores': self._get_subject_max_scores(exam),
+        })
+
+    @action(detail=False, methods=['post'], url_path='batch-edit-save')
+    def batch_edit_save(self, request):
+        student_id = request.data.get('student_id')
+        exam_id = request.data.get('exam_id')
+        scores = request.data.get('scores', {})
+
+        if not student_id or not exam_id:
+            return Response({'success': False, 'message': '缺少必要参数：学生ID或考试ID'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            student = Student.objects.get(pk=student_id)
+        except Student.DoesNotExist:
+            return Response({'success': False, 'message': '学生不存在'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            exam = Exam.objects.get(pk=exam_id)
+        except Exam.DoesNotExist:
+            return Response({'success': False, 'message': '考试不存在'}, status=status.HTTP_404_NOT_FOUND)
+
+        subject_max_scores = self._get_subject_max_scores(exam)
+        subject_name_map = {code: name for code, name in SCORE_SUBJECT_CHOICES}
+        exam_subject_map = {subject.subject_code: subject for subject in exam.exam_subjects.all()}
+
+        updated_count = 0
+        created_count = 0
+        deleted_count = 0
+
+        try:
+            with transaction.atomic():
+                for subject_code, _ in SCORE_SUBJECT_CHOICES:
+                    raw_value = scores.get(subject_code)
+
+                    if raw_value in [None, '']:
+                        deleted_count += Score.objects.filter(
+                            student=student,
+                            exam=exam,
+                            subject=subject_code
+                        ).delete()[0]
+                        continue
+
+                    try:
+                        score_value = float(raw_value)
+                    except (TypeError, ValueError):
+                        return Response({'success': False, 'message': f"{subject_name_map.get(subject_code, subject_code)} 的分数格式不正确"}, status=status.HTTP_400_BAD_REQUEST)
+
+                    max_score = float(subject_max_scores.get(subject_code, 100))
+                    if score_value < 0 or score_value > max_score:
+                        return Response({
+                            'success': False,
+                            'message': f"{subject_name_map.get(subject_code, subject_code)} 的分数必须在0-{max_score:g}分之间"
+                        }, status=status.HTTP_400_BAD_REQUEST)
+
+                    score_obj, created = Score.objects.update_or_create(
+                        student=student,
+                        exam=exam,
+                        subject=subject_code,
+                        defaults={
+                            'score_value': score_value,
+                            'exam_subject': exam_subject_map.get(subject_code)
+                        }
+                    )
+
+                    score_obj.clean()
+                    score_obj.save()
+
+                    if created:
+                        created_count += 1
+                    else:
+                        updated_count += 1
+
+        except Exception as e:
+            return Response({'success': False, 'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            update_all_rankings_async.delay(exam.pk, student.grade_level)
+        except Exception:
+            pass
+
+        return Response({
+            'success': True,
+            'message': '成功修改成绩！',
+            'created_count': created_count,
+            'updated_count': updated_count,
+            'deleted_count': deleted_count,
+        })
+
+    def list(self, request, *args, **kwargs):
+        rows = self._aggregate_rows(self._filter_scores(request))
+        rows = self._sort_rows(rows, request)
+
+        subject_order = [value for value, _ in SCORE_SUBJECT_CHOICES]
+        if request.query_params.get('dynamic_subjects') in ['1', 'true', 'True']:
+            subject_set = set()
+            for row in rows:
+                subject_set.update(row.get('scores', {}).keys())
+            all_subjects = [subject for subject in subject_order if subject in subject_set]
+        else:
+            all_subjects = subject_order
+
+        page = request.query_params.get('page', '1')
+        page_size = request.query_params.get('page_size', '100')
+        try:
+            page_size = int(page_size)
+        except (TypeError, ValueError):
+            page_size = 100
+        page_size = max(10, min(100, page_size))
+
+        paginator = Paginator(rows, page_size)
+        page_obj = paginator.get_page(page)
+
+        return Response({
+            'count': paginator.count,
+            'num_pages': paginator.num_pages,
+            'current_page': page_obj.number,
+            'has_previous': page_obj.has_previous(),
+            'has_next': page_obj.has_next(),
+            'previous_page': page_obj.previous_page_number() if page_obj.has_previous() else None,
+            'next_page': page_obj.next_page_number() if page_obj.has_next() else None,
+            'start_index': page_obj.start_index() if paginator.count else 0,
+            'end_index': page_obj.end_index() if paginator.count else 0,
+            'page_size': page_size,
+            'results': list(page_obj),
+            'all_subjects': all_subjects,
+        })
+
+    @action(detail=False, methods=['get'], url_path='download-template')
+    def download_template(self, request):
+        workbook = openpyxl.Workbook()
+        sheet = workbook.active
+        sheet.title = "成绩导入模板"
+
+        headers = ["学号", "学生姓名"] + [name for name, _ in SCORE_SUBJECT_CHOICES]
+        sheet.append(headers)
+
+        row_a = ['S001', '张三'] + [''] * len(SCORE_SUBJECT_CHOICES)
+        if '语文' in headers:
+            row_a[headers.index('语文')] = 85.5
+        if '数学' in headers:
+            row_a[headers.index('数学')] = 92.0
+        sheet.append(row_a)
+
+        row_b = ['S002', '李四'] + [''] * len(SCORE_SUBJECT_CHOICES)
+        if '英语' in headers:
+            row_b[headers.index('英语')] = 78.0
+        if '物理' in headers:
+            row_b[headers.index('物理')] = 90.0
+        sheet.append(row_b)
+
+        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = 'attachment; filename="score_import_template.xlsx"'
+        workbook.save(response)
+        return response
+
+    @action(detail=False, methods=['post'], url_path='batch-delete-selected')
+    def batch_delete_selected(self, request):
+        selected_records = request.data.get('selected_records', [])
+        if not selected_records:
+            return Response({'success': False, 'message': '没有选择任何记录'}, status=status.HTTP_400_BAD_REQUEST)
+
+        total_deleted = 0
+        affected_exam_ids = set()
+
+        for record in selected_records:
+            try:
+                student_id, exam_id = str(record).split('_')
+            except ValueError:
+                continue
+            deleted_count = Score.objects.filter(student_id=student_id, exam_id=exam_id).delete()[0]
+            total_deleted += deleted_count
+            if deleted_count > 0:
+                affected_exam_ids.add(int(exam_id))
+
+        for exam_id in affected_exam_ids:
+            try:
+                update_all_rankings_async.delay(exam_id)
+            except Exception:
+                pass
+
+        return Response({
+            'success': True,
+            'deleted_count': total_deleted,
+            'message': f'成功删除 {total_deleted} 条成绩记录' if total_deleted else '没有找到对应的成绩记录'
+        })
+
+    @action(detail=False, methods=['get'], url_path='select-all-record-keys')
+    def select_all_record_keys(self, request):
+        score_pairs = self._filter_scores(request).values_list('student_id', 'exam_id').distinct()
+        record_keys = [f"{student_id}_{exam_id}" for student_id, exam_id in score_pairs]
+
+        return Response({
+            'success': True,
+            'count': len(record_keys),
+            'record_keys': record_keys,
+        })
+
+    @action(detail=False, methods=['post'], url_path='batch-export-selected')
+    def batch_export_selected(self, request):
+        selected_records = request.data.get('selected_records', [])
+        if not selected_records:
+            return Response({'success': False, 'message': '没有选择任何记录'}, status=status.HTTP_400_BAD_REQUEST)
+
+        selected_rows = []
+        for record in selected_records:
+            try:
+                student_id, exam_id = str(record).split('_')
+            except ValueError:
+                continue
+            scores = Score.objects.filter(student_id=student_id, exam_id=exam_id).select_related(
+                'student', 'student__current_class', 'exam'
+            )
+            selected_rows.extend(self._aggregate_rows(scores))
+
+        workbook = self._build_export_workbook(selected_rows)
+        timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = f'attachment; filename="聚合成绩导出_{timestamp}.xlsx"'
+        workbook.save(response)
+        return response
+
+    @action(detail=False, methods=['get'], url_path='batch-export')
+    def batch_export(self, request):
+        rows = self._aggregate_rows(self._filter_scores(request))
+        workbook = self._build_export_workbook(rows)
+        timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = f'attachment; filename="筛选成绩导出_{timestamp}.xlsx"'
+        workbook.save(response)
+        return response
+
+    @action(detail=False, methods=['get'], url_path='query-export')
+    def query_export(self, request):
+        rows = self._aggregate_rows(self._filter_scores(request))
+        rows = self._sort_rows(rows, request)
+
+        subject_order = [value for value, _ in SCORE_SUBJECT_CHOICES]
+        if request.query_params.get('dynamic_subjects') in ['1', 'true', 'True']:
+            subject_set = set()
+            for row in rows:
+                subject_set.update(row.get('scores', {}).keys())
+            all_subjects = [subject for subject in subject_order if subject in subject_set]
+        else:
+            all_subjects = subject_order
+
+        workbook = self._build_query_export_workbook(rows, all_subjects)
+        timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = f'attachment; filename="成绩查询导出_{timestamp}.xlsx"'
+        workbook.save(response)
+        return response
+
+    @action(detail=False, methods=['post'], url_path='batch-import', parser_classes=[MultiPartParser, FormParser])
+    def batch_import(self, request):
+        start_time = timezone.now()
+        excel_file = request.FILES.get('excel_file')
+        exam_id = request.data.get('exam')
+
+        if not exam_id:
+            return Response({'success': False, 'message': '请选择考试'}, status=status.HTTP_400_BAD_REQUEST)
+        if not excel_file:
+            return Response({'success': False, 'message': '请选择Excel文件'}, status=status.HTTP_400_BAD_REQUEST)
+        if not excel_file.name.endswith(('.xlsx', '.xls')):
+            return Response({'success': False, 'message': '文件格式不正确，请上传 .xlsx 或 .xls 文件'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            exam = Exam.objects.get(pk=exam_id)
+        except Exam.DoesNotExist:
+            return Response({'success': False, 'message': '考试不存在'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            workbook = openpyxl.load_workbook(excel_file)
+            sheet = workbook.active
+            headers = [cell.value for cell in sheet[1]]
+
+            exam_subject_map = {
+                subject.subject_code: subject
+                for subject in exam.exam_subjects.all()
+            }
+            max_score_map = {
+                subject.subject_code: float(subject.max_score)
+                for subject in exam.exam_subjects.all()
+            }
+
+            if not max_score_map:
+                default_config = SUBJECT_DEFAULT_MAX_SCORES.get(exam.grade_level, {})
+                for subject_code, _ in SCORE_SUBJECT_CHOICES:
+                    if subject_code in default_config:
+                        max_score_map[subject_code] = float(default_config[subject_code])
+
+            subject_codes = [subject_code for subject_code, _ in SCORE_SUBJECT_CHOICES if subject_code in headers]
+
+            student_ids = set()
+            excel_rows = []
+            for row_idx, row in enumerate(sheet.iter_rows(min_row=2, values_only=True), start=2):
+                if not any(row):
+                    continue
+                row_data = dict(zip(headers, row))
+                sid = row_data.get('学号')
+                if sid:
+                    sid = str(sid).strip()
+                    student_ids.add(sid)
+                excel_rows.append((row_idx, row_data))
+
+            students = Student.objects.filter(student_id__in=student_ids).select_related('current_class')
+            students_map = {student.student_id: student for student in students}
+
+            imported_count = 0
+            failed_count = 0
+            error_details = []
+
+            with transaction.atomic():
+                for row_idx, row_data in excel_rows:
+                    student_id = str(row_data.get('学号') or '').strip()
+                    student_name = str(row_data.get('学生姓名') or '').strip()
+
+                    row_errors = []
+                    if not student_id:
+                        row_errors.append('缺少学号')
+                    student = students_map.get(student_id)
+                    if not student:
+                        row_errors.append(f'学号 {student_id} 对应的学生不存在')
+
+                    changed_any = False
+                    if not row_errors:
+                        for subject_code in subject_codes:
+                            raw_score = row_data.get(subject_code)
+                            if raw_score in [None, '']:
+                                continue
+                            try:
+                                score_value = float(raw_score)
+                            except (TypeError, ValueError):
+                                row_errors.append(f'{subject_code} 分数格式错误')
+                                continue
+
+                            if score_value < 0:
+                                row_errors.append(f'{subject_code} 分数不能为负数')
+                                continue
+
+                            max_score = max_score_map.get(subject_code)
+                            if max_score is not None and score_value > max_score:
+                                row_errors.append(f'{subject_code} 分数 {score_value} 超过满分 {max_score}')
+                                continue
+
+                            Score.objects.update_or_create(
+                                student=student,
+                                exam=exam,
+                                subject=subject_code,
+                                defaults={
+                                    'score_value': score_value,
+                                    'exam_subject': exam_subject_map.get(subject_code)
+                                }
+                            )
+                            changed_any = True
+
+                    if row_errors:
+                        failed_count += 1
+                        error_details.append({
+                            'row': row_idx,
+                            'student_id': student_id,
+                            'student_name': student_name,
+                            'errors': row_errors,
+                        })
+                    elif changed_any:
+                        imported_count += 1
+
+            try:
+                update_all_rankings_async.delay(exam.pk)
+            except Exception:
+                pass
+
+            execution_time = (timezone.now() - start_time).total_seconds()
+            return Response({
+                'success': True,
+                'message': '导入完成',
+                'imported_count': imported_count,
+                'failed_count': failed_count,
+                'error_details': error_details,
+                'execution_time': round(execution_time, 2),
+            })
+        except Exception as e:
+            return Response({
+                'success': False,
+                'message': f'文件处理失败：{str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

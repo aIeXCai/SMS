@@ -1,6 +1,8 @@
 from rest_framework import serializers
 from .models.student import Student
 from .models.student import Class
+from .models.exam import Exam, ExamSubject
+from .models.score import Score
 
 
 class ClassSerializer(serializers.ModelSerializer):
@@ -61,7 +63,7 @@ class StudentSerializer(serializers.ModelSerializer):
                 validated_data['current_class'] = class_obj
         
         return super().update(instance, validated_data)
-from .models.exam import Exam, ExamSubject
+
 
 class ExamSubjectSerializer(serializers.ModelSerializer):
     class Meta:
@@ -112,3 +114,16 @@ class ExamSerializer(serializers.ModelSerializer):
                     }
                 )
         return instance
+
+
+class ScoreSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source='student.name', read_only=True)
+    student_id_display = serializers.CharField(source='student.student_id', read_only=True)
+    exam_name = serializers.CharField(source='exam.name', read_only=True)
+
+    class Meta:
+        model = Score
+        fields = [
+            'id', 'student', 'exam', 'subject', 'score_value',
+            'student_name', 'student_id_display', 'exam_name'
+        ]
