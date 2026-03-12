@@ -20,6 +20,7 @@ from ..models import (
 )
 from ..config import PAGINATION_CONFIG, TABLE_CONFIG, IMPORT_CONFIG
 from ..forms import ScoreForm, ScoreBatchUploadForm, ScoreAddForm, ScoreQueryForm, ScoreAnalysisForm
+from ..services.analysis_service import analyze_single_class, analyze_multiple_classes, analyze_grade
 
 # --- 成績管理 Views ---
 
@@ -1533,7 +1534,7 @@ def score_analysis_class(request):
                     student__current_class=target_class
                 )
                 
-                analysis_result = _analyze_single_class(scores, target_class, exam)
+                analysis_result = analyze_single_class(scores, target_class, exam)
                 
                 context = {
                     'form': form,
@@ -1561,7 +1562,7 @@ def score_analysis_class(request):
             selected_classes = Class.objects.filter(id__in=selected_class_ids)
             
             # 获取多班级对比分析数据
-            analysis_result = _analyze_multiple_classes(selected_classes, exam)
+            analysis_result = analyze_multiple_classes(selected_classes, exam)
             
             context = {
                 'form': form,
@@ -1643,11 +1644,11 @@ def score_analysis_class(request):
         
         # 单班级详细分析的数据处理
         if analysis_mode == 'single_class':
-            analysis_data = _analyze_single_class(scores, target_class, exam)
+            analysis_data = analyze_single_class(scores, target_class, exam)
             context.update(analysis_data)
         elif analysis_mode == 'class_comparison':
             # 多班级对比分析的数据处理
-            analysis_data = _analyze_multiple_classes(selected_classes, exam)
+            analysis_data = analyze_multiple_classes(selected_classes, exam)
             context.update(analysis_data)
         elif analysis_mode == 'grade_overall':
             # 年级整体分析需要计算总满分
@@ -1885,7 +1886,7 @@ def score_analysis_grade(request):
             exam = Exam.objects.get(id=exam_id)
             
             # 获取年级整体分析数据
-            analysis_result = _analyze_grade(exam, grade_level)
+            analysis_result = analyze_grade(exam, grade_level)
             
             context.update({
                 'selected_exam': exam,
@@ -1903,7 +1904,7 @@ def score_analysis_grade(request):
         
         try:
             # 获取年级整体分析数据
-            analysis_result = _analyze_grade(exam, grade_level)
+            analysis_result = analyze_grade(exam, grade_level)
             
             context.update({
                 'selected_exam': exam,
@@ -1916,503 +1917,6 @@ def score_analysis_grade(request):
     
     return render(request, 'scores/score_analysis_grade.html', context)
 
-# 单班级详细数据分析辅助函数
-def _analyze_single_class(scores, target_class, exam):
-    # 基础统计信息
-    total_students = scores.values('student').distinct().count()
-    
-    # 按科目统计成绩
-    subject_stats = {}
-    score_distribution = {}
-    student_scores = {}
-    
-    for subject_code, subject_name in SUBJECT_CHOICES:
-        subject_scores = scores.filter(subject=subject_code)
-        if subject_scores.exists():
-            stats = subject_scores.aggregate(
-                avg_score=Avg('score_value'),
-                max_score=Max('score_value'),
-                min_score=Min('score_value'),
-                count=Count('score_value')
-            )
-            subject_stats[subject_code] = {
-                'name': subject_name,
-                'avg_score': round(float(stats['avg_score'] or 0), 2),
-                'actual_max_score': float(stats['max_score'] or 0),  # 该班级实际最高分
-                'actual_min_score': float(stats['min_score'] or 0),  # 该班级实际最低分
-                'count': stats['count']
-            }
-            
-            # 获取该科目的满分
-            subject_max_score = 100  # 默认满分
-            try:
-                exam_subject = exam.exam_subjects.filter(subject=subject_code).first()
-                if exam_subject:
-                    subject_max_score = exam_subject.max_score
-                else:
-                    # 如果ExamSubject不存在，从SUBJECT_DEFAULT_MAX_SCORES中获取默认满分
-                    grade_config = SUBJECT_DEFAULT_MAX_SCORES.get(exam.grade_level, {})
-                    subject_max_score = grade_config.get(subject_code, 100)
-            except:
-                # 异常情况下，尝试从默认配置获取
-                grade_config = SUBJECT_DEFAULT_MAX_SCORES.get(exam.grade_level, {})
-                subject_max_score = grade_config.get(subject_code, 100)
-            
-            # 将考试设定的满分添加到subject_stats中（用于等级分布计算）
-            subject_stats[subject_code]['exam_max_score'] = subject_max_score
-            
-            # 成绩分布统计（按等级百分比）
-            grade_ranges = {
-                '特优(95%+)': subject_scores.filter(score_value__gte=subject_max_score * 0.95).count(),
-                '优秀(85%-95%)': subject_scores.filter(score_value__gte=subject_max_score * 0.85, score_value__lt=subject_max_score * 0.95).count(),
-                '良好(70%-85%)': subject_scores.filter(score_value__gte=subject_max_score * 0.70, score_value__lt=subject_max_score * 0.85).count(),
-                '及格(60%-70%)': subject_scores.filter(score_value__gte=subject_max_score * 0.60, score_value__lt=subject_max_score * 0.70).count(),
-                '不及格(<60%)': subject_scores.filter(score_value__lt=subject_max_score * 0.60).count(),
-            }
-            score_distribution[subject_code] = grade_ranges
-    
-    # 学生总分排名 - 使用Django ORM聚合查询避免重复
-    student_total_scores = []
-    
-    # 使用values和annotate来按学生分组并计算总分
-    student_scores = scores.values('student__id', 'student__name').annotate(
-        total_score=Sum('score_value'),
-        subject_count=Count('subject')
-    ).order_by('-total_score')
-    
-    # 转换为列表格式并添加排名和年级排名
-    for i, student_data in enumerate(student_scores):
-        student_id = student_data['student__id']
-        
-        # 获取该学生的年级排名（从数据库中的total_score_rank_in_grade字段获取）
-        grade_rank = None
-        sample_score = scores.filter(student_id=student_id).first()
-        if sample_score:
-            grade_rank = sample_score.total_score_rank_in_grade
-        
-
-        
-        student_total_scores.append({
-            'student_id': student_id,
-            'student_name': student_data['student__name'],
-            'total_score': float(student_data['total_score']),
-            'subject_count': student_data['subject_count'],
-            'rank': i + 1,
-            'grade_rank': grade_rank
-        })
-    
-    # 班级总体统计
-    if student_total_scores:
-        class_avg_total = sum([s['total_score'] for s in student_total_scores]) / len(student_total_scores)
-        class_max_total = max([s['total_score'] for s in student_total_scores])
-        class_min_total = min([s['total_score'] for s in student_total_scores])
-    else:
-        class_avg_total = class_max_total = class_min_total = 0
-    
-    # 计算总分满分
-    total_max_score = 0
-    exam_subjects = exam.exam_subjects.all()
-    for exam_subject in exam_subjects:
-        total_max_score += exam_subject.max_score
-    
-    # 计算等级分布（基于总分百分比）
-    grade_distribution = {
-        '特优(95%+)': 0,
-        '优秀(85%-95%)': 0,
-        '良好(70%-85%)': 0,
-        '及格(60%-70%)': 0,
-        '不及格(<60%)': 0
-    }
-    
-    # 统计各等级人数
-    for student_data in student_total_scores:
-        if total_max_score > 0:
-            percentage = student_data['total_score'] / total_max_score
-            if percentage >= 0.95:
-                grade_distribution['特优(95%+)'] += 1
-            elif percentage >= 0.85:
-                grade_distribution['优秀(85%-95%)'] += 1
-            elif percentage >= 0.70:
-                grade_distribution['良好(70%-85%)'] += 1
-            elif percentage >= 0.60:
-                grade_distribution['及格(60%-70%)'] += 1
-            else:
-                grade_distribution['不及格(<60%)'] += 1
-    
-    # 准备图表数据
-    chart_data = {
-        'subject_avg_scores': {
-            'labels': [subject_stats[code]['name'] for code in subject_stats.keys()],
-            'data': [float(subject_stats[code]['avg_score']) for code in subject_stats.keys()]
-        },
-        'subject_max_scores': [subject_stats[code]['actual_max_score'] for code in subject_stats.keys()],  # 添加各科目实际最高分
-        'score_distribution': score_distribution,
-        'student_total_scores': [{
-            'student_id': s['student_id'],
-            'student_name': s['student_name'],
-            'total_score': float(s['total_score']),
-            'subject_count': s['subject_count'],
-            'rank': s['rank'],
-            'grade_rank': s['grade_rank']
-        } for s in student_total_scores[:10]],  # 只显示前10名
-        'total_max_score': total_max_score,
-        'grade_distribution': grade_distribution
-    }
-    
-    return {
-        'total_students': total_students,
-        'subject_stats': subject_stats,
-        'score_distribution': score_distribution,
-        'student_rankings': student_total_scores,
-        'class_avg_total': round(class_avg_total, 2),
-        'class_max_total': float(class_max_total) if class_max_total else 0,
-        'class_min_total': float(class_min_total) if class_min_total else 0,
-        'chart_data_json': json.dumps(chart_data, ensure_ascii=False),
-        'target_class': target_class
-    }
-
-# 多班级对比分析辅助函数
-def _analyze_multiple_classes(selected_classes, exam):
-    # 获取所有选中班级的成绩数据
-    all_scores = Score.objects.filter(
-        exam=exam,
-        student__current_class__in=selected_classes
-    ).select_related('student', 'student__current_class')
-    
-    # 获取考试科目
-    exam_subjects = ExamSubject.objects.filter(exam=exam)
-    subjects = [es.subject_code for es in exam_subjects]
-    
-    # 辅助函数：将Decimal转换为float
-    def decimal_to_float(value):
-        if isinstance(value, Decimal):
-            return float(value)
-        return value
-    
-    # 按班级分组统计数据
-    class_statistics = []
-    class_subject_averages = {}
-    score_distributions = {}
-    total_students = 0
-    highest_avg = 0
-    
-    # 首先对班级进行数字排序
-    def extract_class_number(class_obj):
-        """提取班级编号进行数字排序"""
-        class_name = class_obj.class_name
-        match = re.search(r'(\d+)', class_name)
-        return int(match.group(1)) if match else 0
-    
-    # 对传入的班级按数字顺序排序
-    sorted_classes = sorted(selected_classes, key=extract_class_number)
-    
-    for class_obj in sorted_classes:
-        class_scores = all_scores.filter(student__current_class=class_obj)
-        
-        # 基本统计信息
-        student_count = class_scores.values('student').distinct().count()
-        total_students += student_count
-        
-        # 计算各科目平均分
-        subject_averages = []
-        class_name = class_obj.class_name  # 只显示班级名称，不包含年级
-        class_subject_averages[class_name] = []
-        
-        for subject in subjects:
-            subject_scores = class_scores.filter(subject=subject)
-            scores_list = [decimal_to_float(score.score_value) for score in subject_scores if score.score_value is not None]
-            
-            if scores_list:
-                avg_score = statistics.mean(scores_list)
-                subject_averages.append(round(avg_score, 2))
-                class_subject_averages[class_name].append(round(avg_score, 2))
-            else:
-                subject_averages.append(0)
-                class_subject_averages[class_name].append(0)
-        
-        # 计算总分统计
-        student_totals = {}
-        for score in class_scores:
-            if score.student.id not in student_totals:
-                student_totals[score.student.id] = 0
-            if score.score_value is not None:
-                student_totals[score.student.id] += decimal_to_float(score.score_value)
-        
-        total_scores_list = list(student_totals.values()) if student_totals else [0]
-        avg_total = statistics.mean(total_scores_list) if total_scores_list else 0
-        max_total = max(total_scores_list) if total_scores_list else 0
-        min_total = min(total_scores_list) if total_scores_list else 0
-        
-        # 确保所有数值都是float类型
-        avg_total = round(float(avg_total), 2)
-        max_total = float(max_total)
-        min_total = float(min_total)
-        
-        if avg_total > highest_avg:
-            highest_avg = avg_total
-        
-        # 等级分布统计（基于百分比）
-        score_dist = [0, 0, 0, 0, 0]  # 特优(95%+), 优秀(85%-95%), 良好(70%-85%), 及格(60%-70%), 不及格(<60%)
-        
-        # 计算满分
-        exam_subjects = exam.exam_subjects.all()
-        total_max_score = sum(es.max_score for es in exam_subjects)
-        
-        for total in total_scores_list:
-            if total_max_score > 0:
-                percentage = (total / total_max_score) * 100
-                if percentage >= 95:
-                    score_dist[0] += 1  # 特优(95%+)
-                elif percentage >= 85:
-                    score_dist[1] += 1  # 优秀(85%-95%)
-                elif percentage >= 70:
-                    score_dist[2] += 1  # 良好(70%-85%)
-                elif percentage >= 60:
-                    score_dist[3] += 1  # 及格(60%-70%)
-                else:
-                    score_dist[4] += 1  # 不及格(<60%)
-        
-        score_distributions[class_name] = score_dist
-        
-        class_statistics.append({
-            'class_name': class_name,
-            'student_count': student_count,
-            'avg_total': decimal_to_float(avg_total),
-            'max_total': decimal_to_float(max_total),
-            'min_total': decimal_to_float(min_total),
-            'subject_averages': subject_averages
-        })
-    
-    # 准备图表数据 - 确保班级顺序正确
-    sorted_class_names = [class_obj.class_name for class_obj in sorted_classes]
-    chart_data = {
-        'subjects': subjects,
-        'classes': sorted_class_names,
-        'class_subject_averages': class_subject_averages,
-        'score_distributions': score_distributions
-    }
-    
-    # 获取科目名称映射
-    subject_names = []
-    for subject_code in subjects:
-        exam_subject = exam_subjects.filter(subject_code=subject_code).first()
-        if exam_subject:
-            subject_names.append(exam_subject.subject_name)
-        else:
-            # 从SUBJECT_CHOICES中获取名称
-            for code, name in SUBJECT_CHOICES:
-                if code == subject_code:
-                    subject_names.append(name)
-                    break
-            else:
-                subject_names.append(subject_code)
-    
-    return {
-        'class_statistics': class_statistics,
-        'subjects': [{'code': code, 'name': name} for code, name in zip(subjects, subject_names)],
-        'total_students': total_students,
-        'subject_count': len(subjects),
-        'highest_avg': float(highest_avg),
-        'chart_data_json': json.dumps(chart_data),
-        'academic_year': exam.academic_year
-    }
-
-# 年级成绩分析辅助函数
-def _analyze_grade(exam, grade_level):
-    # 辅助函数：将Decimal转换为float
-    def decimal_to_float(value):
-        if value is None:
-            return 0.0
-        if isinstance(value, Decimal):
-            return float(value)
-        return value
-    
-    # 获取该年级的所有班级
-    # 使用自定义排序，按班级名称中的数字排序
-    classes = Class.objects.filter(grade_level=grade_level)
-    classes = sorted(classes, key=lambda x: int(''.join(filter(str.isdigit, x.class_name))) if any(c.isdigit() for c in x.class_name) else 999)
-    
-    # 获取该年级该考试的所有成绩
-    all_scores = Score.objects.filter(
-        exam=exam,
-        student__current_class__grade_level=grade_level
-    ).select_related('student', 'student__current_class')
-    
-    # 获取考试科目
-    exam_subjects = ExamSubject.objects.filter(exam=exam)
-    subjects = [{'code': es.subject_code, 'name': dict(SUBJECT_CHOICES).get(es.subject_code, es.subject_code), 'max_score': es.max_score} for es in exam_subjects]
-    
-    # 基本统计
-    total_students = all_scores.values('student').distinct().count()
-    total_classes = len(classes)
-    
-    # 按班级分组统计
-    class_statistics = []
-    class_names = []
-    class_averages = []
-    class_grade_distribution = {}
-    
-    # 科目统计
-    subject_stats = {}
-    for subject in subjects:
-        subject_code = subject['code']
-        subject_scores = all_scores.filter(subject=subject_code)
-        if subject_scores.exists():
-            avg_score = subject_scores.aggregate(avg=Avg('score_value'))['avg']
-            subject_stats[subject_code] = {
-                'name': subject['name'],
-                'avg_score': decimal_to_float(avg_score),
-                'max_score': subject['max_score']
-            }
-    
-    # 计算总分和年级平均分
-    student_totals = {}
-    for score in all_scores:
-        if score.student.id not in student_totals:
-            student_totals[score.student.id] = 0
-        if score.score_value is not None:
-            student_totals[score.student.id] += decimal_to_float(score.score_value)
-    
-    total_scores_list = list(student_totals.values()) if student_totals else [0]
-    grade_avg_score = statistics.mean(total_scores_list) if total_scores_list else 0
-    
-    # 计算总分满分
-    total_max_score = sum([subject['max_score'] for subject in subjects])
-    
-    # 计算年级优秀率（95%以上）
-    # 如果 total_max_score 为 0（没有 ExamSubject），应返回 0 而不是将所有分数视作优秀
-    if total_max_score > 0:
-        excellent_count = sum(1 for score in total_scores_list if score >= total_max_score * 0.95)
-        excellent_rate = (excellent_count / len(total_scores_list) * 100) if total_scores_list else 0
-    else:
-        excellent_count = 0
-        excellent_rate = 0
-    
-    # 各班级详细统计
-    for class_obj in classes:
-        class_scores = all_scores.filter(student__current_class=class_obj)
-        
-        if not class_scores.exists():
-            continue
-            
-        class_name = class_obj.class_name  # 只显示班级名称，不包含年级
-        class_names.append(class_name)
-        
-        # 班级学生总分统计
-        class_student_totals = {}
-        for score in class_scores:
-            if score.student.id not in class_student_totals:
-                class_student_totals[score.student.id] = 0
-            if score.score_value is not None:
-                class_student_totals[score.student.id] += decimal_to_float(score.score_value)
-        
-        class_total_scores = list(class_student_totals.values()) if class_student_totals else [0]
-        avg_total = statistics.mean(class_total_scores) if class_total_scores else 0
-        max_total = max(class_total_scores) if class_total_scores else 0
-        min_total = min(class_total_scores) if class_total_scores else 0
-        
-        class_averages.append(decimal_to_float(avg_total))
-        
-        # 计算各等级人数和比例（按照新的5级划分）
-        student_count = len(class_total_scores)
-        if total_max_score > 0:
-            class_excellent_plus_count = sum(1 for score in class_total_scores if score >= total_max_score * 0.95)  # 特优(95%+)
-            class_excellent_count = sum(1 for score in class_total_scores if total_max_score * 0.85 <= score < total_max_score * 0.95)  # 优秀(85%-95%)
-            class_good_count = sum(1 for score in class_total_scores if total_max_score * 0.70 <= score < total_max_score * 0.85)  # 良好(70%-85%)
-            class_pass_count = sum(1 for score in class_total_scores if total_max_score * 0.60 <= score < total_max_score * 0.70)  # 及格(60%-70%)
-            class_fail_count = sum(1 for score in class_total_scores if score < total_max_score * 0.60)  # 不及格(<60%)
-
-            class_excellent_rate = ((class_excellent_plus_count + class_excellent_count) / student_count * 100) if student_count > 0 else 0  # 优秀率（包含特优+优秀）
-            class_good_rate = ((class_good_count + class_excellent_count + class_excellent_plus_count) / student_count * 100) if student_count > 0 else 0  # 良好率
-            class_pass_rate = ((class_pass_count + class_good_count + class_excellent_count + class_excellent_plus_count) / student_count * 100) if student_count > 0 else 0  # 及格率
-        else:
-            # 没有满分定义时，各等级计数和比率应为 0（避免把 0 视为满分导致所有学生被计为优秀）
-            class_excellent_plus_count = class_excellent_count = class_good_count = class_pass_count = class_fail_count = 0
-            class_excellent_rate = class_good_rate = class_pass_rate = 0
-
-        # 各科目平均分
-        subject_averages = []
-        for subject in subjects:
-            subject_code = subject['code']
-            class_subject_scores = class_scores.filter(subject=subject_code)
-            if class_subject_scores.exists():
-                avg = class_subject_scores.aggregate(avg=Avg('score_value'))['avg']
-                subject_averages.append(decimal_to_float(avg))
-            else:
-                subject_averages.append(0)
-
-        class_statistics.append({
-            'class_name': class_name,
-            'student_count': student_count,
-            'avg_total': decimal_to_float(avg_total),
-            'max_total': decimal_to_float(max_total),
-            'min_total': decimal_to_float(min_total),
-            'excellent_rate': class_excellent_rate,
-            'good_rate': class_good_rate,
-            'pass_rate': class_pass_rate,
-            'subject_averages': subject_averages
-        })
-
-        # 班级等级分布（用于堆叠柱状图）- 5个等级（从底部到顶部：不及格→及格→良好→优秀→特优）
-        class_grade_distribution[class_name] = [class_fail_count, class_pass_count, class_good_count, class_excellent_count, class_excellent_plus_count]
-    
-    # 年级成绩分布（总分分段统计）
-    score_ranges = ['特优(95%+)', '优秀(85%-95%)', '良好(70%-85%)', '及格(60%-70%)', '不及格(<60%)']
-    score_distribution = [0, 0, 0, 0, 0]
-    
-    if total_max_score > 0:
-        for total_score in total_scores_list:
-            if total_score >= total_max_score * 0.95:
-                score_distribution[0] += 1
-            elif total_score >= total_max_score * 0.85:
-                score_distribution[1] += 1
-            elif total_score >= total_max_score * 0.70:
-                score_distribution[2] += 1
-            elif total_score >= total_max_score * 0.60:
-                score_distribution[3] += 1
-            else:
-                score_distribution[4] += 1
-    
-    # 科目难度系数计算（平均分/满分）
-    difficulty_coefficients = []
-    subject_names = []
-    subject_averages = []
-    subject_max_scores = []
-    
-    for subject in subjects:
-        subject_code = subject['code']
-        if subject_code in subject_stats:
-            subject_names.append(subject_stats[subject_code]['name'])
-            subject_averages.append(subject_stats[subject_code]['avg_score'])
-            subject_max_scores.append(subject['max_score'])
-            difficulty_coefficient = subject_stats[subject_code]['avg_score'] / subject['max_score']
-            difficulty_coefficients.append(difficulty_coefficient)
-    
-    # 准备图表数据
-    chart_data = {
-        'class_names': class_names,
-        'class_averages': class_averages,
-        'subject_names': subject_names,
-        'subject_averages': subject_averages,
-        'subject_max_scores': subject_max_scores,
-        'score_ranges': score_ranges,
-        'score_distribution': score_distribution,
-        'class_grade_distribution': class_grade_distribution,
-        'difficulty_coefficients': difficulty_coefficients,
-        'total_max_score': total_max_score,
-        'total_scores': total_scores_list,  # 添加所有学生的总分数据
-    }
-    
-    return {
-        'total_students': total_students,
-        'total_classes': total_classes,
-        'grade_avg_score': decimal_to_float(grade_avg_score),
-        'excellent_rate': excellent_rate,
-        'class_statistics': class_statistics,
-        'subjects': subjects,
-        'total_max_score': total_max_score,
-        'chart_data_json': json.dumps(chart_data, ensure_ascii=False)
-    }
 
 
 # 学生个人成绩分析AJAX接口

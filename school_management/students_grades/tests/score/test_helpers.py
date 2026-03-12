@@ -4,10 +4,10 @@ import json
 
 from .test_base import BaseTestCase
 from school_management.students_grades.models import Class, Student, Exam, ExamSubject, Score
-from school_management.students_grades.views.score_views import (
-    _analyze_single_class,
-    _analyze_multiple_classes,
-    _analyze_grade,
+from school_management.students_grades.services.analysis_service import (
+    analyze_single_class,
+    analyze_multiple_classes,
+    analyze_grade,
 )
 
 
@@ -15,7 +15,7 @@ class AnalysisHelpersTests(BaseTestCase):
     """Unit test for analysis helper functions (small dataset sanity checks)."""
 
     def test_analyze_single_class_basic_stats(self):
-        # 创建班级/学生/考试/科目/成绩，用于直接调用 _analyze_single_class
+        # 创建班级/学生/考试/科目/成绩，用于直接调用 analyze_single_class
         cls = Class.objects.create(grade_level='G', class_name='1班')
         s1 = Student.objects.create(student_id='T1', name='T1', grade_level='G', current_class=cls)
         exam = Exam.objects.create(name='E1', academic_year='AY', grade_level='G', date=date(2024, 1, 1))
@@ -26,7 +26,7 @@ class AnalysisHelpersTests(BaseTestCase):
         Score.objects.create(student=s1, exam=exam, subject='数学', score_value=80)
 
         scores = Score.objects.filter(exam=exam, student__current_class=cls)
-        result = _analyze_single_class(scores, cls, exam)
+        result = analyze_single_class(scores, cls, exam)
 
         # 基本断言：total_students, class_avg_total, student_rankings 等存在且合理
         self.assertEqual(result['total_students'], 1)
@@ -55,7 +55,7 @@ class AnalysisHelpersTests(BaseTestCase):
         Score.objects.create(student=s2, exam=exam, subject='语文', score_value=80)
         Score.objects.create(student=s2, exam=exam, subject='数学', score_value=10)
 
-        res = _analyze_multiple_classes([c1, c2], exam)
+        res = analyze_multiple_classes([c1, c2], exam)
 
         # 包含两个班级统计
         self.assertIn('class_statistics', res)
@@ -85,7 +85,7 @@ class AnalysisHelpersTests(BaseTestCase):
         Score.objects.create(student=sb, exam=exam, subject='语文', score_value=80)
         Score.objects.create(student=sb, exam=exam, subject='数学', score_value=70)
 
-        res = _analyze_grade(exam, 'Gy')
+        res = analyze_grade(exam, 'Gy')
 
         # total_max_score 应为 200
         self.assertEqual(res.get('total_max_score'), 200)
@@ -112,7 +112,7 @@ class AnalysisHelpersTests(BaseTestCase):
         Score.objects.create(student=s2, exam=exam, subject='语文', score_value=60)
 
         scores = Score.objects.filter(exam=exam, student__current_class=cls)
-        res = _analyze_single_class(scores, cls, exam)
+        res = analyze_single_class(scores, cls, exam)
 
         # total_students 应为 2
         self.assertEqual(res.get('total_students'), 2)
@@ -138,7 +138,7 @@ class AnalysisHelpersTests(BaseTestCase):
         Score.objects.create(student=s2, exam=exam, subject='数学', score_value=80)
 
         # 调用多班级分析，包含一个空班和一个有数据的班
-        res = _analyze_multiple_classes([c_empty, c1], exam)
+        res = analyze_multiple_classes([c_empty, c1], exam)
         # total_students 应为 2
         self.assertEqual(res.get('total_students'), 2)
         # class_statistics 中至少包含有数据的班级统计
@@ -153,7 +153,7 @@ class AnalysisHelpersTests(BaseTestCase):
         Score.objects.create(student=s, exam=exam, subject='语文', score_value=90)
 
         scores = Score.objects.filter(exam=exam, student__current_class=cls)
-        res = _analyze_single_class(scores, cls, exam)
+        res = analyze_single_class(scores, cls, exam)
         chart_json = res.get('chart_data_json')
         parsed = json.loads(chart_json)
         self.assertIn('subject_avg_scores', parsed)
@@ -162,14 +162,14 @@ class AnalysisHelpersTests(BaseTestCase):
         self.assertEqual(len(parsed['subject_avg_scores']['labels']), len(parsed['subject_avg_scores']['data']))
 
     def test_analyze_grade_handles_no_exam_subjects(self):
-        """_analyze_grade 在没有任何 ExamSubject 的情况下不应抛异常并返回合理默认值。"""
+        """analyze_grade 在没有任何 ExamSubject 的情况下不应抛异常并返回合理默认值。"""
         # 创建一个考试但不创建任何 ExamSubject
         exam = Exam.objects.create(name='E_no_subjects', academic_year='AY', grade_level='G_no', date=date(2024, 8, 1))
         # 创建一个班级和一个学生，但不添加成绩
         c = Class.objects.create(grade_level='G_no', class_name='1班')
         Student.objects.create(student_id='NS1', name='NoSub', grade_level='G_no', current_class=c)
 
-        res = _analyze_grade(exam, 'G_no')
+        res = analyze_grade(exam, 'G_no')
         # total_max_score 在没有 ExamSubject 时应为 0
         self.assertIn('total_max_score', res)
         self.assertEqual(res.get('total_max_score', None), 0)
@@ -186,7 +186,7 @@ class AnalysisHelpersTests(BaseTestCase):
 
         # 调用 single class helper，传入空的 scores queryset
         scores_empty = Score.objects.filter(exam=exam, student__current_class=empty_cls)
-        res_empty = _analyze_single_class(scores_empty, empty_cls, exam)
+        res_empty = analyze_single_class(scores_empty, empty_cls, exam)
         self.assertIn('total_students', res_empty)
         self.assertEqual(res_empty.get('total_students'), 0)
 
@@ -194,13 +194,13 @@ class AnalysisHelpersTests(BaseTestCase):
         c_with_student = Class.objects.create(grade_level='G_empty', class_name='1班')
         s = Student.objects.create(student_id='MS1', name='Missing', grade_level='G_empty', current_class=c_with_student)
         # 没有为学生添加 Score
-        res_multi = _analyze_multiple_classes([empty_cls, c_with_student], exam)
+        res_multi = analyze_multiple_classes([empty_cls, c_with_student], exam)
         # total_students 应为 0
         self.assertIn('total_students', res_multi)
         self.assertEqual(res_multi.get('total_students'), 0)
 
     def test_analyze_multiple_classes_chart_data_schema(self):
-        """验证 _analyze_multiple_classes 生成的 chart_data_json 包含预期的键和值长度匹配。
+        """验证 analyze_multiple_classes 生成的 chart_data_json 包含预期的键和值长度匹配。
 
         目标：确保前端消费的 chart schema 符合 contract（subjects/classes/class_subject_averages）。
         """
@@ -217,7 +217,7 @@ class AnalysisHelpersTests(BaseTestCase):
         Score.objects.create(student=s1, exam=exam, subject='语文', score_value=80)
         Score.objects.create(student=s2, exam=exam, subject='数学', score_value=90)
 
-        res = _analyze_multiple_classes([c1, c2], exam)
+        res = analyze_multiple_classes([c1, c2], exam)
         chart_json = res.get('chart_data_json')
         parsed = json.loads(chart_json)
 

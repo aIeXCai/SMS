@@ -29,6 +29,13 @@ from .views.score_views import (
 from .views.ranking_debug_view import (
     ranking_debug_view, get_ranking_data, ranking_update_test
 )
+from .views.analysis_redirect_views import (
+    redirect_class_grade_entry,
+    redirect_class_grade_single,
+    redirect_class_grade_grade,
+    redirect_student_analysis_entry,
+    redirect_student_analysis_detail,
+)
 
 app_name = 'students_grades'
 
@@ -86,19 +93,19 @@ urlpatterns = [
     
     # === 成绩分析功能 ===
     # 班级/年级成绩分析（原成绩分析功能）
-    path('analysis/class-grade/', score_analysis, name='class_grade_analysis'),
-    path('analysis/class-grade/class/', score_analysis_class, name='class_grade_analysis_class'),
-    path('analysis/class-grade/grade/', score_analysis_grade, name='class_grade_analysis_grade'),
+    path('analysis/class-grade/', redirect_class_grade_entry, name='class_grade_analysis'),
+    path('analysis/class-grade/class/', redirect_class_grade_single, name='class_grade_analysis_class'),
+    path('analysis/class-grade/grade/', redirect_class_grade_grade, name='class_grade_analysis_grade'),
     
     # 个人成绩分析（独立的个人分析功能）
-    path('analysis/student/', score_analysis_student, name='student_analysis'),
-    path('analysis/student/detail/', score_analysis_student_detail, name='student_analysis_detail'),
+    path('analysis/student/', redirect_student_analysis_entry, name='student_analysis'),
+    path('analysis/student/detail/', redirect_student_analysis_detail, name='student_analysis_detail'),
     
     # 保持向后兼容的旧URL（重定向到新URL）
-    path('scores/analysis/', score_analysis, name='score_analysis'),
-    path('scores/analysis/class/', score_analysis_class, name='score_analysis_class'),
-    path('scores/analysis/student/', score_analysis_student, name='score_analysis_student'),
-    path('scores/analysis/grade/', score_analysis_grade, name='score_analysis_grade'),
+    path('scores/analysis/', redirect_class_grade_entry, name='score_analysis'),
+    path('scores/analysis/class/', redirect_class_grade_single, name='score_analysis_class'),
+    path('scores/analysis/student/', redirect_student_analysis_entry, name='score_analysis_student'),
+    path('scores/analysis/grade/', redirect_class_grade_grade, name='score_analysis_grade'),
     
     # === AJAX接口 ===
     path('get_grades_ajax/', get_grades_ajax, name='get_grades_ajax'),
