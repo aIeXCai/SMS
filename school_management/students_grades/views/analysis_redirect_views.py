@@ -93,3 +93,47 @@ def redirect_download_score_import_template(request):
 
 def redirect_score_query_export(request):
     return _redirect_to_api(request, "/api/scores/query-export/")
+
+
+def redirect_student_list(request):
+    return _redirect_to_frontend(request, "/students")
+
+
+def redirect_student_add(request):
+    return _redirect_to_frontend(request, "/students/add")
+
+
+def redirect_student_edit(request, pk):
+    return _redirect_to_frontend(request, f"/students/{pk}/edit")
+
+
+def redirect_student_batch_import_page(request):
+    return _redirect_to_frontend(request, "/students")
+
+
+def redirect_student_batch_promote_page(request):
+    return _redirect_to_frontend(request, "/students/batch-promote")
+
+
+def redirect_download_student_import_template(request):
+    return _redirect_to_api(request, "/api/students/download-template/")
+
+
+def redirect_student_delete(request, pk):
+    return _redirect_to_frontend(request, "/students")
+
+
+def redirect_student_update_status(request, pk):
+    return _redirect_to_frontend(request, "/students")
+
+
+def redirect_student_batch_delete(request):
+    return _redirect_to_frontend(request, "/students")
+
+
+def redirect_student_batch_update_status(request):
+    return _redirect_to_frontend(request, "/students")
+
+
+def redirect_student_batch_graduate(request):
+    return _redirect_to_frontend(request, "/students")

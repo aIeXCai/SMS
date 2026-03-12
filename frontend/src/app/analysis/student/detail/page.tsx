@@ -4,8 +4,7 @@ import Link from "next/link";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import Chart from "chart.js/auto";
-import ChartDataLabels from "chartjs-plugin-datalabels";
+import Chart from "@/lib/chart";
 
 type SubjectScore = {
   subject_name: string;
@@ -85,7 +84,6 @@ function StudentAnalysisDetailContent() {
   const [selectedRankType, setSelectedRankType] = useState<"class" | "grade">("grade");
   const [selectedRadarExamId, setSelectedRadarExamId] = useState<string>("");
   const [selectedBarExamId, setSelectedBarExamId] = useState<string>("");
-  const [chartPluginReady, setChartPluginReady] = useState(false);
 
   const trendCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const radarCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -175,19 +173,6 @@ function StudentAnalysisDetailContent() {
     return () => document.removeEventListener("click", onClick);
   }, []);
 
-  useEffect(() => {
-    try {
-      Chart.register(ChartDataLabels);
-      setChartPluginReady(true);
-    } catch {
-      setChartPluginReady(true);
-    }
-  }, []);
-
-  const ensureChartReady = () => {
-    return chartPluginReady;
-  };
-
   const getSchoolYearText = (exam: ExamData) => {
     if (exam.academic_year) return exam.academic_year;
     if (exam.exam_date) {
@@ -213,7 +198,7 @@ function StudentAnalysisDetailContent() {
   }, [analysisData, selectedTrendSubjects]);
 
   const drawTrendChart = () => {
-    if (!ensureChartReady() || !trendCanvasRef.current || !analysisData) return;
+    if (!trendCanvasRef.current || !analysisData) return;
 
     if (trendChartRef.current) {
       trendChartRef.current.destroy();
@@ -296,7 +281,7 @@ function StudentAnalysisDetailContent() {
   };
 
   const drawRadarChart = () => {
-    if (!ensureChartReady() || !radarCanvasRef.current || !analysisData) return;
+    if (!radarCanvasRef.current || !analysisData) return;
 
     if (radarChartRef.current) {
       radarChartRef.current.destroy();
@@ -354,7 +339,7 @@ function StudentAnalysisDetailContent() {
   };
 
   const drawBarChart = () => {
-    if (!ensureChartReady() || !barCanvasRef.current || !analysisData) return;
+    if (!barCanvasRef.current || !analysisData) return;
 
     if (barChartRef.current) {
       barChartRef.current.destroy();
@@ -415,17 +400,17 @@ function StudentAnalysisDetailContent() {
   useEffect(() => {
     if (!analysisData) return;
     drawTrendChart();
-  }, [analysisData, selectedTrendExams, selectedTrendSubjects, selectedRankType, chartPluginReady]);
+  }, [analysisData, selectedTrendExams, selectedTrendSubjects, selectedRankType]);
 
   useEffect(() => {
     if (!analysisData) return;
     drawRadarChart();
-  }, [analysisData, selectedRadarExamId, chartPluginReady]);
+  }, [analysisData, selectedRadarExamId]);
 
   useEffect(() => {
     if (!analysisData) return;
     drawBarChart();
-  }, [analysisData, selectedBarExamId, chartPluginReady]);
+  }, [analysisData, selectedBarExamId]);
 
   useEffect(() => {
     return () => {

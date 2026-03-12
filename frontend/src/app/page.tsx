@@ -113,13 +113,12 @@ export default function DashboardPage() {
   };
 
   const getQuickActions = () => {
-    // 获取当前主机名，如果是在服务端渲染则默认为 localhost
     const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
     const backendBaseUrl = `http://${hostname}:8000`;
 
     const actions = [
       {
-        href: `${backendBaseUrl}/students/`,
+        href: `/students`,
         label: '学生信息',
         icon: '👥',
         description: '查看和管理学生档案'

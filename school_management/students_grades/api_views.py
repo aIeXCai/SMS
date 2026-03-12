@@ -23,10 +23,6 @@ from .tasks import update_all_rankings_async
 from .services.analysis_service import analyze_single_class, analyze_multiple_classes, analyze_grade
 
 
-
-
-
-
 class StudentViewSet(viewsets.ModelViewSet):
     """
     学生管理 ViewSet

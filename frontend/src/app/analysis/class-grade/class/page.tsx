@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import Chart from "chart.js/auto";
-import ChartDataLabels from "chartjs-plugin-datalabels";
+import Chart from "@/lib/chart";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
@@ -109,7 +108,6 @@ function ClassAnalysisSingleContent() {
   const comparisonChartRef = useRef<Chart | null>(null);
   const pieChartRef = useRef<Chart | null>(null);
   const distributionChartRef = useRef<Chart | null>(null);
-  const hasRegisteredDataLabelsRef = useRef(false);
 
   const effectiveToken = useMemo(() => {
     if (token) return token;
@@ -130,13 +128,6 @@ function ClassAnalysisSingleContent() {
     if (maxExamScore <= 0) return 150;
     return Math.ceil(maxExamScore / 10) * 10;
   }, [analysisData]);
-
-  useEffect(() => {
-    if (!hasRegisteredDataLabelsRef.current) {
-      Chart.register(ChartDataLabels);
-      hasRegisteredDataLabelsRef.current = true;
-    }
-  }, []);
 
   useEffect(() => {
     if (!loading && !effectiveToken) router.push("/login");

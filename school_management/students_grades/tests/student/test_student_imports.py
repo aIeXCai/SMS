@@ -20,7 +20,7 @@ Notes / assumptions:
 """
 
 from django.test import TestCase, Client
-from django.urls import reverse
+from django.contrib.auth import get_user_model
 from io import BytesIO
 from django.core.files.uploadedfile import SimpleUploadedFile
 import datetime
@@ -101,9 +101,16 @@ class StudentImportViewTests(TestCase):
     """
 
     def setUp(self):
-        # Django test client and the URL under test
+        # Django test client and the API URL under test
         self.client = Client()
-        self.url = reverse('students_grades:student_batch_import')
+        User = get_user_model()
+        self.user = User.objects.create_user(
+            username='student_import_admin',
+            password='test-pass-123',
+            role='admin'
+        )
+        self.client.force_login(self.user)
+        self.url = '/api/students/batch-import/'
 
     def make_workbook_bytes(self, rows):
         """Helper: create an in-memory Excel file (BytesIO) with the provided rows.
@@ -218,7 +225,7 @@ class StudentImportViewTests(TestCase):
 
     def test_download_student_import_template_returns_excel_and_headers(self):
         """GET the download template endpoint and assert headers and first row content."""
-        url = reverse('students_grades:download_student_import_template')
+        url = '/api/students/download-template/'
         resp = self.client.get(url)
         self.assertEqual(resp.status_code, 200)
         # Check content-type and content-disposition
@@ -243,18 +250,18 @@ class StudentImportViewTests(TestCase):
         """Test missing file and non-excel extension branches for student_batch_import."""
         # Missing file in POST
         resp = self.client.post(self.url, {}, format='multipart')
-        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.status_code, 400)
         data = resp.json()
         self.assertFalse(data.get('success'))
-        self.assertIn('error', data)
+        self.assertIn('message', data)
 
         # Wrong extension uploaded
         fake = SimpleUploadedFile('notes.txt', b'not an excel', content_type='text/plain')
         resp2 = self.client.post(self.url, {'file': fake}, format='multipart')
-        self.assertEqual(resp2.status_code, 200)
+        self.assertEqual(resp2.status_code, 400)
         data2 = resp2.json()
         self.assertFalse(data2.get('success'))
-        self.assertIn('文件格式不正确', data2.get('error'))
+        self.assertIn('文件格式不正确', data2.get('message', ''))
 
     def test_import_view_handles_corrupted_workbook_and_parsing_warnings(self):
         """Test handling of workbook read errors and date parsing warnings.
@@ -266,11 +273,11 @@ class StudentImportViewTests(TestCase):
         bad_buf = BytesIO(b'not-a-valid-xlsx')
         bad_upload = SimpleUploadedFile('students.xlsx', bad_buf.getvalue(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
         resp = self.client.post(self.url, {'file': bad_upload}, format='multipart')
-        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.status_code, 500)
         data = resp.json()
         # The view wraps workbook loading in try/except and returns success=False with error
         self.assertFalse(data.get('success'))
-        self.assertIn('error', data)
+        self.assertIn('message', data)
 
         # Now construct a workbook with an invalid date string for a row to trigger warning_messages
         rows = [

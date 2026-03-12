@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import Chart from "chart.js/auto";
+import Chart from "@/lib/chart";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";

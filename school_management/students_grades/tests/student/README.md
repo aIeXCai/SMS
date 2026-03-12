@@ -1,78 +1,46 @@
-README — students_grades tests (student)
+# README — students_grades tests (student)
 
-Purpose
--------
-This folder (tests/student) contains focused unit and integration tests for the `students_grades` app, specifically the Student-related tests (forms, import/export, views and small model behaviours that are student-facing).
+## 目的
 
-Structure & Conventions
------------------------
-- test_models.py
-  - Model-level unit tests: field validators, uniqueness constraints, model helper methods, and __str__ outputs.
+本目录用于 Student 模块测试基线，覆盖三类契约：
 
-- test_student_forms.py
-  - Form-level unit tests: `StudentForm` validation, save behavior (including Class creation/association), edit behavior, and edge cases.
-  - Tests are grouped by TestCase classes: Validation, Save, Edit, Edge Cases. Each TestCase focuses on a single responsibility to make running subsets easier.
+1. **表单契约**（`StudentForm`）
+2. **页面入口契约**（旧 Django 路由仅做重定向/代理）
+3. **API 契约**（统一使用 `/api/students/*`）
 
-- test_student_imports.py
-  - Integration tests for import/export endpoints (student_batch_import, template download).
-  - Uses in-memory Excel workbooks (openpyxl) and `SimpleUploadedFile` to simulate uploads.
+> 迁移后约定：前端页面不再依赖 Django 模板渲染，测试重点从“模板与表单页面行为”转为“重定向 + API 响应结构与副作用”。
 
-- test_student_views.py
-  - Integration tests for student CRUD and batch operations (add/edit/delete, batch promote/delete/graduate/update status).
-  - Uses Django TestClient and asserts redirects / JSON responses / DB side-effects.
+## 文件说明
 
-How to run tests
-----------------
-From repository root (workspace):
+- `test_student_forms.py`
+  - 纯表单单元测试：字段校验、保存行为、编辑模式、边界条件。
 
-Run the whole students_grades test package:
+- `test_student_imports.py`
+  - 导入/模板下载 API 集成测试。
+  - 目标接口：
+    - `POST /api/students/batch-import/`
+    - `GET /api/students/download-template/`
 
-    python3 manage.py test school_management.students_grades.tests -v 2
+- `test_student_views.py`
+  - 路由与 API 契约测试：
+    - 旧入口重定向（如 `students/`, `students/add/`, `students/edit/<id>/`）
+    - 旧模板下载入口 307 代理到 `/api/students/download-template/`
+    - 新 Student API 冒烟：列表、新增、批量删除、批量改状态、批量升年级、删除触发异步排名更新。
 
-Run only student form tests:
+## 运行方式
 
-    python3 manage.py test school_management.students_grades.tests.student.test_student_forms -v 2
+在仓库根目录执行：
 
-Run a single TestCase class (example):
+```bash
+python manage.py test \
+  school_management.students_grades.tests.student.test_student_forms \
+  school_management.students_grades.tests.student.test_student_imports \
+  school_management.students_grades.tests.student.test_student_views -v 2
+```
 
-    python3 manage.py test school_management.students_grades.tests.student.test_student_forms.StudentFormValidationTests -v 2
+## 注意事项
 
-Run a single test method (example):
-
-    python3 manage.py test school_management.students_grades.tests.student.test_student_forms.StudentFormValidationTests.test_required_fields_trigger_validation_errors -v 2
-
-Tips & Gotchas
---------------
-- Uploaded files in tests must present a `.name` attribute and a content_type. Use Django's `SimpleUploadedFile('students.xlsx', buf.getvalue(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')` when posting Excel in tests.
-
-- When testing DB-level uniqueness/IntegrityError, wrap creation in `transaction.atomic()` to avoid leaving the test transaction in a broken state.
-
-- For AJAX endpoints, add the header `HTTP_X_REQUESTED_WITH='XMLHttpRequest'` when posting with TestClient to trigger JSON branches.
-
-- Tests that depend on dates should prefer constructing explicit `datetime.date` objects in test data rather than relying on parsing, unless the test is specifically about date parsing.
-
-- If a test manipulates background/async tasks (e.g. `update_all_rankings_async.delay`), patch/mock the task sender to assert it was called without actually enqueuing work.
-
-Adding new tests
-----------------
-1. Follow the existing grouping: put form validation tests in `test_student_forms.py`'s Validation TestCase; DB-interaction tests that require saving should go in the Save TestCase / integration tests.
-2. Prefer small, isolated tests: create necessary DB fixtures in the test or in `setUp()`; avoid cross-test dependencies.
-3. Use helpers for repeated data creation (e.g. `make_student_data(**overrides)` in the test file) to reduce duplication.
-4. Document each test with a short Purpose/Setup/Action/Assertions block (see existing files for examples).
-
-Debugging failing tests
------------------------
-- Re-run failing tests with `-v 2` to get more informative output.
-- For assertion failures show `form.errors` in assert messages (many tests already pass `msg=form.errors`).
-- When encountering migration or schema-related issues locally, ensure you are running tests against a fresh test DB (Django's test runner handles this automatically).
-
-Contact / Follow-ups
---------------------
-If you'd like, I can:
-- Split very large test modules into smaller files (e.g. move Edit/EdgeCase tests into separate files).
-- Add CI-friendly test tags (e.g. markers to run fast unit tests first).
-- Add a small Makefile or npm script to run groups of tests quickly.
-
-
----
-Generated by automated test-refactor assistant. Adjust wording to your project's tone as desired.
+- 写操作接口需要管理员或级长权限；测试中请使用 `role='admin'` 登录用户。
+- 文件上传请使用 `SimpleUploadedFile` 并设置正确 `content_type`。
+- 涉及异步任务（如删除后排名更新）应 `patch` 任务调度器，只断言调用路径。
+- 当返回结构存在分页差异时（数组或 `results`），测试应兼容两种形态。

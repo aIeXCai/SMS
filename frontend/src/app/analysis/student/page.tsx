@@ -29,9 +29,10 @@ type ApiPagedResult<T> = {
   results?: T[];
 };
 
-const SCORES_API_BASE = "/api/scores";
-const CLASSES_API_BASE = "/api/classes";
-const STUDENTS_API_BASE = "/api/students";
+const backendBaseUrl = typeof window !== "undefined" ? `http://${window.location.hostname}:8000` : "http://localhost:8000";
+const SCORES_API_BASE = `${backendBaseUrl}/api/scores`;
+const CLASSES_API_BASE = `${backendBaseUrl}/api/classes`;
+const STUDENTS_API_BASE = `${backendBaseUrl}/api/students`;
 
 export default function StudentAnalysisEntryPage() {
   const { user, token, loading } = useAuth();

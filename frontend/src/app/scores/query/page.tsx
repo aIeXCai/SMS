@@ -76,7 +76,8 @@ const EMPTY_FILTERS: Filters = {
   subject_filters: [],
 };
 
-const SCORES_API_BASE = "/api/scores";
+const backendBaseUrl = typeof window !== "undefined" ? `http://${window.location.hostname}:8000` : "http://localhost:8000";
+const SCORES_API_BASE = `${backendBaseUrl}/api/scores`;
 
 export default function ScoresQueryPage() {
   const { user, token, loading } = useAuth();
@@ -99,19 +100,25 @@ export default function ScoresQueryPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [messages, setMessages] = useState<Array<{ id: number; type: "success" | "danger" | "info"; text: string }>>([]);
 
-  const authHeader = useMemo(() => {
-    if (!token) return undefined;
-    return { Authorization: `Bearer ${token}` };
+  const effectiveToken = useMemo(() => {
+    if (token) return token;
+    if (typeof window !== "undefined") return localStorage.getItem("accessToken");
+    return null;
   }, [token]);
 
-  useEffect(() => {
-    if (!loading && !token) {
-      router.push("/login");
-    }
-  }, [loading, token, router]);
+  const authHeader = useMemo(() => {
+    if (!effectiveToken) return undefined;
+    return { Authorization: `Bearer ${effectiveToken}` };
+  }, [effectiveToken]);
 
   useEffect(() => {
-    if (!token) return;
+    if (!loading && !effectiveToken) {
+      router.push("/login");
+    }
+  }, [loading, effectiveToken, router]);
+
+  useEffect(() => {
+    if (!effectiveToken) return;
     const fetchOptions = async () => {
       const res = await fetch(`${SCORES_API_BASE}/options/`, { headers: { ...authHeader } });
       if (!res.ok) return;
@@ -119,7 +126,7 @@ export default function ScoresQueryPage() {
       setOptions(data);
     };
     fetchOptions();
-  }, [token, authHeader]);
+  }, [effectiveToken, authHeader]);
 
   useEffect(() => {
     const onClickOutside = (event: MouseEvent) => {
@@ -133,7 +140,7 @@ export default function ScoresQueryPage() {
   }, []);
 
   useEffect(() => {
-    if (!token) return;
+    if (!effectiveToken) return;
     const fetchRows = async () => {
       setIsLoading(true);
       try {
@@ -177,7 +184,7 @@ export default function ScoresQueryPage() {
     };
 
     fetchRows();
-  }, [token, authHeader, currentPage, appliedFilters, subjectSort, sortOrder]);
+  }, [effectiveToken, authHeader, currentPage, appliedFilters, subjectSort, sortOrder]);
 
   const handleQuery = () => {
     const hasCondition =

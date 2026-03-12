@@ -8,8 +8,34 @@
 |---|---|---|---|
 | score（成绩管理） | 前端页面 + `/api/scores/*` 主链路 | ✅ 完成 | 旧模板下线，旧路由改 redirect / 307 代理，测试基线已迁移 |
 | analysis（成绩分析） | 前端页面 + `/api/scores/*analysis*` 主链路 | ✅ 完成 | 页面入口与数据接口契约已冻结 |
-| student | 待分离 | ⏳ 未开始 | 下一阶段候选 |
+| student | 前端页面 + `/api/students/*` 主链路 | ✅ 完成 | 旧模板与旧视图已下线，旧路由改 redirect / 307 代理，测试基线已迁移 |
 | exam | 待分离 | ⏳ 未开始 | 下一阶段候选 |
+
+## Student 分离进展（进行中）
+
+- [x] 第 1 步：入口盘点
+- [x] 第 2 步：冻结 Student API 契约（`docs/student_management_api_contract.md`）
+- [x] 第 3 步：切换 Django 学生路由为前端重定向
+- [x] 第 4 步：迁移导航与内部跳转
+- [x] 第 5 步：迁移测试到新契约
+- [x] 第 6 步：下线 `templates/students/*` 与旧视图
+- [x] 第 7 步：全量回归与冒烟验证
+- [x] 第 8 步：文档收口与发布说明
+
+### Student 分离发布说明（2026-03-12）
+
+- 分离目标已达成：Student 页面主入口已统一到前端，数据主链路统一为 `/api/students/*`。
+- 兼容策略已落地：旧学生入口保留重定向；模板下载入口保留 307 代理到 `/api/students/download-template/`。
+- 旧资产已下线：`templates/students/*` 与旧 `views/student_views.py` 已删除。
+- 路由兼容已补测：旧 mutation 入口（delete/update-status/batch-*）已纳入重定向测试。
+
+### Student 分离验收记录
+
+- `python manage.py test school_management.students_grades.tests.student.test_student_forms school_management.students_grades.tests.student.test_student_imports school_management.students_grades.tests.student.test_student_views -v 2`：35/35 通过
+- `python manage.py test school_management.students_grades.tests.student.test_student_views -v 2`：17/17 通过（含新增旧 mutation 重定向用例）
+- `python manage.py test school_management.students_grades.tests.score -v 2`：57/57 通过
+- `python manage.py check`：0 issues
+- `cd frontend && npm run build`：构建成功（存在既有 ESLint 插件告警，不阻断产物）
 
 ## 2. score 模块分离完成定义（DoD）
 

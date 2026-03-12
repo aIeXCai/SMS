@@ -77,7 +77,8 @@ const EMPTY_FILTERS: Filters = {
   subject_filter: "",
 };
 
-const SCORES_API_BASE = "/api/scores";
+const backendBaseUrl = typeof window !== "undefined" ? `http://${window.location.hostname}:8000` : "http://localhost:8000";
+const SCORES_API_BASE = `${backendBaseUrl}/api/scores`;
 
 export default function ScoresPage() {
   const { user, token, loading } = useAuth();
@@ -127,10 +128,16 @@ export default function ScoresPage() {
     error_details?: Array<{ row: number; student_id: string; student_name: string; errors: string[] }>;
   } | null>(null);
 
-  const authHeader = useMemo(() => {
-    if (!token) return undefined;
-    return { Authorization: `Bearer ${token}` };
+  const effectiveToken = useMemo(() => {
+    if (token) return token;
+    if (typeof window !== "undefined") return localStorage.getItem("accessToken");
+    return null;
   }, [token]);
+
+  const authHeader = useMemo(() => {
+    if (!effectiveToken) return undefined;
+    return { Authorization: `Bearer ${effectiveToken}` };
+  }, [effectiveToken]);
 
   const selectedKeys = Object.keys(selected).filter((k) => selected[k]);
   const allFilteredSelected = totalCount > 0 && selectedKeys.length === totalCount;
@@ -150,10 +157,10 @@ export default function ScoresPage() {
   };
 
   useEffect(() => {
-    if (!loading && !token) {
+    if (!loading && !effectiveToken) {
       router.push("/login");
     }
-  }, [loading, token, router]);
+  }, [loading, effectiveToken, router]);
 
   const fetchOptions = async () => {
     try {
@@ -233,14 +240,14 @@ export default function ScoresPage() {
   };
 
   useEffect(() => {
-    if (!token) return;
+    if (!effectiveToken) return;
     fetchOptions();
-  }, [token, authHeader]);
+  }, [effectiveToken, authHeader]);
 
   useEffect(() => {
-    if (!token) return;
+    if (!effectiveToken) return;
     fetchRows();
-  }, [token, authHeader, currentPage, pageSize, appliedFilters]);
+  }, [effectiveToken, authHeader, currentPage, pageSize, appliedFilters]);
 
   const handleFilter = () => {
     setSelected({});
