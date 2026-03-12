@@ -135,13 +135,13 @@ export default function DashboardPage() {
           description: '创建和安排考试'
         },
         {
-          href: `${backendBaseUrl}/scores/`,
+          href: `/scores`,
           label: '成绩录入',
           icon: '📊',
           description: '录入学生成绩'
         },
         {
-          href: `${backendBaseUrl}/scores/query/`,
+          href: `/scores/query`,
           label: '成绩查询',
           icon: '🔍',
           description: '查询学生成绩'

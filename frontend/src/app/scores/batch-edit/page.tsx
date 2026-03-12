@@ -27,7 +27,7 @@ type EditDetail = {
   subject_max_scores: Record<string, number>;
 };
 
-const backendBaseUrl = typeof window !== "undefined" ? `http://${window.location.hostname}:8000` : "http://localhost:8000";
+const SCORES_API_BASE = "/api/scores";
 
 export default function ScoreBatchEditPage() {
   const { user, token, loading } = useAuth();
@@ -85,7 +85,7 @@ export default function ScoreBatchEditPage() {
       try {
         setLoadingData(true);
         const res = await fetch(
-          `${backendBaseUrl}/api/scores/batch-edit-detail/?student=${encodeURIComponent(studentId)}&exam=${encodeURIComponent(examId)}`,
+          `${SCORES_API_BASE}/batch-edit-detail/?student=${encodeURIComponent(studentId)}&exam=${encodeURIComponent(examId)}`,
           { headers: { ...authHeader } }
         );
         const data = await res.json().catch(() => ({}));
@@ -161,7 +161,7 @@ export default function ScoreBatchEditPage() {
 
     try {
       setSaving(true);
-      const res = await fetch(`${backendBaseUrl}/api/scores/batch-edit-save/`, {
+      const res = await fetch(`${SCORES_API_BASE}/batch-edit-save/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

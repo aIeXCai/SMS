@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.http import HttpResponse
 from django.http import HttpResponseRedirect
 
 
@@ -20,6 +21,16 @@ def _redirect_to_frontend(request, frontend_path):
     return HttpResponseRedirect(target_url)
 
 
+def _redirect_to_api(request, api_path):
+    query_string = request.META.get("QUERY_STRING", "")
+    target_url = api_path
+    if query_string:
+        target_url = f"{target_url}?{query_string}"
+    response = HttpResponse(status=307)
+    response["Location"] = target_url
+    return response
+
+
 def redirect_class_grade_entry(request):
     return _redirect_to_frontend(request, "/analysis/class-grade")
 
@@ -38,3 +49,47 @@ def redirect_student_analysis_entry(request):
 
 def redirect_student_analysis_detail(request):
     return _redirect_to_frontend(request, "/analysis/student/detail")
+
+
+def redirect_score_list(request):
+    return _redirect_to_frontend(request, "/scores")
+
+
+def redirect_score_add(request):
+    return _redirect_to_frontend(request, "/scores/add")
+
+
+def redirect_score_edit(request, pk):
+    return _redirect_to_frontend(request, "/scores")
+
+
+def redirect_score_batch_edit(request):
+    return _redirect_to_frontend(request, "/scores/batch-edit")
+
+
+def redirect_score_query(request):
+    return _redirect_to_frontend(request, "/scores/query")
+
+
+def redirect_score_batch_export(request):
+    return _redirect_to_api(request, "/api/scores/batch-export/")
+
+
+def redirect_score_batch_delete_filtered(request):
+    return _redirect_to_api(request, "/api/scores/batch-delete-filtered/")
+
+
+def redirect_score_batch_export_selected(request):
+    return _redirect_to_api(request, "/api/scores/batch-export-selected/")
+
+
+def redirect_score_batch_delete_selected(request):
+    return _redirect_to_api(request, "/api/scores/batch-delete-selected/")
+
+
+def redirect_download_score_import_template(request):
+    return _redirect_to_api(request, "/api/scores/download-template/")
+
+
+def redirect_score_query_export(request):
+    return _redirect_to_api(request, "/api/scores/query-export/")

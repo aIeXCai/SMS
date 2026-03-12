@@ -29,7 +29,9 @@ type ApiPagedResult<T> = {
   results?: T[];
 };
 
-const backendBaseUrl = typeof window !== "undefined" ? `http://${window.location.hostname}:8000` : "http://localhost:8000";
+const SCORES_API_BASE = "/api/scores";
+const CLASSES_API_BASE = "/api/classes";
+const STUDENTS_API_BASE = "/api/students";
 
 export default function StudentAnalysisEntryPage() {
   const { user, token, loading } = useAuth();
@@ -112,7 +114,7 @@ export default function StudentAnalysisEntryPage() {
 
   const loadGradeOptions = async () => {
     try {
-      const response = await fetch(`${backendBaseUrl}/api/scores/options/`, {
+      const response = await fetch(`${SCORES_API_BASE}/options/`, {
         headers: { ...authHeader },
       });
       if (!response.ok) {
@@ -146,7 +148,7 @@ export default function StudentAnalysisEntryPage() {
   const updateClassOptions = async (gradeValue: string) => {
     setClassOptions([]);
     try {
-      const response = await fetch(`${backendBaseUrl}/api/classes/?grade_level=${encodeURIComponent(gradeValue)}&ordering=class_name&page_size=2000`, {
+      const response = await fetch(`${CLASSES_API_BASE}/?grade_level=${encodeURIComponent(gradeValue)}&ordering=class_name&page_size=2000`, {
         headers: { ...authHeader },
       });
       if (!response.ok) {
@@ -177,7 +179,7 @@ export default function StudentAnalysisEntryPage() {
     setStudentOptions([]);
     try {
       const response = await fetch(
-        `${backendBaseUrl}/api/students/?current_class__grade_level=${encodeURIComponent(gradeValue)}&current_class__class_name=${encodeURIComponent(className)}&ordering=student_id&page_size=2000`,
+        `${STUDENTS_API_BASE}/?current_class__grade_level=${encodeURIComponent(gradeValue)}&current_class__class_name=${encodeURIComponent(className)}&ordering=student_id&page_size=2000`,
         { headers: { ...authHeader } }
       );
       if (!response.ok) {

@@ -19,6 +19,12 @@ SMS 是面向中小学的“学籍 + 成绩”一体化管理系统，覆盖：
 - **异步任务**: Redis + django-rq
 - **可视化**: Chart.js + Bootstrap（Django 模板界面）
 
+### 1.3 迁移状态（2026-03-12）
+- `score` 模块已完成“旧 Django 模板视图 -> 前端页面 + `/api/scores/*`”分离。
+- 旧成绩模板页面（`templates/scores/*`）已下线，旧路由保留为重定向/代理层。
+- 分析与成绩契约文档已冻结：见 `docs/score_management_api_contract.md`、`docs/analysis_api_contract.md`。
+- 模块分离进度与后续模板见 `MIGRATION_TRACKER.md`。
+
 ---
 
 ## 🏗️ 系统架构
@@ -168,10 +174,10 @@ SMS 是面向中小学的“学籍 + 成绩”一体化管理系统，覆盖：
 └── /analysis/export/              # 分析结果导出
 
 🔧 AJAX API接口:
-├── /get_student_analysis_data/    # 学生个人分析数据API
-├── /get_class_analysis_data/      # 班级分析数据API
-├── /get_grade_analysis_data/      # 年级分析数据API
-└── /export_analysis_report/       # 分析报告导出API
+├── /api/scores/student-analysis-data/  # 学生个人分析数据API
+├── /api/scores/class-analysis-single/  # 单班分析数据API
+├── /api/scores/class-analysis-multi/   # 多班对比数据API
+└── /api/scores/class-analysis-grade/   # 年级分析数据API
 ```
 
 ## 4. 前端应用模块 (frontend)

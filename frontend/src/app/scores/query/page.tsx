@@ -76,7 +76,7 @@ const EMPTY_FILTERS: Filters = {
   subject_filters: [],
 };
 
-const backendBaseUrl = typeof window !== "undefined" ? `http://${window.location.hostname}:8000` : "http://localhost:8000";
+const SCORES_API_BASE = "/api/scores";
 
 export default function ScoresQueryPage() {
   const { user, token, loading } = useAuth();
@@ -113,7 +113,7 @@ export default function ScoresQueryPage() {
   useEffect(() => {
     if (!token) return;
     const fetchOptions = async () => {
-      const res = await fetch(`${backendBaseUrl}/api/scores/options/`, { headers: { ...authHeader } });
+      const res = await fetch(`${SCORES_API_BASE}/options/`, { headers: { ...authHeader } });
       if (!res.ok) return;
       const data = await res.json();
       setOptions(data);
@@ -150,7 +150,7 @@ export default function ScoresQueryPage() {
           }
         });
 
-        const res = await fetch(`${backendBaseUrl}/api/scores/?${params.toString()}`, { headers: { ...authHeader } });
+        const res = await fetch(`${SCORES_API_BASE}/?${params.toString()}`, { headers: { ...authHeader } });
         if (!res.ok) throw new Error("查询失败");
 
         const data: ScoreListResponse = await res.json();
@@ -236,7 +236,7 @@ export default function ScoresQueryPage() {
           params.set(k, String(v));
         }
       });
-      const res = await fetch(`${backendBaseUrl}/api/scores/query-export/?${params.toString()}`, { headers: { ...authHeader } });
+      const res = await fetch(`${SCORES_API_BASE}/query-export/?${params.toString()}`, { headers: { ...authHeader } });
       if (!res.ok) {
         setMessages((prev) => [
           ...prev,

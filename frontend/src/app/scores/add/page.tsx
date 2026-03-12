@@ -21,7 +21,7 @@ type ScoreOptions = {
   subjects: Option[];
 };
 
-const backendBaseUrl = typeof window !== "undefined" ? `http://${window.location.hostname}:8000` : "http://localhost:8000";
+const SCORES_API_BASE = "/api/scores";
 
 export default function ScoreAddPage() {
   const { user, token, loading } = useAuth();
@@ -71,7 +71,7 @@ export default function ScoreAddPage() {
 
     const fetchOptions = async () => {
       try {
-        const res = await fetch(`${backendBaseUrl}/api/scores/options/`, { headers: { ...authHeader } });
+        const res = await fetch(`${SCORES_API_BASE}/options/`, { headers: { ...authHeader } });
         if (!res.ok) return;
         const data = await res.json();
         setOptions({ exams: data.exams || [], subjects: data.subjects || [] });
@@ -93,7 +93,7 @@ export default function ScoreAddPage() {
     const timer = setTimeout(async () => {
       try {
         setSearchLoading(true);
-        const res = await fetch(`${backendBaseUrl}/api/scores/student-search/?q=${encodeURIComponent(q)}`, {
+        const res = await fetch(`${SCORES_API_BASE}/student-search/?q=${encodeURIComponent(q)}`, {
           headers: { ...authHeader },
         });
         const data = await res.json().catch(() => ({ results: [] }));
@@ -175,7 +175,7 @@ export default function ScoreAddPage() {
 
     try {
       setSubmitting(true);
-      const res = await fetch(`${backendBaseUrl}/api/scores/manual-add/`, {
+      const res = await fetch(`${SCORES_API_BASE}/manual-add/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

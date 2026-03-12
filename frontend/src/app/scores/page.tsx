@@ -77,7 +77,7 @@ const EMPTY_FILTERS: Filters = {
   subject_filter: "",
 };
 
-const backendBaseUrl = typeof window !== "undefined" ? `http://${window.location.hostname}:8000` : "http://localhost:8000";
+const SCORES_API_BASE = "/api/scores";
 
 export default function ScoresPage() {
   const { user, token, loading } = useAuth();
@@ -157,7 +157,7 @@ export default function ScoresPage() {
 
   const fetchOptions = async () => {
     try {
-      const res = await fetch(`${backendBaseUrl}/api/scores/options/`, { headers: { ...authHeader } });
+      const res = await fetch(`${SCORES_API_BASE}/options/`, { headers: { ...authHeader } });
       if (!res.ok) return;
       const data: ScoreOptions = await res.json();
       setOptions(data);
@@ -181,7 +181,7 @@ export default function ScoresPage() {
         if (v) params.set(k, v);
       });
 
-      const res = await fetch(`${backendBaseUrl}/api/scores/?${params.toString()}`, {
+      const res = await fetch(`${SCORES_API_BASE}/?${params.toString()}`, {
         headers: { ...authHeader },
       });
       if (!res.ok) {
@@ -217,7 +217,7 @@ export default function ScoresPage() {
 
   const fetchAllFilteredRecordKeys = async () => {
     const params = buildFilterParams(appliedFilters);
-    const res = await fetch(`${backendBaseUrl}/api/scores/select-all-record-keys/?${params.toString()}`, {
+    const res = await fetch(`${SCORES_API_BASE}/select-all-record-keys/?${params.toString()}`, {
       headers: { ...authHeader },
     });
     if (!res.ok) {
@@ -307,7 +307,7 @@ export default function ScoresPage() {
 
   const confirmDeleteSelected = async () => {
     try {
-      const res = await fetch(`${backendBaseUrl}/api/scores/batch-delete-selected/`, {
+      const res = await fetch(`${SCORES_API_BASE}/batch-delete-selected/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -332,9 +332,34 @@ export default function ScoresPage() {
     }
   };
 
+  const deleteFiltered = async () => {
+    const params = buildFilterParams(appliedFilters);
+    try {
+      const res = await fetch(`${SCORES_API_BASE}/batch-delete-filtered/?${params.toString()}`, {
+        method: "POST",
+        headers: {
+          ...authHeader,
+        },
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        showResultModal("error", "删除失败", "操作未完成", data.message || "按筛选删除失败");
+        return;
+      }
+
+      showResultModal("success", "删除成功", "筛选结果已清理", data.message || "按筛选条件删除成功");
+      setSelected({});
+      fetchRows();
+    } catch (e) {
+      console.error(e);
+      showResultModal("error", "删除失败", "网络或服务器异常", "按筛选删除失败，请稍后再试");
+    }
+  };
+
   const downloadTemplate = async () => {
     try {
-      const res = await fetch(`${backendBaseUrl}/api/scores/download-template/`, {
+      const res = await fetch(`${SCORES_API_BASE}/download-template/`, {
         headers: { ...authHeader },
       });
       if (!res.ok) {
@@ -372,7 +397,7 @@ export default function ScoresPage() {
       formData.append("exam", importExam);
       formData.append("excel_file", importFile);
 
-      const res = await fetch(`${backendBaseUrl}/api/scores/batch-import/`, {
+      const res = await fetch(`${SCORES_API_BASE}/batch-import/`, {
         method: "POST",
         headers: { ...authHeader },
         body: formData,
@@ -565,6 +590,9 @@ export default function ScoresPage() {
                 </div>
               </div>
               <div className="col-md-6 text-end">
+                <button type="button" className="btn btn-outline-danger me-2" onClick={deleteFiltered}>
+                  <i className="fas fa-filter"></i> 删除筛选结果
+                </button>
                 <button type="button" className="btn btn-danger" onClick={deleteSelected}>
                   <i className="fas fa-trash"></i> 删除选中项
                 </button>

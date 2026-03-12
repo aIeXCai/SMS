@@ -1,5 +1,7 @@
 # 学生成绩排名系统实现总结
 
+> 迁移说明（2026-03-12）：`score_views.py` 已下线，成绩能力已迁移为 `/api/scores/*` + 重定向层。本文中涉及 `score_views.py` 的位置属于历史实现说明。
+
 ## 🎯 功能概述
 
 已成功实现完整的学生成绩自动排名计算系统，支持以下功能：
@@ -37,15 +39,12 @@ total_score_rank_in_class = models.IntegerField(null=True, blank=True, verbose_n
 
 已创建迁移文件添加班级排名字段。
 
-### 3. 同步排名计算函数
-**文件:** `school_management/students_grades/views/score_views.py`
+### 3. 排名计算函数（当前）
+**文件:** `school_management/students_grades/tasks.py`
 
 主要函数：
-- `update_all_rankings(exam_id, grade_level=None)` - 完整排名更新
-- `update_total_score_grade_ranking(exam, grade_level)` - 年级总分排名
-- `update_total_score_class_ranking(exam, grade_level)` - 班级总分排名  
-- `update_subject_grade_ranking(exam, grade_level)` - 年级学科排名
-- `update_subject_class_ranking(exam, grade_level)` - 班级学科排名
+- `update_all_rankings_async(exam_id, grade_level=None)` - 完整异步排名更新
+- `update_grade_rankings_optimized(exam, grade_level)` - 排名核心计算（被异步任务调用）
 
 ### 4. 异步任务
 **文件:** `school_management/students_grades/tasks.py`
@@ -57,24 +56,24 @@ total_score_rank_in_class = models.IntegerField(null=True, blank=True, verbose_n
 ### 5. 触发位置
 
 #### 成绩导入
-**函数:** `score_batch_import_ajax()` 
+**接口:** `/api/scores/batch-import/`
 - 导入成功后自动触发异步排名更新
 - 使用 `update_all_rankings_async` 后台处理
 
 #### 成绩编辑
-**函数:** `score_edit()` 
-- 编辑成功后立即同步更新排名
-- 使用 `update_all_rankings` 同步处理
+**接口:** `/api/scores/batch-edit-save/`
+- 保存成功后触发排名更新任务
+- 使用 `update_all_rankings_async` 异步处理
 
 #### 批量编辑
-**函数:** `score_batch_edit()`
-- 编辑成功后立即同步更新排名
-- 使用 `update_all_rankings` 同步处理
+**接口:** `/api/scores/batch-edit-save/`
+- 批量编辑保存后触发排名更新任务
+- 使用 `update_all_rankings_async` 异步处理
 
 #### 成绩新增
-**函数:** `score_add()`
-- 添加成功后立即同步更新排名
-- 使用 `update_all_rankings` 同步处理
+**接口:** `/api/scores/manual-add/`
+- 新增成功后触发排名更新任务
+- 使用 `update_all_rankings_async` 异步处理
 
 ## 🛠️ 排名算法
 
@@ -136,13 +135,13 @@ grade_levels = list(set(Score.objects.filter(exam=exam).values_list('grade_level
 
 ### 手动触发排名更新
 ```python
-from school_management.students_grades.views.score_views import update_all_rankings
+from school_management.students_grades.tasks import update_all_rankings_async
 
-# 更新指定考试的所有排名
-update_all_rankings(exam_id=3)
+# 异步更新指定考试（建议）
+update_all_rankings_async.delay(exam_id=3)
 
-# 更新指定考试指定年级的排名
-update_all_rankings(exam_id=3, grade_level="高三")
+# 异步更新指定考试+年级
+update_all_rankings_async.delay(exam_id=3, grade_level="高三")
 ```
 
 ### 异步任务触发

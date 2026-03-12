@@ -499,7 +499,7 @@ class ExamViewSet(viewsets.ModelViewSet):
 class ScoreViewSet(viewsets.ModelViewSet):
     """
     成绩管理 API
-    - 列表：按(学生,考试)聚合，输出与 score_list.html 一致的数据结构
+    - 列表：按(学生,考试)聚合，输出前端 `/scores` 页面所需数据结构
     - 批量：导出选中、删除选中
     - 导入：Excel 批量导入
     """
@@ -509,7 +509,10 @@ class ScoreViewSet(viewsets.ModelViewSet):
     parser_classes = [JSONParser, MultiPartParser, FormParser]
 
     def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy', 'batch_delete_selected', 'batch_import']:
+        if self.action in [
+            'create', 'update', 'partial_update', 'destroy',
+            'batch_delete_selected', 'batch_delete_filtered', 'batch_import'
+        ]:
             return [permissions.IsAuthenticated(), IsAdminOrGradeManager()]
         return [permissions.IsAuthenticated()]
 
@@ -1420,6 +1423,34 @@ class ScoreViewSet(viewsets.ModelViewSet):
             'success': True,
             'deleted_count': total_deleted,
             'message': f'成功删除 {total_deleted} 条成绩记录' if total_deleted else '没有找到对应的成绩记录'
+        })
+
+    @action(detail=False, methods=['post'], url_path='batch-delete-filtered')
+    def batch_delete_filtered(self, request):
+        """按当前筛选条件批量删除成绩（与旧 score_batch_delete_filtered 行为对齐）"""
+        filtered_scores = self._filter_scores(request)
+        delete_count = filtered_scores.count()
+
+        if delete_count == 0:
+            return Response({
+                'success': True,
+                'deleted_count': 0,
+                'message': '没有符合筛选条件的成绩记录'
+            })
+
+        affected_exam_ids = list(filtered_scores.values_list('exam_id', flat=True).distinct())
+        filtered_scores.delete()
+
+        for exam_id in affected_exam_ids:
+            try:
+                update_all_rankings_async.delay(exam_id)
+            except Exception:
+                pass
+
+        return Response({
+            'success': True,
+            'deleted_count': delete_count,
+            'message': f'成功删除 {delete_count} 条符合筛选条件的成绩记录'
         })
 
     @action(detail=False, methods=['get'], url_path='select-all-record-keys')

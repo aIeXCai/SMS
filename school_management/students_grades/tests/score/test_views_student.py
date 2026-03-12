@@ -1,4 +1,4 @@
-"""Integration tests for the student analysis pages (index and detail)."""
+"""Redirect contract tests for student analysis routes."""
 from datetime import date
 
 from django.urls import reverse
@@ -8,7 +8,7 @@ from school_management.students_grades.models import Class, Student, Exam, ExamS
 
 
 class StudentAnalysisViewTests(BaseTestCase):
-    """Integration tests for the student analysis pages (index and detail)."""
+    """Verify legacy Django routes redirect to frontend analysis pages."""
 
     def setUp(self):
         super().setUp()
@@ -29,67 +29,48 @@ class StudentAnalysisViewTests(BaseTestCase):
         self.index_url = reverse('students_grades:student_analysis')
         self.detail_url = reverse('students_grades:student_analysis_detail')
 
-    def test_score_analysis_student_no_filters_renders_index(self):
-        """访问学生分析首页（无筛选）应返回学生列表和考试列表。"""
+    def test_score_analysis_student_no_filters_redirects_to_frontend(self):
+        """学生分析首页应重定向到前端页面。"""
         resp = self.client.get(self.index_url)
-        self.assertEqual(resp.status_code, 200)
+        self.assertIn(resp.status_code, (301, 302))
+        self.assertIn('/analysis/student', resp['Location'])
 
-        templates = [t.name for t in resp.templates if t.name]
-        self.assertIn('scores/score_analysis_student.html', templates)
-
-        # context 中应包含 students, exams, student_count
-        self.assertIn('students', resp.context)
-        self.assertIn('exams', resp.context)
-        self.assertIn('student_count', resp.context)
-        self.assertEqual(resp.context['student_count'], Student.objects.count())
-
-    def test_score_analysis_student_with_grade_and_class_and_exam_sets_context(self):
-        """传入 grade_level/class_name(exam) 时应过滤并设置 selected_exam/selected_class。"""
+    def test_score_analysis_student_with_query_preserves_params(self):
+        """带筛选参数访问时应重定向且保留 query string。"""
         params = {
             'grade_level': 'Grade8',
-            'class_name': str(self.cls.id),  # 视图用 class_name 参数承载班级 id
+            'class_name': str(self.cls.id),
             'exam': str(self.exam.id),
             'academic_year': self.exam.academic_year,
         }
         resp = self.client.get(self.index_url, params)
-        self.assertEqual(resp.status_code, 200)
-
-        # selected_exam 应在 context 中并且正确
-        self.assertIn('selected_exam', resp.context)
-        self.assertEqual(getattr(resp.context['selected_exam'], 'id', None), self.exam.id)
-
-        # selected_class 被设置为 类似 'Grade8' + '1班' 的字符串
-        self.assertIn('selected_class', resp.context)
-        expected_selected = f"{self.cls.grade_level}{self.cls.class_name}"
-        self.assertEqual(resp.context.get('selected_class'), expected_selected)
+        self.assertIn(resp.status_code, (301, 302))
+        location = resp['Location']
+        self.assertIn('/analysis/student', location)
+        self.assertIn('grade_level=Grade8', location)
+        self.assertIn(f'exam={self.exam.id}', location)
 
     def test_score_analysis_student_detail_missing_params_redirects(self):
-        """缺少必要参数访问详情页应被重定向回学生分析首页。"""
+        """缺少参数访问详情页也应重定向到前端详情路径。"""
         resp = self.client.get(self.detail_url)
-        # 重定向到 student_analysis
         self.assertIn(resp.status_code, (302, 301))
+        self.assertIn('/analysis/student/detail', resp['Location'])
 
-    def test_score_analysis_student_detail_renders_expected_context(self):
-        """完整参数访问详情页应渲染学生详细分析并包含预期上下文。"""
+    def test_score_analysis_student_detail_with_params_redirects(self):
+        """完整参数访问详情页应重定向并保留参数。"""
         params = {
             'grade_level': 'Grade8',
             'class_name': f"{self.cls.grade_level}{self.cls.class_name}",
             'student_id': str(self.s1.id),
         }
         resp = self.client.get(self.detail_url, params)
-        self.assertEqual(resp.status_code, 200)
+        self.assertIn(resp.status_code, (301, 302))
+        location = resp['Location']
+        self.assertIn('/analysis/student/detail', location)
+        self.assertIn(f'student_id={self.s1.id}', location)
 
-        templates = [t.name for t in resp.templates if t.name]
-        self.assertIn('scores/score_analysis_student_detail.html', templates)
-
-        self.assertIn('student', resp.context)
-        self.assertEqual(resp.context['student'].id, self.s1.id)
-        self.assertIn('scores', resp.context)
-        self.assertIn('exams', resp.context)
-        self.assertIn('subjects', resp.context)
-
-    def test_score_analysis_student_detail_nonexistent_student_redirects(self):
-        """传入不存在的 student_id 应重定向回学生分析首页并显示错误消息（via redirect）。"""
+    def test_score_analysis_student_detail_nonexistent_student_still_redirects(self):
+        """重定向层不校验学生存在性，直接转发到前端详情。"""
         params = {
             'grade_level': 'Grade8',
             'class_name': f"{self.cls.grade_level}{self.cls.class_name}",
@@ -97,3 +78,4 @@ class StudentAnalysisViewTests(BaseTestCase):
         }
         resp = self.client.get(self.detail_url, params)
         self.assertIn(resp.status_code, (302, 301))
+        self.assertIn('/analysis/student/detail', resp['Location'])

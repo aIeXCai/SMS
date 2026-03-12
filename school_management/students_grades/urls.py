@@ -16,16 +16,6 @@ from .views.exam_views import (
     exam_edit_step1, exam_edit_step2, exam_delete,
     get_default_subjects_ajax
 )
-from .views.score_views import (
-    score_list, score_add, score_edit, score_batch_export,
-    score_batch_delete_filtered, score_batch_export_selected,
-    score_batch_delete_selected, score_batch_edit,
-    download_score_import_template, score_query, score_query_results,
-    score_query_export, score_analysis, score_analysis_class,
-    score_analysis_student, score_analysis_student_detail, score_analysis_grade,
-    score_batch_import_ajax, search_students_ajax,
-    get_classes_by_grade, get_students_by_class, get_student_analysis_data, get_grades_ajax
-)
 from .views.ranking_debug_view import (
     ranking_debug_view, get_ranking_data, ranking_update_test
 )
@@ -35,6 +25,17 @@ from .views.analysis_redirect_views import (
     redirect_class_grade_grade,
     redirect_student_analysis_entry,
     redirect_student_analysis_detail,
+    redirect_score_list,
+    redirect_score_add,
+    redirect_score_edit,
+    redirect_score_batch_export,
+    redirect_score_batch_delete_filtered,
+    redirect_score_batch_export_selected,
+    redirect_score_batch_delete_selected,
+    redirect_score_batch_edit,
+    redirect_download_score_import_template,
+    redirect_score_query,
+    redirect_score_query_export,
 )
 
 app_name = 'students_grades'
@@ -74,22 +75,21 @@ urlpatterns = [
     path('exams/<int:pk>/delete/', exam_delete, name='exam_delete'),
     
     # === 成绩管理 ===
-    path('scores/', score_list, name='score_list'),
-    path('scores/add/', score_add, name='score_add'),
-    path('scores/<int:pk>/edit/', score_edit, name='score_edit'),
+    path('scores/', redirect_score_list, name='score_list'),
+    path('scores/add/', redirect_score_add, name='score_add'),
+    path('scores/<int:pk>/edit/', redirect_score_edit, name='score_edit'),
     
     # === 成绩批量操作 ===
-    path('scores/batch_export/', score_batch_export, name='score_batch_export'),
-    path('scores/batch_delete_filtered/', score_batch_delete_filtered, name='score_batch_delete_filtered'),
-    path('scores/batch_export_selected/', score_batch_export_selected, name='score_batch_export_selected'),
-    path('scores/batch_delete_selected/', score_batch_delete_selected, name='score_batch_delete_selected'),
-    path('scores/batch_edit/', score_batch_edit, name='score_batch_edit'),
-    path('scores/download_template/', download_score_import_template, name='download_score_import_template'),
+    path('scores/batch_export/', redirect_score_batch_export, name='score_batch_export'),
+    path('scores/batch_delete_filtered/', redirect_score_batch_delete_filtered, name='score_batch_delete_filtered'),
+    path('scores/batch_export_selected/', redirect_score_batch_export_selected, name='score_batch_export_selected'),
+    path('scores/batch_delete_selected/', redirect_score_batch_delete_selected, name='score_batch_delete_selected'),
+    path('scores/batch_edit/', redirect_score_batch_edit, name='score_batch_edit'),
+    path('scores/download_template/', redirect_download_score_import_template, name='download_score_import_template'),
     
     # === 成绩查询功能 ===
-    path('scores/query/', score_query, name='score_query'),
-    path('scores/query/results/', score_query_results, name='score_query_results'),
-    path('scores/query/export/', score_query_export, name='score_query_export'),
+    path('scores/query/', redirect_score_query, name='score_query'),
+    path('scores/query/export/', redirect_score_query_export, name='score_query_export'),
     
     # === 成绩分析功能 ===
     # 班级/年级成绩分析（原成绩分析功能）
@@ -101,20 +101,8 @@ urlpatterns = [
     path('analysis/student/', redirect_student_analysis_entry, name='student_analysis'),
     path('analysis/student/detail/', redirect_student_analysis_detail, name='student_analysis_detail'),
     
-    # 保持向后兼容的旧URL（重定向到新URL）
-    path('scores/analysis/', redirect_class_grade_entry, name='score_analysis'),
-    path('scores/analysis/class/', redirect_class_grade_single, name='score_analysis_class'),
-    path('scores/analysis/student/', redirect_student_analysis_entry, name='score_analysis_student'),
-    path('scores/analysis/grade/', redirect_class_grade_grade, name='score_analysis_grade'),
-    
     # === AJAX接口 ===
-    path('get_grades_ajax/', get_grades_ajax, name='get_grades_ajax'),
-    path('get_classes_by_grade/', get_classes_by_grade, name='get_classes_by_grade'),
     path('get_default_subjects/', get_default_subjects_ajax, name='get_default_subjects_ajax'),
-    path('scores/batch_import_ajax/', score_batch_import_ajax, name='score_batch_import_ajax'),
-    path('search_students_ajax/', search_students_ajax, name='search_students_ajax'),
-    path('get_students_by_class/', get_students_by_class, name='get_students_by_class'),
-    path('get_student_analysis_data/', get_student_analysis_data, name='get_student_analysis_data'),
     
     # === 排名调试工具 ===
     path('ranking_debug/', ranking_debug_view, name='ranking_debug'),
