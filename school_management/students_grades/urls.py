@@ -5,9 +5,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .api_views import StudentViewSet, ClassViewSet
-from .views.ranking_debug_view import (
-    ranking_debug_view, get_ranking_data, ranking_update_test
-)
 from .views.analysis_redirect_views import (
     redirect_student_list,
     redirect_student_add,
@@ -109,8 +106,4 @@ urlpatterns = [
     # === AJAX接口 ===
     path('get_default_subjects/', redirect_exam_default_subjects, name='get_default_subjects_ajax'),
     
-    # === 排名调试工具 ===
-    path('ranking_debug/', ranking_debug_view, name='ranking_debug'),
-    path('ranking_debug/data/', get_ranking_data, name='get_ranking_data'),
-    path('ranking_debug/update/', ranking_update_test, name='ranking_update_test'),
 ]

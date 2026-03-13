@@ -76,11 +76,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     localStorage.setItem('refreshToken', refresh);
     setToken(access);
     await fetchUserProfile(access);
-
-    // 登录成功后跳转到后端 Django 系统，并通过URL参数传递token
-    // 注意：这种方式在生产环境中需要更安全的实现，比如使用cookie或session
-    const backendUrl = `http://${window.location.hostname}:8000/?token=${encodeURIComponent(access)}`;
-    window.location.href = backendUrl;
+    router.push('/');
   };
 
   const logout = () => {

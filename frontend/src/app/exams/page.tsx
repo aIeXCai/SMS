@@ -192,11 +192,13 @@ export default function ExamsList() {
       </div>
 
       {/* 筛选模块 */}
-      <div className="card mb-4 border-0 shadow-sm" style={{ borderRadius: '15px' }}>
+      <div className="card filter-card mb-4 border-0 shadow-sm" style={{ borderRadius: '15px' }}>
+        <div className="card-header">
+          <h5 className="mb-0">
+            <i className="fas fa-filter me-2"></i>筛选条件
+          </h5>
+        </div>
         <div className="card-body p-4">
-          <h6 className="card-title mb-3 fw-bold text-dark">
-            <i className="fas fa-filter me-2 text-primary"></i>筛选条件
-          </h6>
           <div className="row g-3">
             <div className="col-md-3">
               <label htmlFor="academicYearFilter" className="form-label text-muted small fw-bold">学年</label>
@@ -401,6 +403,20 @@ export default function ExamsList() {
           justify-content: center;
           font-size: 1.5rem;
           color: white;
+        }
+
+        .filter-card {
+          border: none;
+          border-radius: 15px;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+          margin-bottom: 2rem;
+        }
+
+        .filter-card .card-header {
+          background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+          border-bottom: 1px solid #dee2e6;
+          border-radius: 15px 15px 0 0;
+          padding: 1rem 1.5rem;
         }
 
         @media (max-width: 768px) {

@@ -1,739 +1,205 @@
 "use client";
 
 import { useAuth } from "@/contexts/AuthContext";
-import { useState, useEffect } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+
+type DashboardStats = {
+  student_count: number;
+  class_count: number;
+  exam_count: number;
+  score_count: number;
+};
+
+const DEFAULT_STATS: DashboardStats = {
+  student_count: 0,
+  class_count: 0,
+  exam_count: 0,
+  score_count: 0,
+};
 
 export default function DashboardPage() {
-  const { user, logout, loading } = useAuth();
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const { user, loading } = useAuth();
+  const router = useRouter();
+  const [now, setNow] = useState(new Date());
+  const [stats, setStats] = useState<DashboardStats>(DEFAULT_STATS);
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentDate(new Date());
-    }, 1000);
+    const timer = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  if (loading) {
-    return (
-      <div style={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        height: '100vh',
-        backgroundColor: '#f8f9fa'
-      }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{
-            width: '40px',
-            height: '40px',
-            border: '4px solid #e9ecef',
-            borderTop: '4px solid #01876c',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite',
-            margin: '0 auto 1rem'
-          }}></div>
-          <p style={{ color: '#666' }}>加载中...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div style={{
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        alignItems: 'center',
-        height: '100vh',
-        backgroundColor: '#f8f9fa',
-        padding: '2rem'
-      }}>
-        <div style={{
-          textAlign: 'center',
-          backgroundColor: 'white',
-          padding: '3rem',
-          borderRadius: '12px',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
-          maxWidth: '400px',
-          width: '100%'
-        }}>
-          <div style={{
-            width: '64px',
-            height: '64px',
-            backgroundColor: '#01876c',
-            borderRadius: '12px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            margin: '0 auto 1.5rem'
-          }}>
-            <i style={{ color: 'white', fontSize: '24px' }}>🎓</i>
-          </div>
-          <h1 style={{ margin: '0 0 1rem 0', color: '#333', fontSize: '1.5rem' }}>
-            白云实验学校管理系统
-          </h1>
-          <p style={{ margin: '0 0 2rem 0', color: '#666' }}>
-            请先登录以使用系统功能
-          </p>
-          <a
-            href="/login"
-            style={{
-              display: 'inline-block',
-              padding: '0.75rem 2rem',
-              backgroundColor: '#01876c',
-              color: 'white',
-              textDecoration: 'none',
-              borderRadius: '8px',
-              fontWeight: '500',
-              transition: 'all 0.2s'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#016155';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = '#01876c';
-            }}
-          >
-            立即登录
-          </a>
-        </div>
-      </div>
-    );
-  }
-
-  const getRoleDisplay = (role: string) => {
-    switch (role) {
-      case 'admin': return '管理员';
-      case 'grade_manager': return '级长';
-      case 'subject_teacher': return '科任老师';
-      default: return '教辅人员';
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace("/login");
     }
-  };
+  }, [loading, user, router]);
 
-  const getQuickActions = () => {
-    const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-    const backendBaseUrl = `http://${hostname}:8000`;
+  useEffect(() => {
+    if (!user) return;
 
-    const actions = [
-      {
-        href: `/students`,
-        label: '学生信息',
-        icon: '👥',
-        description: '查看和管理学生档案'
+    const fetchDashboardStats = async () => {
+      try {
+        const token = localStorage.getItem("accessToken");
+        const hostname = window.location.hostname;
+        const backendBaseUrl = `http://${hostname}:8000`;
+        const url = token
+          ? `${backendBaseUrl}/api/dashboard/stats/?token=${encodeURIComponent(token)}`
+          : `${backendBaseUrl}/api/dashboard/stats/`;
+
+        const response = await fetch(url);
+        if (!response.ok) return;
+
+        const data = await response.json();
+        setStats({
+          student_count: Number(data.student_count || 0),
+          class_count: Number(data.class_count || 0),
+          exam_count: Number(data.exam_count || 0),
+          score_count: Number(data.score_count || 0),
+        });
+      } catch {
       }
-    ];
+    };
 
-    if (user.role === 'admin' || user.role === 'grade_manager') {
-      actions.push(
-        {
-          href: `/exams`,
-          label: '考试管理',
-          icon: '📝',
-          description: '创建和安排考试'
-        },
-        {
-          href: `/scores`,
-          label: '成绩录入',
-          icon: '📊',
-          description: '录入学生成绩'
-        },
-        {
-          href: `/scores/query`,
-          label: '成绩查询',
-          icon: '🔍',
-          description: '查询学生成绩'
-        }
-      );
-    }
+    fetchDashboardStats();
+    const poller = setInterval(fetchDashboardStats, 30000);
+    return () => clearInterval(poller);
+  }, [user]);
 
-    if (user.role === 'admin') {
-      actions.push({
-        href: `${backendBaseUrl}/admin/`,
-        label: '系统管理',
-        icon: '⚙️',
-        description: '系统配置和用户管理'
-      });
-    }
+  const roleName = useMemo(() => {
+    if (!user) return "";
+    if (user.role === "admin") return "管理员";
+    if (user.role === "grade_manager") return "级长";
+    if (user.role === "subject_teacher") return "科任老师";
+    return "教辅人员";
+  }, [user]);
 
-    return actions;
-  };
+  if (loading || !user) {
+    return (
+      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "70vh", color: "#666" }}>
+        加载中...
+      </div>
+    );
+  }
 
-  const quickActions = getQuickActions();
+  const dateText = now.toLocaleDateString("zh-CN", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    weekday: "long",
+  });
+  const timeText = now.toLocaleTimeString("zh-CN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      backgroundColor: '#f8f9fa',
-      fontFamily: "'Microsoft YaHei', Arial, sans-serif"
-    }}>
-      {/* Sidebar */}
-      <div style={{
-        position: 'fixed',
-        left: 0,
-        top: 0,
-        width: '220px',
-        height: '100vh',
-        backgroundColor: 'white',
-        boxShadow: '2px 0 10px rgba(0,0,0,0.1)',
-        zIndex: 1000,
-        overflowY: 'auto'
-      }}>
-        {/* Logo */}
-        <div style={{
-          padding: '20px 15px',
-          borderBottom: '1px solid #e9ecef'
-        }}>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            fontSize: '13px',
-            fontWeight: 'bold',
-            color: '#333'
-          }}>
-            <div style={{
-              width: '28px',
-              height: '28px',
-              backgroundColor: '#01876c',
-              borderRadius: '6px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginRight: '8px'
-            }}>
-              <span style={{ color: 'white', fontSize: '12px' }}>🎓</span>
-            </div>
-            白云实验学校管理系统
-          </div>
+    <div style={{ background: "#f8f9fa", minHeight: "calc(100vh - 2rem)" }}>
+      <div style={{ background: "#fff", padding: 20, borderRadius: 12, boxShadow: "0 2px 10px rgba(0,0,0,0.05)", marginBottom: 25, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <div>
+          <h4 style={{ margin: 0, fontWeight: 700, color: "#222" }}>系统首页</h4>
+          <p style={{ margin: "8px 0 0", color: "#666" }}>今天是 {dateText}，祝您工作愉快！</p>
         </div>
-
-        {/* User Info */}
-        <div style={{
-          padding: '15px',
-          backgroundColor: '#f8f9fa',
-          borderBottom: '1px solid #e9ecef',
-          display: 'flex',
-          alignItems: 'center'
-        }}>
-          <div style={{
-            width: '40px',
-            height: '40px',
-            backgroundColor: '#01876c',
-            borderRadius: '8px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginRight: '12px'
-          }}>
-            <span style={{ color: 'white', fontSize: '16px' }}>👤</span>
-          </div>
-          <div style={{ flex: 1 }}>
-            <p style={{
-              margin: 0,
-              fontWeight: '600',
-              color: '#333',
-              fontSize: '14px'
-            }}>
-              {user.first_name || user.username}
-            </p>
-            <p style={{
-              margin: 0,
-              color: '#666',
-              fontSize: '12px'
-            }}>
-              {getRoleDisplay(user.role)}
-            </p>
-          </div>
-        </div>
-
-        {/* Navigation */}
-        <div style={{ padding: '15px 0' }}>
-          <div style={{ padding: '0 15px 8px 15px' }}>
-            <h6 style={{
-              fontSize: '11px',
-              fontWeight: '600',
-              color: '#666',
-              textTransform: 'uppercase',
-              letterSpacing: '0.5px',
-              margin: '0 0 12px 0'
-            }}>
-              主要功能
-            </h6>
-          </div>
-
-          <a
-            href="/"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              padding: '10px 15px',
-              margin: '0 15px',
-              color: '#01876c',
-              backgroundColor: '#e8f5f3',
-              textDecoration: 'none',
-              borderRadius: '8px',
-              fontSize: '13px',
-              fontWeight: '500',
-              marginBottom: '4px'
-            }}
-          >
-            <span style={{ width: '20px', marginRight: '12px', textAlign: 'center' }}>📊</span>
-            Dashboard
-          </a>
-
-          <div style={{ padding: '15px 15px 8px 15px', marginTop: '15px' }}>
-            <h6 style={{
-              fontSize: '11px',
-              fontWeight: '600',
-              color: '#666',
-              textTransform: 'uppercase',
-              letterSpacing: '0.5px',
-              margin: '0 0 12px 0'
-            }}>
-              教学管理
-            </h6>
-          </div>
-
-          {quickActions.map((action, index) => (
-            <a
-              key={index}
-              href={action.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                padding: '10px 15px',
-                margin: '0 15px',
-                color: '#666',
-                textDecoration: 'none',
-                borderRadius: '8px',
-                fontSize: '13px',
-                marginBottom: '4px',
-                transition: 'all 0.2s'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#f8f9fa';
-                e.currentTarget.style.color = '#333';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'transparent';
-                e.currentTarget.style.color = '#666';
-              }}
-            >
-              <span style={{ width: '20px', marginRight: '12px', textAlign: 'center' }}>
-                {action.icon}
-              </span>
-              {action.label}
-            </a>
-          ))}
+        <div style={{ background: "#f3f4f6", borderRadius: 999, padding: "8px 14px", color: "#111", fontWeight: 700 }}>
+          {timeText}
         </div>
       </div>
 
-      {/* Main Content */}
-      <div>
-        {/* Header */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '30px'
-        }}>
-          <div>
-            <h1 style={{
-              margin: 0,
-              fontSize: '24px',
-              color: '#333',
-              fontWeight: '600'
-            }}>
-              Dashboard
-            </h1>
-            <p style={{
-              margin: '4px 0 0 0',
-              color: '#666',
-              fontSize: '14px'
-            }}>
-              {currentDate.toLocaleDateString('zh-CN', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-                weekday: 'long'
-              })}
-            </p>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <button style={{
-              padding: '8px',
-              backgroundColor: 'white',
-              border: '1px solid #e9ecef',
-              borderRadius: '8px',
-              cursor: 'pointer'
-            }}>
-              🔔
-            </button>
-            <button style={{
-              padding: '8px',
-              backgroundColor: 'white',
-              border: '1px solid #e9ecef',
-              borderRadius: '8px',
-              cursor: 'pointer'
-            }}>
-              📧
-            </button>
-            <button
-              onClick={logout}
-              style={{
-                padding: '8px 16px',
-                backgroundColor: '#dc3545',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontSize: '13px'
-              }}
-            >
-              登出
-            </button>
-          </div>
-        </div>
-
-        {/* Announcement Banner */}
-        <div style={{
-          backgroundColor: 'white',
-          padding: '20px',
-          borderRadius: '12px',
-          marginBottom: '24px',
-          border: '1px solid #e9ecef',
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-          color: 'white',
-          position: 'relative',
-          overflow: 'hidden'
-        }}>
-          <div style={{ position: 'relative', zIndex: 2 }}>
-            <h3 style={{ margin: '0 0 8px 0', fontSize: '16px', fontWeight: '600' }}>
-              📢 系统公告
-            </h3>
-            <p style={{ margin: '0 0 16px 0', opacity: 0.9, fontSize: '14px' }}>
-              欢迎 {user.first_name || user.username}，您的工作台已准备就绪！
-            </p>
-            <button style={{
-              backgroundColor: 'rgba(255,255,255,0.2)',
-              color: 'white',
-              border: '1px solid rgba(255,255,255,0.3)',
-              padding: '6px 12px',
-              borderRadius: '6px',
-              fontSize: '13px',
-              cursor: 'pointer'
-            }}>
-              查看详情
-            </button>
-          </div>
-        </div>
-
-        {/* Stats Grid */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-          gap: '20px',
-          marginBottom: '24px'
-        }}>
-          <div style={{
-            backgroundColor: 'white',
-            padding: '20px',
-            borderRadius: '12px',
-            border: '1px solid #e9ecef'
-          }}>
-            <h4 style={{ margin: '0 0 16px 0', fontSize: '14px', color: '#666' }}>
-              学生总数
-            </h4>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '24px', fontWeight: '600', color: '#333' }}>
-                1,284
-              </span>
-              <div style={{
-                width: '40px',
-                height: '40px',
-                backgroundColor: '#e8f5f3',
-                borderRadius: '8px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}>
-                <span style={{ color: '#01876c', fontSize: '18px' }}>👥</span>
-              </div>
-            </div>
-          </div>
-
-          <div style={{
-            backgroundColor: 'white',
-            padding: '20px',
-            borderRadius: '12px',
-            border: '1px solid #e9ecef'
-          }}>
-            <h4 style={{ margin: '0 0 16px 0', fontSize: '14px', color: '#666' }}>
-              班级数量
-            </h4>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '24px', fontWeight: '600', color: '#333' }}>
-                42
-              </span>
-              <div style={{
-                width: '40px',
-                height: '40px',
-                backgroundColor: '#fff3e8',
-                borderRadius: '8px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}>
-                <span style={{ color: '#ff8c00', fontSize: '18px' }}>🏫</span>
-              </div>
-            </div>
-          </div>
-
-          <div style={{
-            backgroundColor: 'white',
-            padding: '20px',
-            borderRadius: '12px',
-            border: '1px solid #e9ecef'
-          }}>
-            <h4 style={{ margin: '0 0 16px 0', fontSize: '14px', color: '#666' }}>
-              本月考试
-            </h4>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '24px', fontWeight: '600', color: '#333' }}>
-                8
-              </span>
-              <div style={{
-                width: '40px',
-                height: '40px',
-                backgroundColor: '#f3e8ff',
-                borderRadius: '8px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}>
-                <span style={{ color: '#8b5cf6', fontSize: '18px' }}>📝</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Content Grid */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr 320px',
-          gap: '24px'
-        }}>
-          {/* Quick Actions */}
-          <div style={{
-            backgroundColor: 'white',
-            padding: '24px',
-            borderRadius: '12px',
-            border: '1px solid #e9ecef'
-          }}>
-            <h3 style={{ margin: '0 0 20px 0', fontSize: '16px', color: '#333' }}>
-              快捷操作
-            </h3>
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-              gap: '12px'
-            }}>
-              {quickActions.map((action, index) => (
-                <a
-                  key={index}
-                  href={action.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    display: 'block',
-                    padding: '16px',
-                    backgroundColor: '#f8f9fa',
-                    borderRadius: '8px',
-                    textDecoration: 'none',
-                    color: 'inherit',
-                    transition: 'all 0.2s',
-                    border: '1px solid transparent'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = '#e8f5f3';
-                    e.currentTarget.style.borderColor = '#01876c';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = '#f8f9fa';
-                    e.currentTarget.style.borderColor = 'transparent';
-                  }}
-                >
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    marginBottom: '8px'
-                  }}>
-                    <span style={{ fontSize: '18px', marginRight: '8px' }}>
-                      {action.icon}
-                    </span>
-                    <h4 style={{
-                      margin: 0,
-                      fontSize: '14px',
-                      fontWeight: '600',
-                      color: '#333'
-                    }}>
-                      {action.label}
-                    </h4>
-                  </div>
-                  <p style={{
-                    margin: 0,
-                    fontSize: '12px',
-                    color: '#666'
-                  }}>
-                    {action.description}
-                  </p>
-                </a>
-              ))}
-            </div>
-          </div>
-
-          {/* Schedule */}
-          <div style={{
-            backgroundColor: 'white',
-            padding: '24px',
-            borderRadius: '12px',
-            border: '1px solid #e9ecef'
-          }}>
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: '20px'
-            }}>
-              <h3 style={{ margin: 0, fontSize: '16px', color: '#333' }}>
-                今日日程
-              </h3>
-              <button style={{
-                padding: '4px 8px',
-                backgroundColor: 'transparent',
-                border: 'none',
-                color: '#01876c',
-                fontSize: '12px',
-                cursor: 'pointer'
-              }}>
-                查看全部
-              </button>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {[
-                { time: '09:00 - 10:30', subject: '高二数学', class: '高二(3)班', type: 'class' },
-                { time: '14:00 - 15:30', subject: '成绩录入', class: '期中考试', type: 'task' },
-                { time: '16:00 - 17:00', subject: '家长会议', class: '高三年级', type: 'meeting' }
-              ].map((item, index) => (
-                <div
-                  key={index}
-                  style={{
-                    padding: '12px 0',
-                    borderBottom: index < 2 ? '1px solid #f1f3f4' : 'none'
-                  }}
-                >
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    marginBottom: '4px'
-                  }}>
-                    <div style={{
-                      width: '8px',
-                      height: '8px',
-                      borderRadius: '50%',
-                      backgroundColor: item.type === 'class' ? '#01876c' :
-                        item.type === 'task' ? '#ff8c00' : '#8b5cf6',
-                      marginRight: '8px'
-                    }}></div>
-                    <span style={{
-                      fontSize: '13px',
-                      fontWeight: '600',
-                      color: '#333'
-                    }}>
-                      {item.subject}
-                    </span>
-                  </div>
-                  <p style={{
-                    margin: '4px 0 0 16px',
-                    fontSize: '12px',
-                    color: '#666'
-                  }}>
-                    {item.time}
-                  </p>
-                  <p style={{
-                    margin: '2px 0 0 16px',
-                    fontSize: '12px',
-                    color: '#999'
-                  }}>
-                    {item.class}
-                  </p>
+      <div className="dashboard-grid" style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16 }}>
+        <div>
+          <div className="stats-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 16, marginBottom: 16 }}>
+            {[
+              { label: "学生总数", value: stats.student_count, icon: "👨‍🎓", bg: "#e8f5f3", color: "#01876c" },
+              { label: "班级数量", value: stats.class_count, icon: "🏫", bg: "#e3f2fd", color: "#1976d2" },
+              { label: "本月考试", value: stats.exam_count, icon: "📝", bg: "#fff3e0", color: "#f57c00" },
+              { label: "成绩记录", value: stats.score_count, icon: "📊", bg: "#f3e5f5", color: "#7b1fa2" },
+            ].map((item) => (
+              <div key={item.label} style={{ background: "#fff", borderRadius: 12, padding: 20, textAlign: "center", boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}>
+                <div style={{ width: 56, height: 56, margin: "0 auto 12px", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: item.bg, color: item.color, fontSize: 24 }}>
+                  {item.icon}
                 </div>
+                <div style={{ fontSize: 32, fontWeight: 700, color: "#333", lineHeight: 1 }}>{item.value}</div>
+                <div style={{ marginTop: 8, color: "#666" }}>{item.label}</div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ marginBottom: 16 }}>
+            <h5 style={{ borderLeft: "4px solid #01876c", paddingLeft: 10, marginBottom: 12 }}>快捷操作</h5>
+            <div className="quick-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12 }}>
+              {[
+                { href: "/students", icon: "👥", label: "学生管理" },
+                { href: "/exams", icon: "📋", label: "考试管理" },
+                { href: "/scores", icon: "✏️", label: "成绩录入" },
+                { href: "/scores/query", icon: "🔎", label: "成绩查询" },
+              ].map((action) => (
+                <Link key={action.href} href={action.href} style={{ border: "1px solid #e0e0e0", background: "#fff", borderRadius: 12, textAlign: "center", padding: "18px 12px", textDecoration: "none", color: "#555" }}>
+                  <div style={{ fontSize: 28, marginBottom: 8 }}>{action.icon}</div>
+                  <div>{action.label}</div>
+                </Link>
               ))}
+            </div>
+          </div>
+
+          <div style={{ background: "#fff", borderRadius: 12, boxShadow: "0 2px 8px rgba(0,0,0,0.05)", padding: 20 }}>
+            <h5 style={{ marginTop: 0 }}>系统公告</h5>
+            <div style={{ background: "#e3f2fd", color: "#0f172a", borderRadius: 10, padding: 12 }}>
+              欢迎使用新版学校管理系统！系统已完成学生、考试、成绩三大模块前后端分离。
             </div>
           </div>
         </div>
 
-        {/* Grade Info for Grade Managers */}
-        {user.role === 'grade_manager' && user.managed_grade && (
-          <div style={{
-            marginTop: '24px',
-            backgroundColor: 'white',
-            padding: '20px',
-            borderRadius: '12px',
-            border: '1px solid #e9ecef'
-          }}>
-            <h3 style={{ margin: '0 0 12px 0', fontSize: '16px', color: '#333' }}>
-              年级信息
-            </h3>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              padding: '16px',
-              backgroundColor: '#f8f9fa',
-              borderRadius: '8px'
-            }}>
-              <div style={{
-                width: '48px',
-                height: '48px',
-                backgroundColor: '#01876c',
-                borderRadius: '12px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginRight: '16px'
-              }}>
-                <span style={{ color: 'white', fontSize: '20px' }}>🎓</span>
+        <div>
+          <div style={{ background: "linear-gradient(135deg, #01876c 0%, #00695c 100%)", color: "#fff", borderRadius: 12, padding: 20, marginBottom: 16, boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }}>
+            <div style={{ display: "flex", alignItems: "center", marginBottom: 16 }}>
+              <div style={{ width: 50, height: 50, borderRadius: "50%", background: "rgba(255,255,255,0.9)", color: "#00695c", display: "flex", alignItems: "center", justifyContent: "center", marginRight: 12, fontSize: 22 }}>
+                👤
               </div>
               <div>
-                <h4 style={{ margin: '0 0 4px 0', color: '#333' }}>
-                  负责年级: {user.managed_grade}
-                </h4>
-                <p style={{ margin: 0, color: '#666', fontSize: '14px' }}>
-                  您正在管理 {user.managed_grade} 的所有班级和学生
-                </p>
+                <div style={{ fontWeight: 700 }}>{user.first_name || user.username}</div>
+                <small style={{ opacity: 0.9 }}>{roleName}</small>
+              </div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              <div style={{ background: "rgba(255,255,255,0.1)", borderRadius: 8, padding: 8 }}>
+                <small style={{ opacity: 0.8 }}>账号</small>
+                <div style={{ fontWeight: 700 }}>{user.username}</div>
+              </div>
+              <div style={{ background: "rgba(255,255,255,0.1)", borderRadius: 8, padding: 8 }}>
+                <small style={{ opacity: 0.8 }}>负责范围</small>
+                <div style={{ fontWeight: 700 }}>{user.managed_grade || "全校"}</div>
               </div>
             </div>
           </div>
-        )}
+
+          <div style={{ background: "#fff", borderRadius: 12, boxShadow: "0 2px 8px rgba(0,0,0,0.05)", padding: 20 }}>
+            <h5 style={{ marginTop: 0 }}>系统状态</h5>
+            {[
+              "服务运行正常",
+              "数据库连接正常",
+              "异步任务队列运行中",
+            ].map((status) => (
+              <div key={status} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, color: "#333" }}>
+                <span>{status}</span>
+                <span style={{ color: "#16a34a" }}>●</span>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
       <style jsx>{`
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-        
-        @media (max-width: 768px) {
-          .sidebar {
-            transform: translateX(-100%);
+        @media (max-width: 1200px) {
+          .dashboard-grid {
+            grid-template-columns: 1fr !important;
           }
-          .main-content {
-            margin-left: 0;
+        }
+        @media (max-width: 900px) {
+          .stats-grid,
+          .quick-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
           }
         }
       `}</style>

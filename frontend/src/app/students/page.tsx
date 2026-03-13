@@ -437,9 +437,9 @@ export default function StudentsPage() {
           <div className="col-12">
             <div className="card filter-card">
               <div className="card-header">
-                <h6 className="mb-0">
-                  <i className="fas fa-filter me-2"></i>过滤条件
-                </h6>
+                <h5 className="mb-0">
+                  <i className="fas fa-filter me-2"></i>筛选条件
+                </h5>
               </div>
               <div className="card-body">
                 <div className="row">
@@ -522,9 +522,9 @@ export default function StudentsPage() {
           <div className="col-12">
             <div className="card batch-operations-card">
               <div className="card-header d-flex align-items-center justify-content-between">
-                <h6 className="mb-0">
+                <h5 className="mb-0">
                   <i className="fas fa-cogs me-2"></i>批量操作
-                </h6>
+                </h5>
                 <span className={`badge ${selectedCount > 0 ? "bg-primary" : "bg-secondary"} ms-2`}>
                   已选择 {selectedCount} 个学生
                 </span>

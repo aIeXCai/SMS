@@ -1,46 +1,31 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import redirect
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
+from django.conf import settings
 import logging
 
 logger = logging.getLogger(__name__)
 
+
+def _get_frontend_base_url(request):
+    frontend_base_url = getattr(settings, "FRONTEND_BASE_URL", "").strip()
+    if frontend_base_url:
+        return frontend_base_url.rstrip("/")
+    host = request.get_host().split(":")[0]
+    return f"http://{host}:3000"
+
+
+def _redirect_to_frontend(request, path):
+    return redirect(f"{_get_frontend_base_url(request)}{path}")
+
 def home_view(request):
-    """
-    主页视图，处理来自前端的JWT认证跳转
-    """
-    # 检查是否有token参数（来自前端跳转）
-    token = request.GET.get('token')
-    if token:
-        logger.info(f"检测到前端传递的JWT token")
-        # token的处理在中间件中完成，这里只需要重定向到清理后的URL
-        return redirect('/')
-    
-    # 如果用户已认证，显示Dashboard
     if request.user.is_authenticated:
-        context = {
-            'user': request.user,
-            'page_title': '系统首页',
-        }
-        return render(request, 'dashboard.html', context)
-    else:
-        # 未认证用户，显示登录提示
-        context = {
-            'page_title': '欢迎使用白云实验学校管理系统',
-        }
-        return render(request, 'welcome.html', context)
+        return _redirect_to_frontend(request, '/')
+    return _redirect_to_frontend(request, '/login')
 
 @login_required
 def dashboard_view(request):
-    """
-    仪表盘视图
-    """
-    context = {
-        'user': request.user,
-        'page_title': '系统首页',
-    }
-    return render(request, 'dashboard.html', context)
+    return _redirect_to_frontend(request, '/')
 
 @login_required
 def dashboard_stats_api(request):
