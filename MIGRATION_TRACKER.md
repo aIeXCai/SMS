@@ -1,6 +1,6 @@
 # 模块分离迁移追踪（Migration Tracker）
 
-更新时间：2026-03-12
+更新时间：2026-03-13
 
 ## 1. 当前状态总览
 
@@ -9,7 +9,36 @@
 | score（成绩管理） | 前端页面 + `/api/scores/*` 主链路 | ✅ 完成 | 旧模板下线，旧路由改 redirect / 307 代理，测试基线已迁移 |
 | analysis（成绩分析） | 前端页面 + `/api/scores/*analysis*` 主链路 | ✅ 完成 | 页面入口与数据接口契约已冻结 |
 | student | 前端页面 + `/api/students/*` 主链路 | ✅ 完成 | 旧模板与旧视图已下线，旧路由改 redirect / 307 代理，测试基线已迁移 |
-| exam | 待分离 | ⏳ 未开始 | 下一阶段候选 |
+| exam | 前端页面 + `/api/exams/*` 主链路 | ✅ 完成 | 旧模板与旧视图已下线，旧路由改 redirect / 307 代理，测试基线与回归已完成 |
+
+## Exam 分离进展（已完成）
+
+- [x] 第 1 步：入口盘点
+- [x] 第 2 步：冻结 Exam API 契约（`docs/exam_management_api_contract.md`）
+- [x] 第 3 步：切换 Django 考试路由为前端重定向
+- [x] 第 4 步：迁移导航与内部跳转
+- [x] 第 5 步：迁移测试到新契约（`test_exam_views` 13/13 通过）
+- [x] 第 6 步：下线 `templates/exams/*` 与旧视图
+- [x] 第 7 步：全量回归与冒烟验证
+- [x] 第 8 步：文档收口与发布说明
+
+### Exam 分离发布说明（2026-03-13）
+
+- 分离目标已达成：Exam 页面主入口已统一到前端，数据主链路统一为 `/api/exams/*`。
+- 兼容策略已落地：旧考试入口保留重定向；默认科目旧入口保留 307 代理到 `/api/exams/default-subjects/`。
+- 旧资产已下线：`templates/exams/*` 与旧 `views/exam_views.py` 已删除。
+- 回归验证已完成：Exam/Student/Score 关键回归测试与前端构建均通过。
+
+### Exam 分离验收记录
+
+- `python manage.py test school_management.students_grades.tests.exam.test_exam_views`：13/13 通过
+- `python manage.py test school_management.students_grades.tests.score`：57/57 通过
+- `python manage.py test school_management.students_grades.tests.student.test_student_views`：17/17 通过
+- `python manage.py test school_management.students_grades.tests.student.test_student_forms`：11/11 通过
+- `python manage.py test school_management.students_grades.tests.student.test_student_imports`：7/7 通过
+- `python manage.py test school_management.students_grades.tests.test_models`：26/26 通过
+- `python manage.py check`：0 issues
+- `cd frontend && npm run build`：构建成功（存在既有 ESLint 插件告警，不阻断产物）
 
 ## Student 分离进展（进行中）
 

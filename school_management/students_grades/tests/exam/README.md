@@ -1,36 +1,33 @@
 # Exam 模块测试说明（详细）
+# 考试模块测试说明（迁移后基线）
 
-本文件说明 `school_management/students_grades/tests/exam` 目录下考试相关测试的目的、目录结构、如何运行以及每个测试用例的详细说明，便于维护与扩展。
+本目录用于验证考试模块在“前端页面 + DRF API”架构下的契约稳定性。
 
-目录路径：
+## 主要测试文件
 
-```
-school_management/students_grades/tests/exam
-```
+- `test_exam_views.py`
+  - `ExamRouteRedirectTests`：旧入口路由重定向契约（`/exams/*`）
+  - `ExamApiContractSmokeTests`：`/api/exams/*` 冒烟契约（列表、选项、默认科目、创建、更新、删除）
 
-一、总体目标
+## 测试目标
 
-- 验证 Exam、ExamSubject、以及与 Score 相关的前端表单、后端视图逻辑在常见与异常路径下的行为。
-- 覆盖两步考试创建/编辑流程（Step1: 基本信息 -> Step2: 科目表单集）、AJAX 默认科目接口、以及导入模拟用例。
-- 给出清晰的运行/调试步骤，以便在本地或 CI 中稳定复现。
+- 旧 Django 页面入口保持兼容：访问旧 URL 时跳转到前端考试页面
+- 旧 `get_default_subjects/` 入口保持代理兼容：`307` 到新 API
+- 新前端依赖的考试 API 主链路可用且返回结构稳定
 
-二、如何运行测试
+## 运行命令
 
-在项目根目录（含 `manage.py`）下：
+在项目根目录执行：
 
 ```bash
-# 运行 exam 目录下所有测试
-python3 manage.py test school_management.students_grades.tests.exam -v 2
-
-# 仅运行 views 测试
-python3 manage.py test school_management.students_grades.tests.exam.test_exam_views -v 2
-
-# 运行单个测试方法
-python3 manage.py test school_management.students_grades.tests.exam.test_exam_views.ExamViewTests.test_exam_create_step2_get_and_post -v 2
+python manage.py test school_management.students_grades.tests.exam
 ```
 
-如果在虚拟环境中，请先激活该环境并确保依赖安装完毕：
+或仅运行考试测试文件：
 
+```bash
+python manage.py test school_management.students_grades.tests.exam.test_exam_views
+```
 ```bash
 source .venv/bin/activate  # 替换为你的 venv 路径
 pip install -r requirements.txt

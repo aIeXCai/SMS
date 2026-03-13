@@ -128,7 +128,7 @@ export default function DashboardPage() {
     if (user.role === 'admin' || user.role === 'grade_manager') {
       actions.push(
         {
-          href: `${backendBaseUrl}/exams/`,
+          href: `/exams`,
           label: '考试管理',
           icon: '📝',
           description: '创建和安排考试'

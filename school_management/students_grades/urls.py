@@ -5,11 +5,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .api_views import StudentViewSet, ClassViewSet
-from .views.exam_views import (
-    exam_list, exam_create_step1, exam_create_step2,
-    exam_edit_step1, exam_edit_step2, exam_delete,
-    get_default_subjects_ajax
-)
 from .views.ranking_debug_view import (
     ranking_debug_view, get_ranking_data, ranking_update_test
 )
@@ -41,6 +36,11 @@ from .views.analysis_redirect_views import (
     redirect_download_score_import_template,
     redirect_score_query,
     redirect_score_query_export,
+    redirect_exam_list,
+    redirect_exam_create,
+    redirect_exam_edit,
+    redirect_exam_delete,
+    redirect_exam_default_subjects,
 )
 
 app_name = 'students_grades'
@@ -72,12 +72,12 @@ urlpatterns = [
     path('students/download-template/', redirect_download_student_import_template, name='download_student_import_template'), # 下载导入模板
     
     # === 考试管理 ===
-    path('exams/', exam_list, name='exam_list'),
-    path('exams/create/step1/', exam_create_step1, name='exam_create_step1'),
-    path('exams/create/step2/', exam_create_step2, name='exam_create_step2'),
-    path('exams/<int:pk>/edit/step1/', exam_edit_step1, name='exam_edit_step1'),
-    path('exams/<int:pk>/edit/step2/', exam_edit_step2, name='exam_edit_step2'),
-    path('exams/<int:pk>/delete/', exam_delete, name='exam_delete'),
+    path('exams/', redirect_exam_list, name='exam_list'),
+    path('exams/create/step1/', redirect_exam_create, name='exam_create_step1'),
+    path('exams/create/step2/', redirect_exam_create, name='exam_create_step2'),
+    path('exams/<int:pk>/edit/step1/', redirect_exam_edit, name='exam_edit_step1'),
+    path('exams/<int:pk>/edit/step2/', redirect_exam_edit, name='exam_edit_step2'),
+    path('exams/<int:pk>/delete/', redirect_exam_delete, name='exam_delete'),
     
     # === 成绩管理 ===
     path('scores/', redirect_score_list, name='score_list'),
@@ -107,7 +107,7 @@ urlpatterns = [
     path('analysis/student/detail/', redirect_student_analysis_detail, name='student_analysis_detail'),
     
     # === AJAX接口 ===
-    path('get_default_subjects/', get_default_subjects_ajax, name='get_default_subjects_ajax'),
+    path('get_default_subjects/', redirect_exam_default_subjects, name='get_default_subjects_ajax'),
     
     # === 排名调试工具 ===
     path('ranking_debug/', ranking_debug_view, name='ranking_debug'),

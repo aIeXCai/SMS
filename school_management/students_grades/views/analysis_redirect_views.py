@@ -137,3 +137,23 @@ def redirect_student_batch_update_status(request):
 
 def redirect_student_batch_graduate(request):
     return _redirect_to_frontend(request, "/students")
+
+
+def redirect_exam_list(request):
+    return _redirect_to_frontend(request, "/exams")
+
+
+def redirect_exam_create(request):
+    return _redirect_to_frontend(request, "/exams/create")
+
+
+def redirect_exam_edit(request, pk):
+    return _redirect_to_frontend(request, f"/exams/{pk}/edit")
+
+
+def redirect_exam_delete(request, pk):
+    return _redirect_to_frontend(request, "/exams")
+
+
+def redirect_exam_default_subjects(request):
+    return _redirect_to_api(request, "/api/exams/default-subjects/")
