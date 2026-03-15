@@ -34,6 +34,7 @@ export default function ScoreBatchEditPage() {
   const router = useRouter();
   const [studentId, setStudentId] = useState("");
   const [examId, setExamId] = useState("");
+  const [paramsReady, setParamsReady] = useState(false);
 
   const [detail, setDetail] = useState<EditDetail | null>(null);
   const [scores, setScores] = useState<Record<string, string>>({});
@@ -68,12 +69,22 @@ export default function ScoreBatchEditPage() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
-    setStudentId(params.get("student") || "");
-    setExamId(params.get("exam") || "");
+    setStudentId(
+      params.get("student") ||
+      params.get("student_id") ||
+      ""
+    );
+    setExamId(
+      params.get("exam") ||
+      params.get("exam_id") ||
+      ""
+    );
+    setParamsReady(true);
   }, []);
 
   useEffect(() => {
     if (!token) return;
+    if (!paramsReady) return;
 
     const fetchDetail = async () => {
       if (!studentId || !examId) {
@@ -84,6 +95,7 @@ export default function ScoreBatchEditPage() {
 
       try {
         setLoadingData(true);
+        setErrorMessage(null);
         const res = await fetch(
           `${SCORES_API_BASE}/batch-edit-detail/?student=${encodeURIComponent(studentId)}&exam=${encodeURIComponent(examId)}`,
           { headers: { ...authHeader } }
@@ -113,7 +125,7 @@ export default function ScoreBatchEditPage() {
     };
 
     fetchDetail();
-  }, [token, authHeader, studentId, examId]);
+  }, [token, authHeader, studentId, examId, paramsReady]);
 
   const handleScoreChange = (subjectCode: string, value: string) => {
     setScores((prev) => ({ ...prev, [subjectCode]: value }));

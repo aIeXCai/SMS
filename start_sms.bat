@@ -172,9 +172,8 @@ echo 🎉 成绩管理系统已启动！
 echo.
 echo 📱 访问地址:
 echo    🏠 前端主页: http://localhost:3000
-echo    🏠 后端主页: http://127.0.0.1:8000
-echo    📊 成绩管理: http://127.0.0.1:8000/exams/scores/
-echo    📤 批量导入: http://127.0.0.1:8000/exams/scores/batch-import/
+echo    🔐 登录页: http://localhost:3000/login
+echo    🧩 后端 API 根路径: http://127.0.0.1:8000/api/
 echo    📈 任务监控: http://127.0.0.1:8000/django-rq/
 echo.
 echo 🔧 后台服务:
@@ -182,6 +181,7 @@ echo    🌐 Next.js 前端: http://localhost:3000 (新窗口)
 echo    ⚡ RQ Worker: 正在运行 (新窗口)
 echo    📝 Worker 日志: logs\rq_worker.log
 echo.
+echo 💡 提示: 后端不再提供页面路由（如 /students、/exams、/scores），请统一从前端入口访问
 echo 💡 提示: 按 Ctrl+C 停止后端服务，请手动关闭前端窗口
 echo ========================================
 echo.

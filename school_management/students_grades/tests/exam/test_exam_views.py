@@ -4,56 +4,7 @@ import json
 
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
-from django.urls import reverse
 from school_management.students_grades.models import Exam, ExamSubject
-
-
-class ExamRouteRedirectTests(TestCase):
-    """Legacy exam pages should redirect to frontend and old ajax endpoint proxies to API."""
-
-    def setUp(self):
-        self.client = Client()
-        self.exam = Exam.objects.create(
-            name='路由重定向考试',
-            academic_year='2025-2026',
-            grade_level='初一',
-            date='2025-09-01',
-        )
-
-    def test_exam_list_redirects_to_frontend(self):
-        resp = self.client.get(reverse('students_grades:exam_list'))
-        self.assertIn(resp.status_code, (301, 302))
-        self.assertIn('/exams', resp['Location'])
-
-    def test_exam_create_step1_redirects_to_frontend(self):
-        resp = self.client.get(reverse('students_grades:exam_create_step1'))
-        self.assertIn(resp.status_code, (301, 302))
-        self.assertIn('/exams/create', resp['Location'])
-
-    def test_exam_create_step2_redirects_to_frontend(self):
-        resp = self.client.get(reverse('students_grades:exam_create_step2'))
-        self.assertIn(resp.status_code, (301, 302))
-        self.assertIn('/exams/create', resp['Location'])
-
-    def test_exam_edit_step1_redirects_to_frontend(self):
-        resp = self.client.get(reverse('students_grades:exam_edit_step1', args=[self.exam.pk]))
-        self.assertIn(resp.status_code, (301, 302))
-        self.assertIn(f'/exams/{self.exam.pk}/edit', resp['Location'])
-
-    def test_exam_edit_step2_redirects_to_frontend(self):
-        resp = self.client.get(reverse('students_grades:exam_edit_step2', args=[self.exam.pk]))
-        self.assertIn(resp.status_code, (301, 302))
-        self.assertIn(f'/exams/{self.exam.pk}/edit', resp['Location'])
-
-    def test_exam_delete_redirects_to_frontend(self):
-        resp = self.client.post(reverse('students_grades:exam_delete', args=[self.exam.pk]))
-        self.assertIn(resp.status_code, (301, 302))
-        self.assertIn('/exams', resp['Location'])
-
-    def test_get_default_subjects_proxies_to_api(self):
-        resp = self.client.get(reverse('students_grades:get_default_subjects_ajax'), {'grade_level': '初一'})
-        self.assertEqual(resp.status_code, 307)
-        self.assertIn('/api/exams/default-subjects/', resp['Location'])
 
 
 class ExamApiContractSmokeTests(TestCase):

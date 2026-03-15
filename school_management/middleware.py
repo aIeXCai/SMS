@@ -71,16 +71,8 @@ class JWTAuthenticationMiddleware:
                 # 确保 request.user 是最新的
                 request.user = user
                 
-                # 如果token来自URL参数，重定向到清理后的URL以避免token暴露
-                if token_from_url and request.path == '/':
-                    from django.shortcuts import redirect
-                    response = redirect('/')
-                    # 设置cookie来保持认证状态
-                    response.set_cookie('jwt_token', token_from_url, 
-                                      max_age=3600,  # 1小时
-                                      httponly=True, 
-                                      secure=False)  # 开发环境设为False
-                    return response
+                # 后端现为 API-only，不再执行页面重定向。
+                # 如需清理 URL token，请在前端路由层处理。
             
         except InvalidToken:
             # 如果 Token 无效（过期或错误），且当前有 Session 登录

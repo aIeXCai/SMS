@@ -21,11 +21,11 @@ SMS 是面向中小学的“学籍 + 成绩”一体化管理系统，覆盖：
 
 ### 1.3 迁移状态（2026-03-13）
 - `score` 模块已完成“旧 Django 模板视图 -> 前端页面 + `/api/scores/*`”分离。
-- 旧成绩模板页面（`templates/scores/*`）已下线，旧路由保留为重定向/代理层。
+- 旧成绩模板页面（`templates/scores/*`）已下线，后端仅保留 `/api/*` 接口。
 - `student` 模块已完成“旧 Django 模板视图 -> 前端页面 + `/api/students/*`”分离。
-- 旧学生模板页面（`templates/students/*`）与旧 `student_views.py` 已下线，旧路由保留为重定向/代理层。
+- 旧学生模板页面（`templates/students/*`）与旧 `student_views.py` 已下线，后端仅保留 `/api/*` 接口。
 - `exam` 模块已完成“旧 Django 模板视图 -> 前端页面 + `/api/exams/*`”分离。
-- 旧考试模板页面（`templates/exams/*`）与旧 `exam_views.py` 已下线，旧路由保留为重定向/代理层。
+- 旧考试模板页面（`templates/exams/*`）与旧 `exam_views.py` 已下线，后端仅保留 `/api/*` 接口。
 - 分析与成绩契约文档已冻结：见 `docs/score_management_api_contract.md`、`docs/analysis_api_contract.md`。
 - 学生契约文档已冻结：见 `docs/student_management_api_contract.md`。
 - 考试契约文档已冻结：见 `docs/exam_management_api_contract.md`。

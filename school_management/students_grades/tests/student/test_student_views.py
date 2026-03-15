@@ -5,80 +5,9 @@ from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
-from django.urls import reverse
 from django.utils import timezone
 
 from school_management.students_grades.models import Class, Exam, ExamSubject, Score, Student
-
-
-class StudentRouteRedirectTests(TestCase):
-    """Legacy student pages should redirect to frontend, and template download proxies to API."""
-
-    def setUp(self):
-        self.client = Client()
-        self.cls = Class.objects.create(grade_level='初一', class_name='1班')
-        self.student = Student.objects.create(
-            student_id='RED001',
-            name='重定向测试',
-            grade_level='初一',
-            current_class=self.cls,
-            status='在读',
-        )
-
-    def test_student_list_redirects_to_frontend(self):
-        resp = self.client.get(reverse('students_grades:student_list'))
-        self.assertIn(resp.status_code, (301, 302))
-        self.assertIn('/students', resp['Location'])
-
-    def test_student_add_redirects_to_frontend(self):
-        resp = self.client.get(reverse('students_grades:student_add'))
-        self.assertIn(resp.status_code, (301, 302))
-        self.assertIn('/students/add', resp['Location'])
-
-    def test_student_edit_redirects_to_frontend(self):
-        resp = self.client.get(reverse('students_grades:student_edit', args=[self.student.pk]))
-        self.assertIn(resp.status_code, (301, 302))
-        self.assertIn(f'/students/{self.student.pk}/edit', resp['Location'])
-
-    def test_student_batch_import_page_redirects_to_frontend(self):
-        resp = self.client.get(reverse('students_grades:student_batch_import'))
-        self.assertIn(resp.status_code, (301, 302))
-        self.assertIn('/students', resp['Location'])
-
-    def test_student_batch_promote_page_redirects_to_frontend(self):
-        resp = self.client.get(reverse('students_grades:student_batch_promote_grade'))
-        self.assertIn(resp.status_code, (301, 302))
-        self.assertIn('/students/batch-promote', resp['Location'])
-
-    def test_download_student_template_proxies_to_api(self):
-        resp = self.client.get(reverse('students_grades:download_student_import_template'))
-        self.assertEqual(resp.status_code, 307)
-        self.assertEqual(resp['Location'], '/api/students/download-template/')
-
-    def test_student_delete_redirects_to_frontend(self):
-        resp = self.client.post(reverse('students_grades:student_delete', args=[self.student.pk]))
-        self.assertIn(resp.status_code, (301, 302))
-        self.assertIn('/students', resp['Location'])
-
-    def test_student_update_status_redirects_to_frontend(self):
-        resp = self.client.post(reverse('students_grades:student_update_status', args=[self.student.pk]), {'status': '毕业'})
-        self.assertIn(resp.status_code, (301, 302))
-        self.assertIn('/students', resp['Location'])
-
-    def test_student_batch_delete_redirects_to_frontend(self):
-        resp = self.client.post(reverse('students_grades:student_batch_delete'), {'selected_students': [self.student.pk]})
-        self.assertIn(resp.status_code, (301, 302))
-        self.assertIn('/students', resp['Location'])
-
-    def test_student_batch_update_status_redirects_to_frontend(self):
-        resp = self.client.post(reverse('students_grades:student_batch_update_status'), {'selected_students': [self.student.pk], 'status': '在读'})
-        self.assertIn(resp.status_code, (301, 302))
-        self.assertIn('/students', resp['Location'])
-
-    def test_student_batch_graduate_redirects_to_frontend(self):
-        resp = self.client.post(reverse('students_grades:student_batch_graduate'), {'selected_students': [self.student.pk]})
-        self.assertIn(resp.status_code, (301, 302))
-        self.assertIn('/students', resp['Location'])
 
 
 class StudentApiContractSmokeTests(TestCase):

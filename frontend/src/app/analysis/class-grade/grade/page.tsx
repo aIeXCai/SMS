@@ -244,6 +244,7 @@ function ClassAnalysisGradeContent() {
         maintainAspectRatio: false,
         plugins: {
           legend: { display: false },
+          datalabels: { display: false },
           tooltip: {
             callbacks: {
               label: (context) => `平均分: ${Number(context.parsed.y).toFixed(1)}分`,
@@ -325,6 +326,7 @@ function ClassAnalysisGradeContent() {
         },
         plugins: {
           legend: { display: false },
+          datalabels: { display: false },
           tooltip: {
             callbacks: {
               label: (context) => {
@@ -397,6 +399,7 @@ function ClassAnalysisGradeContent() {
         maintainAspectRatio: false,
         plugins: {
           legend: { display: false },
+          datalabels: { display: false },
           tooltip: {
             callbacks: {
               title: (context) => `分数区间: ${context[0].label}分`,
@@ -460,6 +463,7 @@ function ClassAnalysisGradeContent() {
             position: "bottom",
             labels: { padding: 20, usePointStyle: true, font: { size: 14, weight: 500 } },
           },
+          datalabels: { display: false },
           tooltip: {
             callbacks: {
               label: (context) => {
@@ -530,6 +534,7 @@ function ClassAnalysisGradeContent() {
             reverse: true,
             labels: { padding: 15, usePointStyle: true, font: { size: 12 } },
           },
+          datalabels: { display: false },
           tooltip: {
             callbacks: {
               label: (context) => `${context.dataset.label}: ${context.parsed.y}人`,
@@ -593,6 +598,7 @@ function ClassAnalysisGradeContent() {
         maintainAspectRatio: false,
         plugins: {
           legend: { display: false },
+          datalabels: { display: false },
           tooltip: {
             callbacks: {
               label: (context) => `难度系数: ${Number(context.parsed.y).toFixed(3)}`,

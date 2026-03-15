@@ -1,9 +1,7 @@
 """
-Tests for student import and StudentForm behavior.
+Tests for student import behavior.
 
 This module contains:
-- StudentFormTests: unit tests for the StudentForm, focusing on optional date handling and
-  validation of id/phone formats.
 - StudentImportViewTests: integration tests for the `student_batch_import` view that processes
   uploaded Excel files. Tests create in-memory Excel files (using openpyxl) and POST them
   to the view, then assert on the JSON response and resulting database state.
@@ -26,71 +24,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 import datetime
 import openpyxl
 
-from school_management.students_grades.forms import StudentForm
 from school_management.students_grades.models import Student, Class
-
-
-class StudentFormTests(TestCase):
-    """Unit tests for `StudentForm`."""
-    def test_studentform_handles_optional_dates_missing(self):
-        """
-        Purpose:
-        - Verify that when optional date fields (entry_date, graduation_date) are omitted,
-          the form remains valid and saved model fields are None.
-
-        Setup:
-        - Build minimal valid form data (student_id, name, grade_level, class_name, status).
-
-        Assertion:
-        - form.is_valid() is True
-        - saved student's entry_date and graduation_date are None
-        """
-        data = {
-            'student_id': 'UF100',
-            'name': '可选日期测试',
-            'grade_level': '初一',
-            'class_name': '1班',
-            'status': '在读',
-            # 不提供 date_of_birth/entry_date/graduation_date
-            'id_card_number': '',
-            'student_enrollment_number': '',
-            'home_address': '',
-            'guardian_name': '',
-            'guardian_contact_phone': '',
-        }
-
-        form = StudentForm(data=data)
-        self.assertTrue(form.is_valid(), msg=form.errors)
-        student = form.save()
-        self.assertIsNone(student.entry_date)
-        self.assertIsNone(student.graduation_date)
-
-    def test_studentform_rejects_invalid_idcard_or_phone_format(self):
-        """
-        Purpose:
-        - Ensure form validation rejects an invalid ID card or phone format based on model validators.
-
-        Setup:
-        - Provide deliberately malformed `id_card_number` and `guardian_contact_phone` values.
-
-        Assertion:
-        - form.is_valid() is False and at least one of the error keys corresponds to the
-          invalid fields (id_card_number or guardian_contact_phone).
-        """
-        data = {
-            'student_id': 'UF101',
-            'name': '验证测试',
-            'grade_level': '初一',
-            'class_name': '1班',
-            'status': '在读',
-            'id_card_number': 'bad-id-123',
-            'guardian_contact_phone': '12345',
-        }
-        form = StudentForm(data=data)
-        self.assertFalse(form.is_valid())
-        # 身份证或手机号任一验证失败会出现在 form.errors 中
-        errors = form.errors.as_data()
-        self.assertTrue('id_card_number' in errors or 'guardian_contact_phone' in errors)
 
 
 class StudentImportViewTests(TestCase):

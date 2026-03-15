@@ -6,7 +6,7 @@
 
 1. **访问成绩管理页面**
    - 打开浏览器访问成绩管理页面
-   - 页面地址通常是：`/exams/scores/`
+   - 页面地址通常是：`/scores`
 
 2. **使用分页选择器**
    - 在页面底部的分页导航区域
@@ -21,7 +21,7 @@
 
 直接在浏览器地址栏添加参数：
 ```
-/exams/scores/?per_page=50
+/scores?per_page=50
 ```
 
 支持的参数值：
@@ -36,7 +36,7 @@
 
 1. **编辑配置文件**
    ```
-   文件位置：school_management/exams/config.py
+   文件位置：school_management/students_grades/config.py
    ```
 
 2. **修改默认值**
@@ -134,13 +134,13 @@
 1. **查看当前设置**
    ```python
    # 在Django shell中
-   from school_management.exams.config import PAGINATION_CONFIG
+   from school_management.students_grades.config import PAGINATION_CONFIG
    print(PAGINATION_CONFIG)
    ```
 
 2. **测试URL参数**
    ```
-   访问：/exams/scores/?per_page=10
+   访问：/scores?per_page=10
    检查页面是否显示10条记录
    ```
 

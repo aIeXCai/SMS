@@ -767,9 +767,13 @@ export default function ScoresPage() {
       )}
 
       {importModalVisible && (
-        <div className="modal d-block" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
-          <div className="modal-dialog modal-lg">
-            <div className="modal-content">
+        <div
+          className="modal d-block score-import-modal"
+          style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
+          onClick={(e) => e.currentTarget === e.target && setImportModalVisible(false)}
+        >
+          <div className="modal-dialog modal-dialog-centered score-import-dialog">
+            <div className="modal-content score-import-content">
               <div className="modal-header">
                 <h5 className="modal-title"><i className="fas fa-upload"></i> 批量导入成绩 (Excel)</h5>
                 <button type="button" className="btn-close" onClick={() => setImportModalVisible(false)}></button>
@@ -1012,6 +1016,21 @@ export default function ScoresPage() {
         .modal-lg-content {
           max-width: 900px;
           width: 95%;
+        }
+
+        .score-import-modal {
+          z-index: 1055;
+        }
+
+        .score-import-modal .score-import-dialog {
+          width: min(920px, calc(100vw - 2rem));
+          max-width: min(920px, calc(100vw - 2rem));
+          margin: 0 auto;
+        }
+
+        .score-import-modal .score-import-content {
+          width: 100%;
+          max-width: none;
         }
 
         .modal-header {

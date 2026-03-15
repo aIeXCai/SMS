@@ -459,7 +459,7 @@ export default function ScoreAddPage() {
           background: white;
           border-radius: 15px;
           box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-          overflow: hidden;
+          overflow: visible;
           margin-bottom: 2rem;
         }
 
@@ -471,6 +471,7 @@ export default function ScoreAddPage() {
 
         .form-card-body {
           padding: 2rem;
+          overflow: visible;
         }
 
         .score-grid {
@@ -537,6 +538,7 @@ export default function ScoreAddPage() {
 
         .student-search-container {
           position: relative;
+          z-index: 1200;
         }
 
         .student-search-dropdown {
@@ -550,7 +552,7 @@ export default function ScoreAddPage() {
           border-radius: 0 0 8px 8px;
           max-height: 200px;
           overflow-y: auto;
-          z-index: 1000;
+          z-index: 2000;
           box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
         }
 

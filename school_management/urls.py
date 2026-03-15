@@ -19,6 +19,7 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
+from django.views.generic.base import RedirectView
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
@@ -26,12 +27,11 @@ from rest_framework_simplejwt.views import (
 from . import views
 
 urlpatterns = [
+    path('admin', RedirectView.as_view(url='/admin/', permanent=False)),
     path('admin/', admin.site.urls),
     path('django-rq/', include('django_rq.urls')),  # RQ任务管理界面
-    
-    # 主页 - 处理JWT认证跳转
-    path('', views.home_view, name='home'),
-    path('dashboard/', views.dashboard_view, name='dashboard'),
+
+    # API only: 后端不再承接页面入口
     path('api/dashboard/stats/', views.dashboard_stats_api, name='dashboard_stats_api'),
     
     # 认证 - 支持有无斜杠两种格式
@@ -42,9 +42,6 @@ urlpatterns = [
     
     # 🔴 学生与成绩 API
     path('api/', include('school_management.students_grades.api_urls')),
-    
-    # 🔴 新的统一学生与成绩模块
-    path('', include('school_management.students_grades.urls')),
     
     # 🔴 用户与权限接口
     path('api/users/', include('school_management.users.urls')),

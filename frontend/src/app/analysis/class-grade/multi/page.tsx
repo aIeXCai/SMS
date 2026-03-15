@@ -242,6 +242,7 @@ function ClassAnalysisMultiContent() {
             position: "top",
             labels: { padding: 20, usePointStyle: true, font: { size: 15 } },
           },
+          datalabels: { display: false },
           tooltip: {
             mode: "index",
             intersect: false,
@@ -295,6 +296,7 @@ function ClassAnalysisMultiContent() {
             position: "top",
             labels: { padding: 15, usePointStyle: true, font: { size: 15 } },
           },
+          datalabels: { display: false },
         },
         scales: {
           x: {
@@ -338,6 +340,7 @@ function ClassAnalysisMultiContent() {
             position: "top",
             labels: { padding: 15, usePointStyle: true, font: { size: 15 } },
           },
+          datalabels: { display: false },
         },
         scales: {
           x: {

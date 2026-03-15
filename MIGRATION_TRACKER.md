@@ -6,10 +6,10 @@
 
 | 模块 | 目标状态 | 当前状态 | 说明 |
 |---|---|---|---|
-| score（成绩管理） | 前端页面 + `/api/scores/*` 主链路 | ✅ 完成 | 旧模板下线，旧路由改 redirect / 307 代理，测试基线已迁移 |
+| score（成绩管理） | 前端页面 + `/api/scores/*` 主链路 | ✅ 完成 | 旧模板与旧重定向层下线，后端仅保留 API，测试基线已迁移 |
 | analysis（成绩分析） | 前端页面 + `/api/scores/*analysis*` 主链路 | ✅ 完成 | 页面入口与数据接口契约已冻结 |
-| student | 前端页面 + `/api/students/*` 主链路 | ✅ 完成 | 旧模板与旧视图已下线，旧路由改 redirect / 307 代理，测试基线已迁移 |
-| exam | 前端页面 + `/api/exams/*` 主链路 | ✅ 完成 | 旧模板与旧视图已下线，旧路由改 redirect / 307 代理，测试基线与回归已完成 |
+| student | 前端页面 + `/api/students/*` 主链路 | ✅ 完成 | 旧模板、旧视图与旧重定向层已下线，后端仅保留 API |
+| exam | 前端页面 + `/api/exams/*` 主链路 | ✅ 完成 | 旧模板、旧视图与旧重定向层已下线，后端仅保留 API |
 
 ## Exam 分离进展（已完成）
 
@@ -25,7 +25,7 @@
 ### Exam 分离发布说明（2026-03-13）
 
 - 分离目标已达成：Exam 页面主入口已统一到前端，数据主链路统一为 `/api/exams/*`。
-- 兼容策略已落地：旧考试入口保留重定向；默认科目旧入口保留 307 代理到 `/api/exams/default-subjects/`。
+- API-only 收口已完成：后端不再承接旧页面入口与旧重定向入口。
 - 旧资产已下线：`templates/exams/*` 与旧 `views/exam_views.py` 已删除。
 - 回归验证已完成：Exam/Student/Score 关键回归测试与前端构建均通过。
 
@@ -54,9 +54,9 @@
 ### Student 分离发布说明（2026-03-12）
 
 - 分离目标已达成：Student 页面主入口已统一到前端，数据主链路统一为 `/api/students/*`。
-- 兼容策略已落地：旧学生入口保留重定向；模板下载入口保留 307 代理到 `/api/students/download-template/`。
+- API-only 收口已完成：后端不再承接旧页面入口与旧重定向入口。
 - 旧资产已下线：`templates/students/*` 与旧 `views/student_views.py` 已删除。
-- 路由兼容已补测：旧 mutation 入口（delete/update-status/batch-*）已纳入重定向测试。
+- API 契约已补测：学生模块关键 mutation 与列表能力已纳入 API 测试。
 
 ### Student 分离验收记录
 
@@ -70,7 +70,7 @@
 
 - [x] 旧 `templates/scores/*` 下线。
 - [x] 旧 `score_views.py` 下线。
-- [x] `students_grades/urls.py` 成绩相关入口切换为 redirect / API 代理。
+- [x] 旧重定向层（`students_grades/urls.py`、`analysis_redirect_views.py`）下线。
 - [x] 前端 score 页面统一走 `/api/scores/*`。
 - [x] 契约文档冻结：
   - `docs/score_management_api_contract.md`
@@ -82,8 +82,8 @@
 
 1. **路由收口**：梳理旧入口、新入口、兼容入口，先保证行为等价。
 2. **API 契约冻结**：先写契约，再改前端调用，避免字段漂移。
-3. **测试迁移**：把“模板断言”改为“重定向/API 契约断言”。
-4. **旧资产下线**：删除旧模板/旧视图，保留必要兼容层。
+3. **测试迁移**：把“模板断言”改为“API 契约断言”。
+4. **旧资产下线**：删除旧模板/旧视图/旧重定向层。
 5. **回归验证**：模块级测试通过 + `manage.py check` 无错误。
 6. **文档收口**：README + 本追踪文件同步更新。
 
