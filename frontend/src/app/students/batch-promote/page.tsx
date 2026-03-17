@@ -4,12 +4,14 @@ import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
+import { canWriteStudents } from "@/lib/permissions";
 
 const backendBaseUrl = typeof window !== "undefined" ? `http://${window.location.hostname}:8000` : "http://localhost:8000";
 
 export default function BatchPromotePage() {
   const { user, token, loading } = useAuth();
   const router = useRouter();
+  const canStudentWrite = canWriteStudents(user);
 
   const [studentIds, setStudentIds] = useState<number[]>([]);
   const [statsChoices, setStatsChoices] = useState({
@@ -67,6 +69,12 @@ export default function BatchPromotePage() {
 
     fetchStats();
   }, [token, authHeader]);
+
+  useEffect(() => {
+    if (!loading && user && !canStudentWrite) {
+      router.replace("/students");
+    }
+  }, [loading, user, canStudentWrite, router]);
 
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>) => {
     const { name, value, type } = e.target;
@@ -130,6 +138,7 @@ export default function BatchPromotePage() {
     router.push("/login");
     return null;
   }
+  if (!canStudentWrite) return null;
 
   return (
     <div>

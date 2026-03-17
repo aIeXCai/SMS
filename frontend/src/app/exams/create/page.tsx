@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
+import { canWriteExams } from "@/lib/permissions";
 
 type Option = { value: string; label: string };
 
@@ -25,6 +26,7 @@ const backendBaseUrl =
 export default function CreateExamPage() {
   const { user, token, loading } = useAuth();
   const router = useRouter();
+  const canExamWrite = canWriteExams(user);
 
   const [step, setStep] = useState(1);
   const [options, setOptions] = useState<ExamOptions | null>(null);
@@ -60,6 +62,12 @@ export default function CreateExamPage() {
       .then((data) => setOptions(data))
       .catch(console.error);
   }, [token, authHeader]);
+
+  useEffect(() => {
+    if (!loading && user && !canExamWrite) {
+      router.replace("/exams");
+    }
+  }, [loading, user, canExamWrite, router]);
 
   const loadDefaultSubjects = async (grade: string) => {
     if (!grade) return;
@@ -185,6 +193,7 @@ export default function CreateExamPage() {
 
   if (loading) return <div className="p-4">加载中...</div>;
   if (!user) return null;
+  if (!canExamWrite) return null;
 
   return (
     <div>

@@ -5,12 +5,14 @@ import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
+import { canWriteStudents } from "@/lib/permissions";
 
 const backendBaseUrl = typeof window !== "undefined" ? `http://${window.location.hostname}:8000` : "http://localhost:8000";
 
 export default function StudentAddPage() {
   const { user, token, loading } = useAuth();
   const router = useRouter();
+  const canStudentWrite = canWriteStudents(user);
 
   const [statsChoices, setStatsChoices] = useState({
     status_choices: ['在读', '转学', '休学', '复学', '毕业'],
@@ -70,6 +72,12 @@ export default function StudentAddPage() {
 
     fetchStats();
   }, [token, authHeader]);
+
+  useEffect(() => {
+    if (!loading && user && !canStudentWrite) {
+      router.replace("/students");
+    }
+  }, [loading, user, canStudentWrite, router]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -138,6 +146,7 @@ export default function StudentAddPage() {
     router.push("/login");
     return null;
   }
+  if (!canStudentWrite) return null;
 
   const renderInput = (id: string, label: string, type = "text", required = false, placeholder = " ") => (
     <div className="col-md-6 mb-3">

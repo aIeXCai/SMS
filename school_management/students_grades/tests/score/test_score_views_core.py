@@ -1,4 +1,5 @@
 """Core route-contract tests for score module after frontend/API migration."""
+import json
 from datetime import date
 
 from django.test import TestCase, Client
@@ -39,3 +40,72 @@ class ScoreApiSmokeTests(TestCase):
         data = resp.json()
         self.assertIn('count', data)
         self.assertIn('results', data)
+
+
+class ScoreWritePermissionMatrixTests(TestCase):
+    """Permission matrix checks for score write endpoints."""
+
+    def setUp(self):
+        self.client = Client()
+        self.User = get_user_model()
+        self.cls = Class.objects.create(grade_level='初一', class_name='3班')
+        self.exam = Exam.objects.create(
+            name='权限成绩考试',
+            academic_year='2025-2026',
+            grade_level='初一',
+            date=date(2026, 1, 20),
+        )
+        ExamSubject.objects.create(exam=self.exam, subject_code='语文', subject_name='语文', max_score=120)
+        self.url = '/api/scores/manual-add/'
+
+    def _login_as(self, role):
+        self.client.logout()
+        user = self.User.objects.create_user(
+            username=f'score_perm_{role}',
+            password='test-pass-123',
+            role=role,
+        )
+        self.client.force_login(user)
+
+    def _payload(self, suffix):
+        student = Student.objects.create(
+            student_id=f'PERM-S-{suffix}',
+            name=f'成绩权限-{suffix}',
+            grade_level='初一',
+            current_class=self.cls,
+            status='在读',
+        )
+        return {
+            'student_id': student.pk,
+            'exam_id': self.exam.pk,
+            'scores': {
+                '语文': 98,
+            },
+        }
+
+    def test_score_write_matrix(self):
+        role_expected = {
+            'admin': 200,
+            'grade_manager': 200,
+            'staff': 200,
+            'subject_teacher': 403,
+        }
+
+        for role, expected_status in role_expected.items():
+            with self.subTest(role=role):
+                self._login_as(role)
+                resp = self.client.post(
+                    self.url,
+                    data=json.dumps(self._payload(role)),
+                    content_type='application/json',
+                )
+                self.assertEqual(resp.status_code, expected_status)
+
+    def test_score_write_requires_authentication(self):
+        self.client.logout()
+        resp = self.client.post(
+            self.url,
+            data=json.dumps(self._payload('anonymous')),
+            content_type='application/json',
+        )
+        self.assertIn(resp.status_code, (401, 403))

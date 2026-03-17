@@ -21,6 +21,7 @@ from .models.exam import Exam, ExamSubject, ACADEMIC_YEAR_CHOICES, SUBJECT_DEFAU
 from .serializers import StudentSerializer, ClassSerializer, ExamSerializer, ScoreSerializer
 from .tasks import update_all_rankings_async
 from .services.analysis_service import analyze_single_class, analyze_multiple_classes, analyze_grade
+from school_management.users.permissions import IsAdminOrStaff, IsAdminOrGradeManagerOrStaff
 
 
 class StudentViewSet(viewsets.ModelViewSet):
@@ -44,9 +45,11 @@ class StudentViewSet(viewsets.ModelViewSet):
         """
         根据操作类型设置不同的权限
         """
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            # 创建、编辑、删除需要管理员或级长权限
-            permission_classes = [permissions.IsAuthenticated, IsAdminOrGradeManager]
+        if self.action in [
+            'create', 'update', 'partial_update', 'destroy',
+            'batch_delete', 'batch_update_status', 'batch_promote', 'batch_import'
+        ]:
+            permission_classes = [permissions.IsAuthenticated, IsAdminOrStaff]
         else:
             # 查看操作所有登录用户都可以
             permission_classes = [permissions.IsAuthenticated]
@@ -434,18 +437,6 @@ class ClassViewSet(viewsets.ReadOnlyModelViewSet):
     ordering = ['grade_level', 'class_name']
 
 
-class IsAdminOrGradeManager(permissions.BasePermission):
-    """
-    自定义权限类：只允许管理员或级长执行操作
-    """
-    def has_permission(self, request, view):
-        return (
-            request.user and 
-            request.user.is_authenticated and 
-            hasattr(request.user, 'role') and
-            request.user.role in ['admin', 'grade_manager']
-        )
-
 class ExamViewSet(viewsets.ModelViewSet):
     """
     考试管理 ViewSet
@@ -461,7 +452,7 @@ class ExamViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [permissions.IsAuthenticated(), IsAdminOrGradeManager()]
+            return [permissions.IsAuthenticated(), IsAdminOrGradeManagerOrStaff()]
         return [permissions.IsAuthenticated()]
 
     @action(detail=False, methods=['get'], url_path='options')
@@ -507,9 +498,10 @@ class ScoreViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action in [
             'create', 'update', 'partial_update', 'destroy',
+            'manual_add', 'batch_edit_save',
             'batch_delete_selected', 'batch_delete_filtered', 'batch_import'
         ]:
-            return [permissions.IsAuthenticated(), IsAdminOrGradeManager()]
+            return [permissions.IsAuthenticated(), IsAdminOrGradeManagerOrStaff()]
         return [permissions.IsAuthenticated()]
 
     def _get_subject_max_scores(self, exam):

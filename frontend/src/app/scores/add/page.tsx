@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
+import { canWriteScores } from "@/lib/permissions";
 
 type Option = { value: string; label: string };
 type StudentItem = {
@@ -26,6 +27,7 @@ const SCORES_API_BASE = "/api/scores";
 export default function ScoreAddPage() {
   const { user, token, loading } = useAuth();
   const router = useRouter();
+  const canScoreWrite = canWriteScores(user);
 
   const [options, setOptions] = useState<ScoreOptions | null>(null);
   const [studentQuery, setStudentQuery] = useState("");
@@ -65,6 +67,12 @@ export default function ScoreAddPage() {
       router.push("/login");
     }
   }, [loading, token, router]);
+
+  useEffect(() => {
+    if (!loading && user && !canScoreWrite) {
+      router.replace("/scores");
+    }
+  }, [loading, user, canScoreWrite, router]);
 
   useEffect(() => {
     if (!token) return;
@@ -242,6 +250,7 @@ export default function ScoreAddPage() {
 
   if (loading) return <div className="p-4">加载中...</div>;
   if (!user) return null;
+  if (!canScoreWrite) return null;
 
   return (
     <div>

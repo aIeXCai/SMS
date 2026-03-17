@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
+import { canWriteScores } from "@/lib/permissions";
 
 type Option = { value: string; label: string };
 
@@ -83,6 +84,7 @@ const SCORES_API_BASE = `${backendBaseUrl}/api/scores`;
 export default function ScoresPage() {
   const { user, token, loading } = useAuth();
   const router = useRouter();
+  const canScoreWrite = canWriteScores(user);
 
   const [options, setOptions] = useState<ScoreOptions | null>(null);
   const [rows, setRows] = useState<ScoreRow[]>([]);
@@ -469,12 +471,16 @@ export default function ScoresPage() {
               <p className="mb-0 opacity-75">管理学生考试成绩，支持手动录入和批量导入</p>
             </div>
             <div className="col-md-4 text-end">
-              <Link href="/scores/add" className="btn btn-light border me-2">
-                <i className="fas fa-plus me-2"></i>手动新增成绩
-              </Link>
-              <button type="button" className="btn btn-light border" onClick={() => setImportModalVisible(true)}>
-                <i className="fas fa-file-import me-2"></i>批量导入
-              </button>
+              {canScoreWrite && (
+                <>
+                  <Link href="/scores/add" className="btn btn-light border me-2">
+                    <i className="fas fa-plus me-2"></i>手动新增成绩
+                  </Link>
+                  <button type="button" className="btn btn-light border" onClick={() => setImportModalVisible(true)}>
+                    <i className="fas fa-file-import me-2"></i>批量导入
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -597,12 +603,18 @@ export default function ScoresPage() {
                 </div>
               </div>
               <div className="col-md-6 text-end">
-                <button type="button" className="btn btn-outline-danger me-2" onClick={deleteFiltered}>
-                  <i className="fas fa-filter"></i> 删除筛选结果
-                </button>
-                <button type="button" className="btn btn-danger" onClick={deleteSelected}>
-                  <i className="fas fa-trash"></i> 删除选中项
-                </button>
+                {canScoreWrite ? (
+                  <>
+                    <button type="button" className="btn btn-outline-danger me-2" onClick={deleteFiltered}>
+                      <i className="fas fa-filter"></i> 删除筛选结果
+                    </button>
+                    <button type="button" className="btn btn-danger" onClick={deleteSelected}>
+                      <i className="fas fa-trash"></i> 删除选中项
+                    </button>
+                  </>
+                ) : (
+                  <span className="text-muted">当前角色为只读，写操作已隐藏</span>
+                )}
               </div>
             </div>
           </div>
@@ -619,16 +631,18 @@ export default function ScoresPage() {
                 <thead>
                   <tr>
                     <th style={{ width: "50px" }}>
-                      <input
-                        className="form-check-input"
-                        type="checkbox"
-                        checked={allFilteredSelected}
-                        disabled={isSelectingAll || totalCount === 0}
-                        ref={(el) => {
-                          if (el) el.indeterminate = currentPageIndeterminate;
-                        }}
-                        onChange={toggleSelectAll}
-                      />
+                      {canScoreWrite && (
+                        <input
+                          className="form-check-input"
+                          type="checkbox"
+                          checked={allFilteredSelected}
+                          disabled={isSelectingAll || totalCount === 0}
+                          ref={(el) => {
+                            if (el) el.indeterminate = currentPageIndeterminate;
+                          }}
+                          onChange={toggleSelectAll}
+                        />
+                      )}
                     </th>
                     <th>学号</th>
                     <th>学生姓名</th>
@@ -645,12 +659,14 @@ export default function ScoresPage() {
                   {rows.map((row) => (
                     <tr key={row.record_key}>
                       <td>
-                        <input
-                          className="form-check-input"
-                          type="checkbox"
-                          checked={!!selected[row.record_key]}
-                          onChange={() => toggleOne(row.record_key)}
-                        />
+                        {canScoreWrite && (
+                          <input
+                            className="form-check-input"
+                            type="checkbox"
+                            checked={!!selected[row.record_key]}
+                            onChange={() => toggleOne(row.record_key)}
+                          />
+                        )}
                       </td>
                       <td>{row.student.student_id}</td>
                       <td>{row.student.name}</td>
@@ -667,12 +683,16 @@ export default function ScoresPage() {
                         </td>
                       ))}
                       <td>
-                        <Link
-                          href={`/scores/batch-edit?student=${row.student_id}&exam=${row.exam_id}`}
-                          className="btn btn-sm btn-warning"
-                        >
-                          <i className="fas fa-edit"></i> 编辑成绩
-                        </Link>
+                        {canScoreWrite ? (
+                          <Link
+                            href={`/scores/batch-edit?student=${row.student_id}&exam=${row.exam_id}`}
+                            className="btn btn-sm btn-warning"
+                          >
+                            <i className="fas fa-edit"></i> 编辑成绩
+                          </Link>
+                        ) : (
+                          <span className="text-muted">只读</span>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -733,7 +753,7 @@ export default function ScoresPage() {
         )}
       </div>
 
-      {deleteConfirmVisible && (
+      {canScoreWrite && deleteConfirmVisible && (
         <div className="custom-modal show" onClick={(e) => e.currentTarget === e.target && setDeleteConfirmVisible(false)}>
           <div className="modal-content">
             <div className="modal-header error">
@@ -766,7 +786,7 @@ export default function ScoresPage() {
         </div>
       )}
 
-      {importModalVisible && (
+      {canScoreWrite && importModalVisible && (
         <div
           className="modal d-block score-import-modal"
           style={{ backgroundColor: "rgba(0,0,0,0.5)" }}

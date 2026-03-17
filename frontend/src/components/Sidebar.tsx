@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -14,6 +15,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const { user, logout } = useAuth();
   const pathname = usePathname() || "";
   const [analysisOpen, setAnalysisOpen] = useState(false);
+  const fullName = `${user?.last_name ?? ""}${user?.first_name ?? ""}`.trim() || user?.username || "";
 
   const getRoleDisplay = (role: string) => {
     switch (role) {
@@ -43,9 +45,6 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
     return null;
   }
 
-  const hostname = typeof window !== "undefined" ? window.location.hostname : "localhost";
-  const backendBaseUrl = `http://${hostname}:8000`;
-
   const makeLink = (href: string, label: string, icon: string, active?: boolean) => (
     <Link
       href={href}
@@ -61,22 +60,13 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
     <div className={`sidebar${isOpen ? " show" : ""}`}>
       <div className="sidebar-header">
         <Link href="/" className="sidebar-brand" onClick={handleNavClick}>
-          <span
-            style={{
-              width: 28,
-              height: 28,
-              backgroundColor: "#01876c",
-              borderRadius: 6,
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              marginRight: 8,
-              color: "white",
-              fontSize: 12,
-            }}
-          >
-            🎓
-          </span>
+          <Image
+            src="/logo.png"
+            alt="白云实验学校logo"
+            width={28}
+            height={28}
+            style={{ marginRight: 8, borderRadius: 6 }}
+          />
           白云实验学校管理系统
         </Link>
       </div>
@@ -86,7 +76,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
           <i className="fas fa-user" style={{ color: "white", fontSize: 16 }} />
         </div>
         <div className="user-details">
-          <p className="user-name">{user.first_name || user.username}</p>
+          <p className="user-name">{fullName}</p>
           <p className="user-role">{getRoleDisplay(user.role)}</p>
         </div>
         <button

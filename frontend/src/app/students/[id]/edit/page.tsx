@@ -4,12 +4,14 @@ import { useEffect, useState, useMemo } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
+import { canWriteStudents } from "@/lib/permissions";
 
 const backendBaseUrl = typeof window !== "undefined" ? `http://${window.location.hostname}:8000` : "http://localhost:8000";
 
 export default function StudentEditPage() {
   const { user, token, loading } = useAuth();
   const router = useRouter();
+  const canStudentWrite = canWriteStudents(user);
   const params = useParams();
   
   // 从路由提取 id
@@ -111,6 +113,12 @@ export default function StudentEditPage() {
     initData();
   }, [token, authHeader, studentId]);
 
+  useEffect(() => {
+    if (!loading && user && !canStudentWrite) {
+      router.replace("/students");
+    }
+  }, [loading, user, canStudentWrite, router]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -179,6 +187,7 @@ export default function StudentEditPage() {
     router.push("/login");
     return null;
   }
+  if (!canStudentWrite) return null;
 
   const renderInput = (id: string, label: string, type = "text", required = false, placeholder = " ") => (
     <div className="col-md-6 mb-3">

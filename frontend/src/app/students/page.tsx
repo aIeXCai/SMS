@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 import BatchImportModal from "./BatchImportModal";
+import { canWriteStudents } from "@/lib/permissions";
 
 type Student = {
   id: number;
@@ -40,6 +41,7 @@ const backendBaseUrl = typeof window !== "undefined" ? `http://${window.location
 export default function StudentsPage() {
   const { user, token, loading } = useAuth();
   const router = useRouter();
+  const canStudentWrite = canWriteStudents(user);
 
   const [students, setStudents] = useState<Student[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
@@ -345,12 +347,16 @@ export default function StudentsPage() {
               <p className="mb-0 opacity-75">管理学校所有学生信息，支持批量操作和数据导入</p>
             </div>
             <div className="col-md-4 text-end">
-              <Link href="/students/add" className="btn btn-light border me-2">
-                <i className="fas fa-plus me-2"></i>新增学生
-              </Link>
-              <button onClick={() => setIsImportModalOpen(true)} className="btn btn-light border">
-                <i className="fas fa-file-import me-2"></i>批量导入
-              </button>
+              {canStudentWrite && (
+                <>
+                  <Link href="/students/add" className="btn btn-light border me-2">
+                    <i className="fas fa-plus me-2"></i>新增学生
+                  </Link>
+                  <button onClick={() => setIsImportModalOpen(true)} className="btn btn-light border">
+                    <i className="fas fa-file-import me-2"></i>批量导入
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -518,95 +524,101 @@ export default function StudentsPage() {
         </div>
 
         {/* 批量操作区域 - 独立成行 */}
-        <div className="row mb-0">
-          <div className="col-12">
-            <div className="card batch-operations-card">
-              <div className="card-header d-flex align-items-center justify-content-between">
-                <h5 className="mb-0">
-                  <i className="fas fa-cogs me-2"></i>批量操作
-                </h5>
-                <span className={`badge ${selectedCount > 0 ? "bg-primary" : "bg-secondary"} ms-2`}>
-                  已选择 {selectedCount} 个学生
-                </span>
-              </div>
-              <div className="card-body">
-                <div className="row g-3 align-items-end mb-3">
-                  <div className="col-md-2">
-                    <div className="form-check">
-                      <input
-                        className="form-check-input"
-                        type="checkbox"
-                        id="selectAll"
-                        checked={allSelected}
-                        onChange={handleSelectAll}
-                        ref={selectAllRef}
-                      />
-                      <label className="form-check-label" htmlFor="selectAll">
-                        全选
-                      </label>
+        {canStudentWrite ? (
+          <div className="row mb-0">
+            <div className="col-12">
+              <div className="card batch-operations-card">
+                <div className="card-header d-flex align-items-center justify-content-between">
+                  <h5 className="mb-0">
+                    <i className="fas fa-cogs me-2"></i>批量操作
+                  </h5>
+                  <span className={`badge ${selectedCount > 0 ? "bg-primary" : "bg-secondary"} ms-2`}>
+                    已选择 {selectedCount} 个学生
+                  </span>
+                </div>
+                <div className="card-body">
+                  <div className="row g-3 align-items-end mb-3">
+                    <div className="col-md-2">
+                      <div className="form-check">
+                        <input
+                          className="form-check-input"
+                          type="checkbox"
+                          id="selectAll"
+                          checked={allSelected}
+                          onChange={handleSelectAll}
+                          ref={selectAllRef}
+                        />
+                        <label className="form-check-label" htmlFor="selectAll">
+                          全选
+                        </label>
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="col-md-3">
-                    <label className="form-label">批量修改状态为</label>
-                    <select
-                      className="form-select"
-                      value={batchStatus}
-                      onChange={(e) => setBatchStatus(e.target.value)}
-                    >
-                      <option value="">请选择</option>
-                      {stats?.status_choices.map((st) => (
-                        <option key={st} value={st}>
-                          {st}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                    <div className="col-md-3">
+                      <label className="form-label">批量修改状态为</label>
+                      <select
+                        className="form-select"
+                        value={batchStatus}
+                        onChange={(e) => setBatchStatus(e.target.value)}
+                      >
+                        <option value="">请选择</option>
+                        {stats?.status_choices.map((st) => (
+                          <option key={st} value={st}>
+                            {st}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
 
-                  <div className="col-md-7">
-                    <div className="btn-group" role="group">
-                      <button
-                        type="button"
-                        className="btn btn-warning btn-sm"
-                        onClick={handleBatchUpdateStatus}
-                      >
-                        <i className="fas fa-edit me-1"></i>应用状态修改
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-danger btn-sm"
-                        onClick={handleBatchDelete}
-                      >
-                        <i className="fas fa-trash me-1"></i>批量删除
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-info btn-sm"
-                        onClick={handleBatchPromote}
-                      >
-                        <i className="fas fa-level-up-alt me-1"></i>批量升年级
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-success btn-sm"
-                        onClick={handleBatchGraduate}
-                      >
-                        <i className="fas fa-graduation-cap me-1"></i>批量毕业
-                      </button>
+                    <div className="col-md-7">
+                      <div className="btn-group" role="group">
+                        <button
+                          type="button"
+                          className="btn btn-warning btn-sm"
+                          onClick={handleBatchUpdateStatus}
+                        >
+                          <i className="fas fa-edit me-1"></i>应用状态修改
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-danger btn-sm"
+                          onClick={handleBatchDelete}
+                        >
+                          <i className="fas fa-trash me-1"></i>批量删除
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-info btn-sm"
+                          onClick={handleBatchPromote}
+                        >
+                          <i className="fas fa-level-up-alt me-1"></i>批量升年级
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-success btn-sm"
+                          onClick={handleBatchGraduate}
+                        >
+                          <i className="fas fa-graduation-cap me-1"></i>批量毕业
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
+
+              {/* 全局错误提示 - 移到批量操作卡片外 */}
+              {error && (
+                <div className="alert alert-danger mt-3" role="alert">
+                  {error}
+                </div>
+              )}
             </div>
-            
-            {/* 全局错误提示 - 移到批量操作卡片外 */}
-            {error && (
-              <div className="alert alert-danger mt-3" role="alert">
-                {error}
-              </div>
-            )}
           </div>
-        </div>
+        ) : (
+          <div className="alert alert-info mb-4" role="alert">
+            当前角色仅可查看学生信息，写操作入口已隐藏。
+          </div>
+        )}
 
         {/* 学生列表区域 */}
         <div className="table-container">
@@ -647,12 +659,14 @@ export default function StudentsPage() {
                     <th>
                       <i className="fas fa-info-circle me-1"></i>状态
                     </th>
-                    <th style={{ width: 50 }}>
+                    <th style={{ width: canStudentWrite ? 50 : 88 }}>
                       <i className="fas fa-cogs me-1"></i>操作
                     </th>
-                    <th style={{ width: 50 }}>
-                      <i className="fas fa-edit me-1"></i>状态切换
-                    </th>
+                    {canStudentWrite && (
+                      <th style={{ width: 50 }}>
+                        <i className="fas fa-edit me-1"></i>状态切换
+                      </th>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -661,14 +675,16 @@ export default function StudentsPage() {
                     return (
                       <tr key={student.id}>
                         <td>
-                          <div className="form-check">
-                            <input
-                              className="form-check-input"
-                              type="checkbox"
-                              checked={Boolean(selected[student.id])}
-                              onChange={() => handleSelectOne(student.id)}
-                            />
-                          </div>
+                          {canStudentWrite && (
+                            <div className="form-check">
+                              <input
+                                className="form-check-input"
+                                type="checkbox"
+                                checked={Boolean(selected[student.id])}
+                                onChange={() => handleSelectOne(student.id)}
+                              />
+                            </div>
+                          )}
                         </td>
                         <td>
                           <span className="fw-bold text-primary">{student.student_id}</span>
@@ -706,49 +722,55 @@ export default function StudentsPage() {
                         <td>
                           <span className={statusClass}>{student.status}</span>
                         </td>
-                        <td>
-                          <div className="btn-group" role="group">
-                            <a
-                              href={`/students/${student.id}/edit/`}
-                              className="btn btn-outline-primary btn-action"
-                              title="编辑学生信息"
-                            >
-                              <i className="fas fa-edit"></i>
-                            </a>
-                            <button
-                              type="button"
-                              className="btn btn-outline-danger btn-action"
-                              title="删除学生"
-                              onClick={() => handleDelete(student)}
-                            >
-                              <i className="fas fa-trash"></i>
-                            </button>
-                          </div>
+                        <td style={canStudentWrite ? undefined : { minWidth: 88 }}>
+                          {canStudentWrite ? (
+                            <div className="btn-group" role="group">
+                              <a
+                                href={`/students/${student.id}/edit/`}
+                                className="btn btn-outline-primary btn-action"
+                                title="编辑学生信息"
+                              >
+                                <i className="fas fa-edit"></i>
+                              </a>
+                              <button
+                                type="button"
+                                className="btn btn-outline-danger btn-action"
+                                title="删除学生"
+                                onClick={() => handleDelete(student)}
+                              >
+                                <i className="fas fa-trash"></i>
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-muted">只读</span>
+                          )}
                         </td>
-                        <td>
-                          <div className="d-flex align-items-center gap-2">
-                            <select
-                              className="form-select form-select-sm"
-                              style={{ minWidth: "100px" }}
-                              value={student.status}
-                              onChange={(e) => handleStatusChange(student.id, e.target.value, student.status)}
-                            >
-                              {stats?.status_choices.map((st) => (
-                                <option key={st} value={st}>
-                                  {st}
-                                </option>
-                              ))}
-                            </select>
-                            <button
-                              type="button"
-                              className="btn btn-outline-success btn-sm"
-                              title="更新状态"
-                              onClick={() => handleStatusChange(student.id, student.status, student.status)}
-                            >
-                              <i className="fas fa-check"></i>
-                            </button>
-                          </div>
-                        </td>
+                        {canStudentWrite && (
+                          <td>
+                            <div className="d-flex align-items-center gap-2">
+                              <select
+                                className="form-select form-select-sm"
+                                style={{ minWidth: "100px" }}
+                                value={student.status}
+                                onChange={(e) => handleStatusChange(student.id, e.target.value, student.status)}
+                              >
+                                {stats?.status_choices.map((st) => (
+                                  <option key={st} value={st}>
+                                    {st}
+                                  </option>
+                                ))}
+                              </select>
+                              <button
+                                type="button"
+                                className="btn btn-outline-success btn-sm"
+                                title="更新状态"
+                                onClick={() => handleStatusChange(student.id, student.status, student.status)}
+                              >
+                                <i className="fas fa-check"></i>
+                              </button>
+                            </div>
+                          </td>
+                        )}
                       </tr>
                     );
                   })}
@@ -760,9 +782,11 @@ export default function StudentsPage() {
               <i className="fas fa-users"></i>
               <h4>暂无学生数据</h4>
               <p className="mb-3">还没有添加任何学生，点击下方按钮开始添加</p>
-              <Link href="/students/add" className="btn btn-primary">
-                <i className="fas fa-plus me-1"></i>添加第一个学生
-              </Link>
+              {canStudentWrite ? (
+                <Link href="/students/add" className="btn btn-primary">
+                  <i className="fas fa-plus me-1"></i>添加第一个学生
+                </Link>
+              ) : null}
             </div>
           )}
         </div>
@@ -956,16 +980,18 @@ export default function StudentsPage() {
         }
       `}</style>
       
-      <BatchImportModal 
-        isOpen={isImportModalOpen} 
-        onClose={() => setIsImportModalOpen(false)} 
-        onSuccess={() => {
-          fetchStudents();
-          fetchStats();
-        }}
-        backendBaseUrl={backendBaseUrl}
-        authHeader={authHeader}
-      />
+      {canStudentWrite && (
+        <BatchImportModal 
+          isOpen={isImportModalOpen} 
+          onClose={() => setIsImportModalOpen(false)} 
+          onSuccess={() => {
+            fetchStudents();
+            fetchStats();
+          }}
+          backendBaseUrl={backendBaseUrl}
+          authHeader={authHeader}
+        />
+      )}
     </div>
   );
 }

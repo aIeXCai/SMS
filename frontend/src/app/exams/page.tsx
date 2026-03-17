@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
+import { canWriteExams } from "@/lib/permissions";
 
 type Exam = {
   id: number;
@@ -29,6 +30,7 @@ const backendBaseUrl = typeof window !== "undefined" ? `http://${window.location
 export default function ExamsList() {
   const { user, token, loading } = useAuth();
   const router = useRouter();
+  const canExamWrite = canWriteExams(user);
 
   const [exams, setExams] = useState<Exam[]>([]);
   const [options, setOptions] = useState<ExamOptions | null>(null);
@@ -163,9 +165,11 @@ export default function ExamsList() {
               <p className="mb-0 opacity-75">管理学校的各类考试信息</p>
             </div>
             <div className="col-md-4 text-end">
-              <Link href="/exams/create" className="btn btn-light border">
-                <i className="fas fa-plus me-2"></i>创建考试
-              </Link>
+              {canExamWrite && (
+                <Link href="/exams/create" className="btn btn-light border">
+                  <i className="fas fa-plus me-2"></i>创建考试
+                </Link>
+              )}
             </div>
           </div>
         </div>
@@ -292,19 +296,23 @@ export default function ExamsList() {
                                 </div>
                             </td>
                             <td className="text-center">
-                                <div className="btn-group shadow-sm" role="group">
-                                    <Link href={`/exams/${exam.id}/edit`} className="btn btn-light btn-sm text-primary border" title="编辑考试">
-                                        <i className="fas fa-edit"></i>
-                                    </Link>
-                                    <button 
-                                      type="button" 
-                                      className="btn btn-light btn-sm text-danger border" 
-                                      title="删除考试"
-                                      onClick={() => setDeleteData({ id: exam.id, name: exam.name })}
-                                    >
-                                        <i className="fas fa-trash"></i>
-                                    </button>
-                                </div>
+                                {canExamWrite ? (
+                                  <div className="btn-group shadow-sm" role="group">
+                                      <Link href={`/exams/${exam.id}/edit`} className="btn btn-light btn-sm text-primary border" title="编辑考试">
+                                          <i className="fas fa-edit"></i>
+                                      </Link>
+                                      <button 
+                                        type="button" 
+                                        className="btn btn-light btn-sm text-danger border" 
+                                        title="删除考试"
+                                        onClick={() => setDeleteData({ id: exam.id, name: exam.name })}
+                                      >
+                                          <i className="fas fa-trash"></i>
+                                      </button>
+                                  </div>
+                                ) : (
+                                  <span className="text-muted">只读</span>
+                                )}
                             </td>
                         </tr>
                       ))}
@@ -324,16 +332,18 @@ export default function ExamsList() {
                 <i className="fas fa-clipboard-list mb-3 opacity-25" style={{ fontSize: '4rem' }}></i>
                 <h5 className="fw-bold mb-2">暂无考试记录</h5>
                 <p className="small mb-4">还没有创建任何考试，点击上方按钮开始创建第一个考试吧！</p>
-                <Link href="/exams/create" className="btn btn-primary px-4 rounded-pill shadow-sm">
-                    <i className="fas fa-plus me-2"></i>创建第一个考试
-                </Link>
+                {canExamWrite && (
+                  <Link href="/exams/create" className="btn btn-primary px-4 rounded-pill shadow-sm">
+                      <i className="fas fa-plus me-2"></i>创建第一个考试
+                  </Link>
+                )}
             </div>
           )}
         </div>
       </div>
 
       {/* 删除确认模态框 */}
-      {deleteData && (
+      {canExamWrite && deleteData && (
         <div className="modal d-block" style={{ backgroundColor: "rgba(0,0,0,0.5)" }} tabIndex={-1}>
           <div className="modal-dialog modal-dialog-centered">
             <div className="modal-content border-0 shadow-lg" style={{ borderRadius: '15px' }}>

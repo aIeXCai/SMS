@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
+import { canWriteExams } from "@/lib/permissions";
 
 type Option = { value: string; label: string };
 
@@ -25,6 +26,7 @@ const backendBaseUrl =
 export default function EditExamPage() {
   const { user, token, loading } = useAuth();
   const router = useRouter();
+  const canExamWrite = canWriteExams(user);
   const params = useParams();
   const examId = params?.id as string;
 
@@ -54,6 +56,12 @@ export default function EditExamPage() {
   useEffect(() => {
     if (!loading && !token) router.push("/login");
   }, [loading, token, router]);
+
+  useEffect(() => {
+    if (!loading && user && !canExamWrite) {
+      router.replace("/exams");
+    }
+  }, [loading, user, canExamWrite, router]);
 
   // Load dropdowns + existing exam data in parallel
   useEffect(() => {
@@ -197,6 +205,7 @@ export default function EditExamPage() {
 
   if (loading || pageLoading) return <div className="p-4">加载中...</div>;
   if (!user) return null;
+  if (!canExamWrite) return null;
 
   return (
     <div>

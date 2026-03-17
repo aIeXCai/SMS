@@ -104,3 +104,60 @@ class ExamApiContractSmokeTests(TestCase):
         resp = self.client.delete(f'/api/exams/{self.exam.pk}/')
         self.assertEqual(resp.status_code, 204)
         self.assertFalse(Exam.objects.filter(pk=self.exam.pk).exists())
+
+
+class ExamWritePermissionMatrixTests(TestCase):
+    """Permission matrix checks for exam write endpoints."""
+
+    def setUp(self):
+        self.client = Client()
+        self.User = get_user_model()
+        self.url = '/api/exams/'
+
+    def _login_as(self, role):
+        self.client.logout()
+        user = self.User.objects.create_user(
+            username=f'exam_perm_{role}',
+            password='test-pass-123',
+            role=role,
+        )
+        self.client.force_login(user)
+
+    def _payload(self, suffix):
+        return {
+            'name': f'权限考试-{suffix}',
+            'academic_year': '2025-2026',
+            'grade_level': '初一',
+            'date': '2026-01-20',
+            'description': '权限测试',
+            'subjects': [
+                {'subject_code': '语文', 'max_score': 120},
+            ],
+        }
+
+    def test_exam_write_matrix(self):
+        role_expected = {
+            'admin': 201,
+            'grade_manager': 201,
+            'staff': 201,
+            'subject_teacher': 403,
+        }
+
+        for role, expected_status in role_expected.items():
+            with self.subTest(role=role):
+                self._login_as(role)
+                resp = self.client.post(
+                    self.url,
+                    data=json.dumps(self._payload(role)),
+                    content_type='application/json',
+                )
+                self.assertEqual(resp.status_code, expected_status)
+
+    def test_exam_write_requires_authentication(self):
+        self.client.logout()
+        resp = self.client.post(
+            self.url,
+            data=json.dumps(self._payload('anonymous')),
+            content_type='application/json',
+        )
+        self.assertIn(resp.status_code, (401, 403))

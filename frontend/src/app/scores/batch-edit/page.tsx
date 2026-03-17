@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
+import { canWriteScores } from "@/lib/permissions";
 
 type SubjectOption = { value: string; label: string };
 
@@ -32,6 +33,7 @@ const SCORES_API_BASE = "/api/scores";
 export default function ScoreBatchEditPage() {
   const { user, token, loading } = useAuth();
   const router = useRouter();
+  const canScoreWrite = canWriteScores(user);
   const [studentId, setStudentId] = useState("");
   const [examId, setExamId] = useState("");
   const [paramsReady, setParamsReady] = useState(false);
@@ -65,6 +67,12 @@ export default function ScoreBatchEditPage() {
       router.push("/login");
     }
   }, [loading, token, router]);
+
+  useEffect(() => {
+    if (!loading && user && !canScoreWrite) {
+      router.replace("/scores");
+    }
+  }, [loading, user, canScoreWrite, router]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -233,6 +241,7 @@ export default function ScoreBatchEditPage() {
 
   if (loading || loadingData) return <div className="p-4">加载中...</div>;
   if (!user) return null;
+  if (!canScoreWrite) return null;
 
   return (
     <div>

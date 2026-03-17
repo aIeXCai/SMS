@@ -150,4 +150,58 @@ class StudentApiContractSmokeTests(TestCase):
             resp = self.client.delete(f'/api/students/{student.pk}/')
             self.assertEqual(resp.status_code, 204)
             mocked_delay.assert_called()
+
+
+class StudentWritePermissionMatrixTests(TestCase):
+    """Permission matrix checks for student write endpoints."""
+
+    def setUp(self):
+        self.client = Client()
+        self.User = get_user_model()
+        self.cls = Class.objects.create(grade_level='初一', class_name='2班')
+        self.student = Student.objects.create(
+            student_id='PERM-STU-001',
+            name='权限学生',
+            grade_level='初一',
+            current_class=self.cls,
+            status='在读',
+        )
+        self.url = '/api/students/batch-update-status/'
+        self.payload = {'student_ids': [self.student.pk], 'status': '休学'}
+
+    def _login_as(self, role):
+        self.client.logout()
+        user = self.User.objects.create_user(
+            username=f'student_perm_{role}',
+            password='test-pass-123',
+            role=role,
+        )
+        self.client.force_login(user)
+
+    def test_student_write_matrix(self):
+        role_expected = {
+            'admin': 200,
+            'staff': 200,
+            'grade_manager': 403,
+            'subject_teacher': 403,
+        }
+
+        for role, expected_status in role_expected.items():
+            with self.subTest(role=role):
+                self._login_as(role)
+                resp = self.client.post(
+                    self.url,
+                    data=json.dumps(self.payload),
+                    content_type='application/json',
+                )
+                self.assertEqual(resp.status_code, expected_status)
+
+    def test_student_write_requires_authentication(self):
+        self.client.logout()
+        resp = self.client.post(
+            self.url,
+            data=json.dumps(self.payload),
+            content_type='application/json',
+        )
+        self.assertIn(resp.status_code, (401, 403))
  

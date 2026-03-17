@@ -75,6 +75,11 @@ export default function DashboardPage() {
     return "教辅人员";
   }, [user]);
 
+  const displayName = useMemo(() => {
+    if (!user) return "";
+    return `${user.last_name ?? ""}${user.first_name ?? ""}`.trim() || user.username;
+  }, [user]);
+
   if (loading || !user) {
     return (
       <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "70vh", color: "#666" }}>
@@ -158,7 +163,7 @@ export default function DashboardPage() {
                 👤
               </div>
               <div>
-                <div style={{ fontWeight: 700 }}>{user.first_name || user.username}</div>
+                <div style={{ fontWeight: 700 }}>{displayName}</div>
                 <small style={{ opacity: 0.9 }}>{roleName}</small>
               </div>
             </div>

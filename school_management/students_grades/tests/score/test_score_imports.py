@@ -76,7 +76,7 @@ class ScoreImportApiTests(TestCase):
         self.assertGreaterEqual(body.get('imported_count', 0), 1)
         self.assertTrue(Score.objects.filter(student=self.stu1, exam=self.exam).exists())
 
-    def test_import_requires_admin_or_grade_manager(self):
+    def test_import_allows_staff_by_matrix(self):
         self.client.logout()
         User = get_user_model()
         staff_user = User.objects.create_user(
@@ -91,4 +91,5 @@ class ScoreImportApiTests(TestCase):
         file_obj = make_excel_bytes(headers, rows)
 
         resp = self.client.post(self.url, {'exam': self.exam.pk, 'excel_file': file_obj}, format='multipart')
-        self.assertIn(resp.status_code, (403,))
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.json().get('success'))
