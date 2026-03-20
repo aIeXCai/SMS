@@ -223,6 +223,7 @@ RQ_QUEUES = {
         'DB': 0,
         'PASSWORD': '',
         'DEFAULT_TIMEOUT': 360,
+        'WORKER_CLASS': 'rq.worker.SimpleWorker',
         'CONNECTION_KWARGS': {
             'health_check_interval': 30,
         },
@@ -233,6 +234,7 @@ RQ_QUEUES = {
         'DB': 0,
         'PASSWORD': '',
         'DEFAULT_TIMEOUT': 500,
+        'WORKER_CLASS': 'rq.worker.SimpleWorker',
     },
     'low': {
         'HOST': 'localhost',
@@ -240,6 +242,7 @@ RQ_QUEUES = {
         'DB': 0,
         'PASSWORD': '',
         'DEFAULT_TIMEOUT': 1800,  # 30分钟超时
+        'WORKER_CLASS': 'rq.worker.SimpleWorker',
     }
 }
 

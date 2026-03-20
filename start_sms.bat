@@ -160,7 +160,7 @@ if exist "frontend\package.json" (
 REM 启动 RQ Worker (后台)
 echo.
 echo ⚡ 启动 RQ Worker...
-start "RQ Worker" cmd /k "cd /d "%CD%" && python manage.py rqworker default"
+start "RQ Worker" cmd /k "cd /d "%CD%" && python manage.py rqworker --worker-class rq.worker.SimpleWorker default"
 echo ✅ RQ Worker 已启动 (新窗口)
 
 REM 启动 Django 服务器 (前台)
