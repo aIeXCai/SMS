@@ -152,6 +152,14 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
                 </li>
               </ul>
             </li>
+            <li className="nav-item">
+              {makeLink(
+                "/target-students",
+                "目标生筛选",
+                "fa-bullseye",
+                pathname.startsWith("/target-students")
+              )}
+            </li>
           </ul>
         </div>
 

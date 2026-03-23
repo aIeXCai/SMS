@@ -21,6 +21,7 @@ from .models.exam import Exam, ExamSubject, ACADEMIC_YEAR_CHOICES, SUBJECT_DEFAU
 from .serializers import StudentSerializer, ClassSerializer, ExamSerializer, ScoreSerializer
 from .tasks import update_all_rankings_async
 from .services.analysis_service import analyze_single_class, analyze_multiple_classes, analyze_grade
+from .services import execute_target_student_rule
 from school_management.users.permissions import IsAdminOrStaff, IsAdminOrGradeManagerOrStaff
 
 
@@ -496,6 +497,9 @@ class ScoreViewSet(viewsets.ModelViewSet):
     parser_classes = [JSONParser, MultiPartParser, FormParser]
 
     def get_permissions(self):
+        if self.action == 'target_students_query':
+            return [permissions.IsAuthenticated()]
+
         if self.action in [
             'create', 'update', 'partial_update', 'destroy',
             'manual_add', 'batch_edit_save',
@@ -503,6 +507,69 @@ class ScoreViewSet(viewsets.ModelViewSet):
         ]:
             return [permissions.IsAuthenticated(), IsAdminOrGradeManagerOrStaff()]
         return [permissions.IsAuthenticated()]
+
+    @action(detail=False, methods=['post'], url_path='target-students-query')
+    def target_students_query(self, request):
+        """按规则筛选目标生（第一期：单条件 + 时序量词）。"""
+        try:
+            result = execute_target_student_rule(request.data)
+
+            page = self._parse_pagination_value(
+                request.query_params.get('page', request.data.get('page', 1)),
+                default_value=1,
+                field_name='page',
+                min_value=1,
+                max_value=100000,
+            )
+            page_size = self._parse_pagination_value(
+                request.query_params.get('page_size', request.data.get('page_size', 200)),
+                default_value=200,
+                field_name='page_size',
+                min_value=1,
+                max_value=1000,
+            )
+
+            students = result.get('students', [])
+            total = len(students)
+            num_pages = ((total - 1) // page_size + 1) if total else 1
+
+            if page > num_pages and total > 0:
+                raise ValueError('page 超出范围')
+
+            start = (page - 1) * page_size
+            end = start + page_size
+            paged_students = students[start:end]
+
+            result['students'] = paged_students
+            result['pagination'] = {
+                'page': page,
+                'page_size': page_size,
+                'total': total,
+                'num_pages': num_pages,
+                'has_next': page < num_pages,
+                'has_previous': page > 1,
+            }
+
+            return Response({'success': True, 'data': result})
+        except ValueError as e:
+            return Response({'success': False, 'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'success': False, 'error': f'服务器错误: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @staticmethod
+    def _parse_pagination_value(raw_value, default_value, field_name, min_value, max_value):
+        if raw_value in [None, '']:
+            return default_value
+
+        try:
+            value = int(raw_value)
+        except (TypeError, ValueError):
+            raise ValueError(f'{field_name} 必须是整数')
+
+        if value < min_value or value > max_value:
+            raise ValueError(f'{field_name} 必须在 {min_value}-{max_value} 之间')
+
+        return value
 
     def _get_subject_max_scores(self, exam):
         exam_subjects = ExamSubject.objects.filter(exam=exam)
