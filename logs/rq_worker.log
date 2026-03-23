@@ -1,5 +1,11 @@
-15:53:34 Worker 261a20d54ecd40988ff8641830c90767: started with PID 13696, version 2.5.0
-15:53:34 Worker 261a20d54ecd40988ff8641830c90767: subscribing to channel rq:pubsub:261a20d54ecd40988ff8641830c90767
-15:53:34 *** Listening on default...
-15:53:34 Worker 261a20d54ecd40988ff8641830c90767: cleaning registries for queue: default
-16:07:05 Worker 261a20d54ecd40988ff8641830c90767: cleaning registries for queue: default
+19:27:49 Worker dc06cebe766a42d19d5e6901fc098789: started with PID 51210, version 2.5.0
+19:27:49 Worker dc06cebe766a42d19d5e6901fc098789: subscribing to channel rq:pubsub:dc06cebe766a42d19d5e6901fc098789
+19:27:49 *** Listening on default...
+19:27:49 Worker dc06cebe766a42d19d5e6901fc098789: cleaning registries for queue: default
+19:41:20 Worker dc06cebe766a42d19d5e6901fc098789: cleaning registries for queue: default
+19:54:50 Worker dc06cebe766a42d19d5e6901fc098789: cleaning registries for queue: default
+20:08:20 Worker dc06cebe766a42d19d5e6901fc098789: cleaning registries for queue: default
+20:21:50 Worker dc06cebe766a42d19d5e6901fc098789: cleaning registries for queue: default
+20:35:20 Worker dc06cebe766a42d19d5e6901fc098789: cleaning registries for queue: default
+20:48:50 Worker dc06cebe766a42d19d5e6901fc098789: cleaning registries for queue: default
+21:02:20 Worker dc06cebe766a42d19d5e6901fc098789: cleaning registries for queue: default

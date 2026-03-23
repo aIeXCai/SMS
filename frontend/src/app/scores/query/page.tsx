@@ -494,6 +494,7 @@ export default function ScoresQueryPage() {
                       <th className="frozen-col col-name">姓名</th>
                       <th className="frozen-col col-grade">年级</th>
                       <th className="frozen-col col-class">班级</th>
+                      <th className="frozen-col col-exam">考试</th>
                       <th className="frozen-border"></th>
                       {allSubjects.map((subject) => (
                         <th key={subject} className="score-cell sort-header">
@@ -510,6 +511,9 @@ export default function ScoresQueryPage() {
                         <td className="student-info frozen-col col-name">{row.student.name}</td>
                         <td className="frozen-col col-grade">{row.student.grade_level_display}</td>
                         <td className="frozen-col col-class">{row.class.class_name || "N/A"}</td>
+                        <td className="frozen-col col-exam" title={`${row.exam.academic_year} ${row.exam.name}`}>
+                          <span className="exam-text">{`${row.exam.academic_year} ${row.exam.name}`}</span>
+                        </td>
                         <td className="frozen-border"></td>
                         {allSubjects.map((s) => (
                           <td key={`${row.record_key}_${s}`} className="score-cell">
@@ -667,31 +671,48 @@ export default function ScoresQueryPage() {
           z-index: 3;
         }
         .frozen-table .col-name {
-          min-width: 128px;
-          width: 128px;
-          max-width: 128px;
+          min-width: 96px;
+          width: 96px;
+          max-width: 96px;
           left: 0;
         }
         .frozen-table .col-grade {
           min-width: 72px;
           width: 72px;
           max-width: 72px;
-          left: 128px;
+          left: 96px;
         }
         .frozen-table .col-class {
           min-width: 72px;
           width: 72px;
           max-width: 72px;
-          left: 200px;
+          left: 168px;
+        }
+        .frozen-table .col-exam {
+          min-width: 220px;
+          width: 220px;
+          max-width: 220px;
+          left: 240px;
         }
         .frozen-border {
           position: sticky;
-          left: 272px;
+          left: 460px;
           z-index: 1;
           width: 1px;
           min-width: 1px;
           background: transparent;
           pointer-events: none;
+        }
+        .frozen-table td.col-exam,
+        .frozen-table th.col-exam {
+          overflow: hidden;
+        }
+        .exam-text {
+          display: block;
+          width: 100%;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
         .score-cell {
           text-align: center;
