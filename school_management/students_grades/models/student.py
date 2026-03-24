@@ -14,6 +14,26 @@ GRADE_LEVEL_CHOICES = [
     # 可以根據需要添加更多年級，例如 '初一', '初二', '初三'
 ]
 
+# 学段选项
+SECTION_CHOICES = [
+    ('junior', '初中'),
+    ('senior', '高中'),
+]
+
+# 届别年份选项（2020-2030）
+COHORT_YEAR_CHOICES = [(str(year), f'{year}级') for year in range(2020, 2031)]
+
+# cohort 组合选项（动态生成）
+# 格式：section + cohort_year = "初中2026级"
+_COHORT_CHOICES = []
+for section_code, section_display in SECTION_CHOICES:
+    for cohort_year, cohort_year_display in COHORT_YEAR_CHOICES:
+        value = f'{section_display}{cohort_year}'
+        label = f'{section_display}{cohort_year}'
+        _COHORT_CHOICES.append((value, label))
+
+COHORT_CHOICES = _COHORT_CHOICES
+
 CLASS_NAME_CHOICES = [(f'{i}班', f'{i}班') for i in range(1, 21)]
 
 STATUS_CHOICES = [
@@ -29,6 +49,15 @@ class Class(models.Model):
     班級實體：管理學校的班級資訊，包含年級。
     """
     grade_level = models.CharField(max_length=10, choices=GRADE_LEVEL_CHOICES, verbose_name="年级")
+    cohort = models.CharField(
+        max_length=20,
+        choices=COHORT_CHOICES,
+        verbose_name="届别",
+        help_text="格式：初中/高中 + 年份级，如初中2026级",
+        null=True,
+        blank=True,
+        db_index=True
+    )
     class_name = models.CharField(max_length=20, choices=CLASS_NAME_CHOICES, verbose_name="班级名称") # 例如 '1班', '2班'
     # full_class_name 可以在 Model 方法中生成，無需單獨儲存
     homeroom_teacher = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="班主任")
@@ -36,8 +65,8 @@ class Class(models.Model):
     subject_teachers = models.ManyToManyField(settings.AUTH_USER_MODEL, blank=True, related_name='teaching_classes', verbose_name="任课老师")
 
     class Meta:
-        # 确保在同一學年（年級）下，班級名稱是唯一的
-        unique_together = ('grade_level', 'class_name')
+        # 确保在同一届别下，班級名稱是唯一的
+        unique_together = ('cohort', 'class_name')
         verbose_name = "班级"
         verbose_name_plural = "班级"
 
@@ -65,6 +94,15 @@ class Student(models.Model):
         verbose_name="年級",
         null=True,
         blank=True
+    )
+    cohort = models.CharField(
+        max_length=20,
+        choices=COHORT_CHOICES,
+        verbose_name="届别",
+        help_text="格式：初中/高中 + 年份级，如初中2026级",
+        null=True,
+        blank=True,
+        db_index=True
     )
     current_class = models.ForeignKey(Class, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="当前班级") # 保持與 Class 的外鍵關係
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='在读', verbose_name="在校状态")

@@ -1,5 +1,5 @@
 from django.db import models
-from .student import GRADE_LEVEL_CHOICES
+from .student import COHORT_CHOICES
 
 
 # 学年选择
@@ -78,11 +78,10 @@ class Exam(models.Model):
         blank = True
     )
     date = models.DateField(verbose_name="考試日期")
-    # 可以指定適用年級，或者如果考試是跨年級的，可以設計為多對多關係
-    # 這裡先使用單一年級，沿用 students.models 中的 GRADE_LEVEL_CHOICES
+    # 适用年级：改造后存储 cohort 值（如"初中2026级"）
     grade_level = models.CharField(
-        max_length=10,
-        choices=GRADE_LEVEL_CHOICES,
+        max_length=20,
+        choices=COHORT_CHOICES,
         verbose_name="適用年級"
     )
     description = models.TextField(

@@ -13,53 +13,66 @@
 - API 先兼容，前端逐步切换，最后再移除旧字段。
 - 所有高风险改动可回滚，迁移可重复执行或可校验。
 
-## 3. 目标数据模型（建议）
+## 3. 目标数据模型
 
-### 3.1 核心字段
+### 3.1 核心字段设计
 
-- section: 学段
-  - 枚举值：junior（初中）、senior（高中）
-  - **来源：用户手动选择**（初中部/高中部，由用户在导入/创建时指定）
-  - 例：选择"初中部" → section = junior；选择"高中部" → section = senior
-- cohort_year: 届别年份
-  - **定义：入学年份**（例如：2026，即 2026级）
-  - 例：2026年入学的学生 → cohort_year = 2026 → 2026级
-- grade_level（旧字段）
-  - 迁移期保留，用于兼容老逻辑
-- grade_code（可选）
-  - 例如：7/8/9/10/11/12，便于升年级与统计
+#### Student / Class 模型
 
-### 3.2 展示字段
+| 字段 | 用途 | 说明 |
+|------|------|------|
+| grade_level | **展示 + 批量升年级** | 值域变化：从"初一/初二..."变为"初中2026级/初中2025级/高中2026级..." |
+| cohort | **查询用** | section + cohort_year 组合值，如"初中2026级"、"高中2025级" |
 
-- cohort_label（只读计算字段）
-  - 例如：2026级
-- section_display（只读）
-  - 初中/高中
-- full_grade_display（只读）
-  - 例如：高中2026级
+#### Exam 模型
+
+| 字段 | 用途 | 说明 |
+|------|------|------|
+| grade_level | **适用年级 = cohort** | 存储 cohort 值（如"初中2026级"），**既是适用年级也是查询标识** |
+| academic_year | **学年** | 用户手动指定（如"2025-2026"），不变 |
+
+#### grade_level 值域对照表
+
+| 旧值（改造前） | 新值（改造后） |
+|---------------|---------------|
+| 初一 | 初中2026级 |
+| 初二 | 初中2025级 |
+| 初三 | 初中2024级 |
+| 高一 | 高中2026级 |
+| 高二 | 高中2025级 |
+| 高三 | 高中2024级 |
+
+**说明**：
+- 改造后 grade_level 的值 = section + cohort_year 组合
+- 例如"初中2026级"表示2026年入学的初中生
+- Exam.grade_level 存储的即为 cohort 值
+
+### 3.2 字段职责划分
+
+| 字段 | 职责 |
+|------|------|
+| **grade_level** | 1. 界面展示<br>2. 批量升年级逻辑 |
+| **cohort** (Student/Class) | 查询、筛选、过滤、分组 |
 
 ### 3.3 重要说明
 
-#### section 学段来源
-- **由用户在导入/创建时手动选择**
-- 选项：初中部（junior）、高中部（senior）
-- 前端导入模板新增"学段"列
-- 前端创建表单新增学段选择器
+#### cohort 字段来源
+- **新建学生/班级**：用户在导入/创建时选择 section + cohort_year，系统组合为 cohort
+- **历史学生/班级**：导出现有数据后，用户补充 section + cohort_year，再重新导入
 
-#### cohort_year 定义
-- **cohort_year = 入学年份**
-- 例如：2026年入学的学生 → cohort_year = 2026 → 显示为"2026级"
-- section 与 cohort_year 配合使用，共同确定学生身份
+#### grade_level 值的选择
+- 用户在创建/编辑时，需要**同时选择 grade_level 和 cohort**
+- grade_level 下拉选项 = cohort 值（如"初中2026级"）
+- 系统自动将用户选择的 cohort 值写入 grade_level
 
-#### Student.cohort_year 来源
-- **新建学生**：用户在导入学生时手动填写 cohort_year
-- **历史学生**：导出现有数据后，用户补充 cohort_year，再重新导入
+#### Exam.grade_level 的特殊性
+- Exam 的"适用年级"直接存储 cohort 值
+- 查询某届学生的考试时，直接用 `exam.grade_level = "初中2026级"` 过滤
 
 #### Score.total_score_rank_in_grade 处理策略
 - **不需要回填**
 - 该字段只和当场考试有关，按"当时考试对应的 grade_level"计算
 - 即使出现休学、留级等情况，历史排名数据保持不变
-- 查询时按 Exam.grade_level 关联
 
 
 ## 4. 受影响范围与文件清单
@@ -115,23 +128,31 @@
 - ✅ 回滚用数据库副本：`data/backups/db_backup_20260324_095219.sqlite3`
 - ✅ API响应样例：`docs/年级字段更改/api_samples.json`
 
-## 阶段 B：模型扩展（不破坏旧逻辑）
+## 阶段 B：模型扩展（不破坏旧逻辑）✅ FINISHED
 
-- [ ] Student 增加字段：section、cohort_year（可选 grade_code）
-- [ ] Class 增加字段：section、cohort_year
-- [ ] Exam 增加字段：section、cohort_year
-- [ ] 保留旧 grade_level 字段不删除
-- [ ] 新增联合索引（section, cohort_year）
-- [ ] 新增唯一约束草案（见阶段 D 执行）
+- [x] Student 增加字段：`cohort`（存储格式如"初中2026级"）
+- [x] Class 增加字段：`cohort`（存储格式如"初中2026级"）
+- [x] Exam **不增加新字段**，grade_level 的值域改为 cohort 格式
+- [x] 保留旧 grade_level 字段不删除（用于展示）
+- [x] 新增联合索引（cohort）
+- [x] 新增唯一约束草案（见阶段 D 执行）
 
-### 新建学生时的 cohort_year 来源
-- **用户手动指定**：在学生导入/创建时，由用户填写 cohort_year
-- 导入模板新增 cohort_year 列（必填）
-- 前端创建学生表单新增 cohort_year 选择器
+> **⚠️ 后期待办**：当前 cohort 字段暂时允许 null（因为现有数据库有数据）。等阶段C完成数据重新导入后，需创建迁移将 cohort 改为必填（`null=False`）。
+
+### 新建学生/班级时的 cohort 来源
+- **用户手动选择**：在导入/创建时，用户选择 section + cohort_year，系统组合为 cohort
+- 导入模板新增 section 和 cohort_year 两列（必填）
+- 前端表单新增 section 和 cohort_year 选择器
+
+### cohort 值格式
+- 格式：`{section_display}{cohort_year}级`
+- 示例：`初中2026级`、`高中2025级`
+- section_display：初中 / 高中
+- cohort_year：2024 / 2025 / 2026 / ...
 
 ### 约束建议（迁移后启用）：
-- Class: unique(section, cohort_year, class_name)
-- Exam: unique(academic_year, name, section, cohort_year)
+- Class: unique(cohort, class_name)
+- Exam: unique(academic_year, name, grade_level)
 
 ## 阶段 C：历史数据回填迁移
 
@@ -150,27 +171,21 @@
 - 初中部对应 junior，高中部对应 senior
 - **留级、跳级等特殊情况**：系统检测到同一班级内存在不同 cohort_year 的学生时，**提示管理员手动确认**
 
-**Cohort_year / Section 变更场景**：
+**Cohort 变更场景**：
 | 场景 | 处理方式 |
 |------|---------|
-| 正常升学 | cohort_year 不变，section 不变，grade_level 变化 |
-| 留级 | grade_level 降级，cohort_year 不变，section 不变 |
-| 跳级 | grade_level 升级，cohort_year 不变，section 不变 |
-| 转学 | 在新学校重新分配 cohort_year（视为新学生） |
+| 正常升学 | cohort 不变，grade_level 变化 |
 | 初中升高中 | **不考虑**（初中部和高中部独立管理） |
 
-### Class 回填规则
+### Class 数据填充规则
 - [ ] 班级是固定的，同一班级和年级不会存在不同届学生
 - [ ] 根据班级内学生的 cohort_year 填充（正常情况下全班一致）
 - [ ] 如发现同一班级内存在不同 cohort_year 的学生，**提示管理员手动确认**
 
-### Exam 回填规则
-- [ ] Exam 正常情况下应已有 Score 记录（考试后必须录入成绩）
-- [ ] 从 Exam 中已关联的 Score 记录 → 反推 Student.cohort_year → 填充 Exam.cohort_year
-- [ ] 或使用 Exam.academic_year + grade_level 反推 section
-
-**冲突处理**：
-- 同 section + cohort_year + class_name 冲突时，输出人工修复清单，不自动覆盖
+### Exam 数据填充规则
+- [ ] 导出现有考试数据（备份）
+- [ ] 删除所有现有考试记录
+- [ ] 按新格式重新导入考试（用户选择 section + cohort_year，系统组合为 cohort 写入 grade_level）
 
 ## 阶段 D：后端逻辑双栈兼容
 
@@ -183,14 +198,14 @@
 - [ ] 旧列年级保留一版周期，并在响应中标记 deprecated
 
 **查询策略变更**：
-- **grade_level 只做展示用，不再作为查询条件**
-- 查询统一使用 section + cohort_year
-- 例如：查询"2026级初中部学生" → section=junior, cohort_year=2026
+- **Student/Class**：查询使用 cohort 字段（如 `cohort = "初中2026级"`）
+- **Exam**：查询使用 grade_level 字段（存储的即为 cohort 值，如 `grade_level = "初中2026级"`）
+- **grade_level 仅用于展示和批量升年级，不再参与实际业务查询**
 
 兼容策略：
-- grade_level 仅做展示用，**不参与服务端查询**
-- 旧参数 grade_level 在灰度期内可继续传入，但会被忽略（仅做展示）
-- 新参数 section + cohort_year 为实际查询条件
+- Student/Class 的 grade_level 仅做展示用
+- 旧参数 grade_level 在灰度期内可继续传入，但会被忽略
+- cohort 为实际查询条件
 
 ## 阶段 E：前端切换
 
@@ -284,11 +299,12 @@
 
 | 定义项 | 值 | 说明 |
 |--------|-----|------|
-| section 定义 | **学段** | 初中部(junior)、高中部(senior)，**学生整个求学期间保持不变** |
-| cohort_year 定义 | **入学年份** | 例如 2026年入学 → 2026级；**学生升学后保持不变** |
-| Student.section 来源 | **用户手动选择** | 历史学生：重新导入时补充；新学生：导入时选择 |
-| Student.cohort_year 来源 | **用户手动填写** | 历史学生：重新导入时补充；新学生：导入时填写 |
-| 查询策略 | **只按 cohort_year 查询** | grade_level 只做展示用，不再作为查询条件 |
+| cohort 定义 | **学段+届别组合** | 格式如"初中2026级"、"高中2025级"；**学生升学后保持不变** |
+| Student/Class.cohort | **新增字段** | 用于查询、筛选、分组 |
+| Student/Class.grade_level | **保留字段，值域改变** | 展示用 + 批量升年级；改造后值如"初中2026级" |
+| Exam.grade_level | **存储 cohort 值** | 既是适用年级也是查询标识 |
+| 查询策略 | **按 cohort 查询** | Student/Class 用 cohort；Exam 用 grade_level（=cohort） |
+| grade_level 职责 | **展示 + 批量升年级** | 不参与业务查询 |
 | Score.total_score_rank_in_grade | **不需回填** | 只和当场考试有关，历史数据不变 |
 | 初高中衔接 | **不考虑** | 初中部和高中部独立管理 |
 
