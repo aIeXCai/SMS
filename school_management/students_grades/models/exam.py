@@ -106,8 +106,29 @@ class Exam(models.Model):
     def get_default_subjects_config(self):
         """
         根据年级获取默认的科目配置
+        支持旧格式（如"初三"）和新cohort格式（如"初中2026级"）
         """
-        return SUBJECT_DEFAULT_MAX_SCORES.get(self.grade_level, {})
+        # 如果是 cohort 格式（如"初中2026级"），提取基础年级
+        grade_level = self.grade_level
+        if grade_level:
+            # cohort 格式: "初中2026级" 或 "高中2025级"
+            if '初' in grade_level:
+                # 初中: 初一, 初二, 初三
+                if '一' in grade_level:
+                    grade_level = '初一'
+                elif '二' in grade_level:
+                    grade_level = '初二'
+                elif '三' in grade_level:
+                    grade_level = '初三'
+            elif '高' in grade_level:
+                # 高中: 高一, 高二, 高三
+                if '一' in grade_level:
+                    grade_level = '高一'
+                elif '二' in grade_level:
+                    grade_level = '高二'
+                elif '三' in grade_level:
+                    grade_level = '高三'
+        return SUBJECT_DEFAULT_MAX_SCORES.get(grade_level, {})
 
 class ExamSubject(models.Model):
     """

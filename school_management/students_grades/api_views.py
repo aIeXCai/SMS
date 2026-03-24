@@ -1,4 +1,5 @@
 import openpyxl
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 import datetime
 import json
 from collections import defaultdict
@@ -226,39 +227,82 @@ class StudentViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], url_path='download-template')
     def download_template(self, request):
-        """下载批量导入模板"""
+        """下载批量导入模板（新版：学段+届别格式）"""
+        from .models.student import SECTION_CHOICES, COHORT_YEAR_CHOICES
+
         workbook = openpyxl.Workbook()
         sheet = workbook.active
         sheet.title = "学生导入模板"
 
+        # 样式定义
+        header_font = Font(bold=True, color="FFFFFF", size=11)
+        header_fill = PatternFill("solid", fgColor="00897B")
+        header_alignment = Alignment(horizontal="center", vertical="center")
+        thin_border = Border(
+            left=Side(style='thin'), right=Side(style='thin'),
+            top=Side(style='thin'), bottom=Side(style='thin')
+        )
+
         headers = [
             "学号 (必填)", "姓名 (必填)", "性别 (男/女)", "出生日期 (YYYY-MM-DD)",
-            "年级 (初一/初二/初三/高一/高二/高三)", "班级名称 (1班-20班)", "在校状态 (在读/转学/休学/复学/毕业)",
-            "身份证号码", "学籍号", "家庭地址", "监护人姓名", "监护人联系电话",
-            "入学日期 (YYYY-MM-DD)", "毕业日期 (YYYY-MM-DD, 毕业状态必填)"
+            "学段 (初中/高中)", "届别年份 (纯数字，如2026)", "年级 (初一/初二/初三/高一/高二/高三)",
+            "班级名称 (1班-20班)", "在校状态 (在读/转学/休学/复学/毕业)", "身份证号码", "学籍号",
+            "家庭地址", "监护人姓名", "监护人联系电话",
+            "入学日期 (YYYY-MM-DD)", "毕业日期 (YYYY-MM-DD)"
         ]
-        sheet.append(headers)
 
-        # 针对有选项的栏位，添加提示信息或数据验证 (更友好的提示)
-        gender_validation_text = "请填写 '男'或'女'"
-        sheet.cell(row=2, column=headers.index("性别 (男/女)") + 1).comment = openpyxl.comments.Comment(gender_validation_text, "System")
+        # 添加表头
+        for col, header in enumerate(headers, 1):
+            cell = sheet.cell(row=1, column=col, value=header)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = header_alignment
+            cell.border = thin_border
 
-        grade_level_options = ', '.join([choice[0] for choice in GRADE_LEVEL_CHOICES])
-        grade_validation_text = f"请填写以下任一年级: {grade_level_options}"
-        sheet.cell(row=2, column=headers.index("年级 (初一/初二/初三/高一/高二/高三)") + 1).comment = openpyxl.comments.Comment(grade_validation_text, "System")
+        # 添加示例数据
+        example_row = [
+            "S001", "张三", "男", "2010-05-15",
+            "初中", "2026", "初一", "1班", "在读", "", "",
+            "", "张父", "13800138000", "2023-09-01", ""
+        ]
+        for col, value in enumerate(example_row, 1):
+            cell = sheet.cell(row=2, column=col, value=value)
+            cell.alignment = header_alignment
+            cell.border = thin_border
+
+        # 设置列宽
+        col_widths = [15, 10, 8, 18, 15, 18, 22, 15, 20, 15, 15, 20, 12, 15, 15, 15]
+        for col, width in enumerate(col_widths, 1):
+            sheet.column_dimensions[chr(64 + col) if col <= 26 else 'A' + chr(64 + col - 26)].width = width
+
+        # 设置行高
+        sheet.row_dimensions[1].height = 25
+
+        # 添加提示信息
+        section_options = ', '.join([f"{s[0]}({s[1]})" for s in SECTION_CHOICES])
+        sheet.cell(row=2, column=5).comment = openpyxl.comments.Comment(
+            f"请填写: {section_options}", "System")
+
+        cohort_options = ', '.join([c[0] for c in COHORT_YEAR_CHOICES])
+        sheet.cell(row=2, column=6).comment = openpyxl.comments.Comment(
+            f"请填写纯数字，如: {cohort_options}", "System")
+
+        grade_level_options = ', '.join([g[0] for g in GRADE_LEVEL_CHOICES])
+        sheet.cell(row=2, column=7).comment = openpyxl.comments.Comment(
+            f"请填写: {grade_level_options}", "System")
 
         class_name_options = ', '.join([choice[0] for choice in CLASS_NAME_CHOICES])
-        class_validation_text = f"请填写以下任一班级: {class_name_options}"
-        sheet.cell(row=2, column=headers.index("班级名称 (1班-20班)") + 1).comment = openpyxl.comments.Comment(class_validation_text, "System")
+        sheet.cell(row=2, column=8).comment = openpyxl.comments.Comment(
+            f"请填写: {class_name_options}", "System")
 
-        status_options = ', '.join([choice[0] for choice in STATUS_CHOICES])
-        status_validation_text = f"请填写以下任一状态: {status_options}"
-        sheet.cell(row=2, column=headers.index("在校状态 (在读/转学/休学/复学/毕业)") + 1).comment = openpyxl.comments.Comment(status_validation_text, "System")
+        status_options = ', '.join([s[0] for s in STATUS_CHOICES])
+        sheet.cell(row=2, column=9).comment = openpyxl.comments.Comment(
+            f"请填写: {status_options}", "System")
 
         date_format_text = "日期格式必须是 YYYY-MM-DD，例如 2006-01-23"
-        sheet.cell(row=2, column=headers.index("出生日期 (YYYY-MM-DD)") + 1).comment = openpyxl.comments.Comment(date_format_text, "System")
-        sheet.cell(row=2, column=headers.index("入学日期 (YYYY-MM-DD)") + 1).comment = openpyxl.comments.Comment(date_format_text, "System")
-        sheet.cell(row=2, column=headers.index("毕业日期 (YYYY-MM-DD, 毕业状态必填)") + 1).comment = openpyxl.comments.Comment(date_format_text + " (毕业状态必填此项)", "System")
+        sheet.cell(row=2, column=4).comment = openpyxl.comments.Comment(date_format_text, "System")
+        sheet.cell(row=2, column=15).comment = openpyxl.comments.Comment(date_format_text, "System")
+        sheet.cell(row=2, column=16).comment = openpyxl.comments.Comment(date_format_text, "System")
 
         response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
         response['Content-Disposition'] = 'attachment; filename="student_import_template.xlsx"'
@@ -288,6 +332,8 @@ class StudentViewSet(viewsets.ModelViewSet):
                 "性别 (男/女)": "gender",
                 "出生日期 (YYYY-MM-DD)": "date_of_birth",
                 "年级 (初一/初二/初三/高一/高二/高三)": "grade_level",
+                "学段 (初中/高中)": "_section",
+                "届别年份 (纯数字，如2026)": "_cohort_year",
                 "班级名称 (1班-20班)": "class_name",
                 "在校状态 (在读/转学/休学/复学/毕业)": "status",
                 "身份证号码": "id_card_number",
@@ -296,7 +342,7 @@ class StudentViewSet(viewsets.ModelViewSet):
                 "监护人姓名": "guardian_name",
                 "监护人联系电话": "guardian_contact_phone",
                 "入学日期 (YYYY-MM-DD)": "entry_date",
-                "毕业日期 (YYYY-MM-DD, 毕业状态必填)": "graduation_date",
+                "毕业日期 (YYYY-MM-DD)": "graduation_date",
             }
 
             imported_count = 0
@@ -305,12 +351,30 @@ class StudentViewSet(viewsets.ModelViewSet):
             error_messages = []
             warning_messages = []
 
+            # 检测Excel中是否有重复学号
+            excel_student_ids = []
+            duplicate_rows = []
+
+            for row_idx, row in enumerate(sheet.iter_rows(min_row=2, values_only=True), start=2):
+                if not any(row):
+                    continue
+                row_data = dict(zip(header, row))
+                sid = row_data.get('学号 (必填)') or row_data.get('学号')
+                if sid:
+                    sid = str(sid).strip()
+                    if sid in excel_student_ids:
+                        duplicate_rows.append({'row': row_idx, 'student_id': sid})
+                    excel_student_ids.append(sid)
+
+            if duplicate_rows:
+                warning_messages.append(f"检测到Excel中有重复学号：{', '.join([r['student_id'] for r in duplicate_rows])}")
+
             from django.db import transaction
 
             for row_idx, row in enumerate(sheet.iter_rows(min_row=2, values_only=True), start=2):
                 if not any(row):
                     continue
-                    
+
                 try:
                     with transaction.atomic():
                         row_data = dict(zip(header, row))
@@ -321,14 +385,18 @@ class StudentViewSet(viewsets.ModelViewSet):
 
                         if not student_data.get('student_id') or not student_data.get('name'):
                             raise ValueError("学号和姓名为必填字段")
-                        
+
                         if student_data.get('student_id'):
                             student_data['student_id'] = str(student_data['student_id']).strip()
-                        
+
                         if student_data.get('id_card_number'):
                             student_data['id_card_number'] = str(student_data['id_card_number']).strip()
-                        if student_data.get('student_enrollment_number'):
-                            student_data['student_enrollment_number'] = str(student_data['student_enrollment_number']).strip()
+                        # 学籍号：空字符串也设为None，避免唯一约束冲突
+                        enrollment = student_data.get('student_enrollment_number')
+                        if enrollment and str(enrollment).strip():
+                            student_data['student_enrollment_number'] = str(enrollment).strip()
+                        else:
+                            student_data['student_enrollment_number'] = None
 
                         for date_field in ['date_of_birth', 'entry_date', 'graduation_date']:
                             if date_field in student_data:
@@ -373,30 +441,43 @@ class StudentViewSet(viewsets.ModelViewSet):
                                 warning_messages.append(f"第 {row_idx} 行的性别值 '{gender_value}' 无效，已设置为空")
                                 student_data['gender'] = None
 
-                        grade_level = student_data.pop('grade_level', None)
+                        # 处理学段 + 届别年份 → cohort
+                        section = student_data.pop('_section', None)
+                        cohort_year = student_data.pop('_cohort_year', None)
                         class_name = student_data.pop('class_name', None)
                         current_class_obj = None
 
-                        if grade_level and class_name:
+                        # grade_level 直接从 Excel 读取（传统格式如"初一"）
+                        # cohort = section + cohort_year + "级"（如"初中2024级"）
+                        if section and cohort_year:
+                            cohort_year_str = str(cohort_year).strip()
+                            cohort_value = f"{section}{cohort_year_str}级"
+                            student_data['cohort'] = cohort_value
+
+                        if class_name:
+                            # 使用 grade_level + class_name 作为查找键，确保正确匹配
                             try:
                                 current_class_obj, created = Class.objects.get_or_create(
-                                    grade_level=grade_level,
-                                    class_name=class_name
+                                    grade_level=student_data.get('grade_level', ''),
+                                    class_name=class_name,
+                                    defaults={
+                                        'grade_level': student_data.get('grade_level', ''),
+                                        'cohort': student_data.get('cohort', '')
+                                    }
                                 )
                                 if created:
-                                    success_messages.append(f"自动创建班级：{grade_level}{class_name}")
+                                    success_messages.append(f"自动创建班级：{student_data.get('grade_level', '')}{class_name}")
                             except Exception as e:
                                 raise ValueError(f"班级创建/查找失败: {e}")
 
                         student_data['current_class'] = current_class_obj
-                        student_data['grade_level'] = grade_level
 
                         student_id = student_data.get('student_id')
                         student_obj, created = Student.objects.update_or_create(
                             student_id=student_id,
                             defaults=student_data
                         )
-                        
+
                         if created:
                             success_messages.append(f"成功新增学生：{student_obj.name} ({student_obj.student_id})")
                         else:
