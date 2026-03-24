@@ -1,0 +1,56 @@
+{
+  "timestamp": "2026-03-24T09:54:07.103155",
+  "description": "关键API响应样例 - 用于回归对比",
+  "GET /api/students/ (样例)": [
+    {
+      "id": 1493,
+      "student_id": "241450",
+      "name": "李业升",
+      "gender": "男",
+      "date_of_birth": null,
+      "entry_date": "2026-03-02",
+      "graduation_date": null,
+      "id_card_number": null,
+      "student_enrollment_number": null,
+      "home_address": "",
+      "guardian_name": "",
+      "guardian_contact_phone": "",
+      "current_class": {
+        "id": 14,
+        "grade_level": "初二",
+        "class_name": "14班"
+      },
+      "status": "在读"
+    }
+  ],
+  "GET /api/classes/ (样例)": [
+    {
+      "id": 1,
+      "grade_level": "初二",
+      "class_name": "1班"
+    }
+  ],
+  "GET /api/exams/ (样例)": [
+    {
+      "id": 8,
+      "name": "下学期开学测试",
+      "academic_year": "2025-2026",
+      "date": "2026-03-02",
+      "grade_level": "初二",
+      "exam_subjects": [
+        {"id": 59, "exam": 8, "subject_code": "语文", "subject_name": "语文", "max_score": 140},
+        {"id": 60, "exam": 8, "subject_code": "数学", "subject_name": "数学", "max_score": 150}
+      ]
+    }
+  ],
+  "GET /api/scores/ (样例)": [
+    {
+      "id": 35825,
+      "student": 1199,
+      "exam": 10,
+      "subject": "历史",
+      "score_value": "72.00",
+      "student_name": "丁一媛"
+    }
+  ]
+}

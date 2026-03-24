@@ -103,16 +103,17 @@
 
 ## 5. 改造阶段与执行清单
 
-## 阶段 A：冻结与基线
+## 阶段 A：冻结与基线 ✅ FINISHED
 
-- [ ] 创建迁移分支，例如 feature/grade-section-cohort
-- [ ] 备份数据库（至少一份本地快照）
-- [ ] 导出现网关键报表基线（查询结果、排名、年级分析）
-- [ ] 记录当前 API 响应样例用于回归对比
+- [x] 创建迁移分支，例如 feature/grade-section-cohort
+- [x] 备份数据库（至少一份本地快照）
+- [x] 导出现网关键报表基线（查询结果、排名、年级分析）
+- [x] 记录当前 API 响应样例用于回归对比
 
 交付物：
-- 基线数据包（json/csv）
-- 回滚用数据库副本
+- ✅ 基线数据包（json/csv）：`docs/年级字段更改/baseline_data.json`
+- ✅ 回滚用数据库副本：`data/backups/db_backup_20260324_095219.sqlite3`
+- ✅ API响应样例：`docs/年级字段更改/api_samples.json`
 
 ## 阶段 B：模型扩展（不破坏旧逻辑）
 
