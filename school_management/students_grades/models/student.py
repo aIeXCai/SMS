@@ -21,15 +21,15 @@ SECTION_CHOICES = [
 ]
 
 # 届别年份选项（2020-2030）
-COHORT_YEAR_CHOICES = [(str(year), f'{year}级') for year in range(2020, 2031)]
+COHORT_YEAR_CHOICES = [(str(year), f'{year}级') for year in range(2023, 2031)]
 
 # cohort 组合选项（动态生成）
 # 格式：section + cohort_year = "初中2026级"
 _COHORT_CHOICES = []
 for section_code, section_display in SECTION_CHOICES:
     for cohort_year, cohort_year_display in COHORT_YEAR_CHOICES:
-        value = f'{section_display}{cohort_year}'
-        label = f'{section_display}{cohort_year}'
+        value = f'{section_display}{cohort_year}级'
+        label = f'{section_display}{cohort_year}级'
         _COHORT_CHOICES.append((value, label))
 
 COHORT_CHOICES = _COHORT_CHOICES

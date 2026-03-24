@@ -15,7 +15,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters
 from .models.student import (
     Student, Class,
-    STATUS_CHOICES, GRADE_LEVEL_CHOICES, CLASS_NAME_CHOICES,
+    STATUS_CHOICES, GRADE_LEVEL_CHOICES, CLASS_NAME_CHOICES, COHORT_CHOICES,
 )
 from .models.score import Score, SUBJECT_CHOICES as SCORE_SUBJECT_CHOICES
 from .models.exam import Exam, ExamSubject, ACADEMIC_YEAR_CHOICES, SUBJECT_DEFAULT_MAX_SCORES
@@ -542,15 +542,20 @@ class ExamViewSet(viewsets.ModelViewSet):
         """返回学年、年级下拉选项"""
         return Response({
             'academic_years': [{'value': choice[0], 'label': choice[1]} for choice in ACADEMIC_YEAR_CHOICES],
-            'grade_levels': [{'value': choice[0], 'label': choice[1]} for choice in GRADE_LEVEL_CHOICES],
+            'grade_levels': [{'value': choice[0], 'label': choice[1]} for choice in COHORT_CHOICES],
         })
 
     @action(detail=False, methods=['get'], url_path='default-subjects')
     def default_subjects(self, request):
-        """根据年级返回默认科目和满分配置"""
-        from .models.exam import SUBJECT_DEFAULT_MAX_SCORES, SUBJECT_CHOICES
+        """根据年级和学年返回默认科目和满分配置"""
+        from .models.exam import Exam, SUBJECT_DEFAULT_MAX_SCORES, SUBJECT_CHOICES
         grade_level = request.query_params.get('grade_level', '')
-        grade_config = SUBJECT_DEFAULT_MAX_SCORES.get(grade_level, {})
+        academic_year = request.query_params.get('academic_year', '')
+
+        # 创建一个临时 Exam 对象来计算基础年级
+        exam = Exam(grade_level=grade_level, academic_year=academic_year)
+        base_grade_level = exam.get_grade_level_from_cohort()
+        grade_config = SUBJECT_DEFAULT_MAX_SCORES.get(base_grade_level, {})
         # 按 SUBJECT_CHOICES 顺序返回
         subject_order = [code for code, _ in SUBJECT_CHOICES]
         subjects = [

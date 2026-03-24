@@ -103,31 +103,62 @@ class Exam(models.Model):
         else:
             return f"{self.name} ({self.get_grade_level_display()})"
     
+    def get_grade_level_from_cohort(self):
+        """
+        根据 cohort 和 academic_year 计算基础年级（初几/高几）
+
+        计算公式：grade_index = academic_year_start - cohort_year + 1
+        例如：
+        - cohort="初中2023级"，academic_year="2025-2026"
+        - academic_year_start=2025, cohort_year=2023
+        - grade_index = 2025 - 2023 + 1 = 3
+        - 初中第3年 = 初三
+        """
+        if not self.grade_level or not self.academic_year:
+            return None
+
+        grade_level = self.grade_level
+
+        # 如果是旧格式（直接是"初一"等），直接返回
+        if grade_level in ['初一', '初二', '初三', '高一', '高二', '高三']:
+            return grade_level
+
+        # cohort 格式: "初中2026级" 或 "高中2025级"
+        try:
+            # 提取 section 和 cohort_year
+            if '初' in grade_level:
+                section = '初'
+                cohort_year = int(grade_level.replace('初中', '').replace('级', ''))
+            elif '高' in grade_level:
+                section = '高'
+                cohort_year = int(grade_level.replace('高中', '').replace('级', ''))
+            else:
+                return None
+
+            # 计算学年起始年
+            academic_year_start = int(self.academic_year.split('-')[0])
+
+            # 计算年级索引（1=初一/高一, 2=初二/高二, 3=初三/高三）
+            grade_index = academic_year_start - cohort_year + 1
+
+            # 映射到年级
+            if section == '初':
+                grades = ['初一', '初二', '初三']
+            else:
+                grades = ['高一', '高二', '高三']
+
+            if 1 <= grade_index <= 3:
+                return grades[grade_index - 1]
+            else:
+                return None
+        except (ValueError, IndexError):
+            return None
+
     def get_default_subjects_config(self):
         """
         根据年级获取默认的科目配置
-        支持旧格式（如"初三"）和新cohort格式（如"初中2026级"）
         """
-        # 如果是 cohort 格式（如"初中2026级"），提取基础年级
-        grade_level = self.grade_level
-        if grade_level:
-            # cohort 格式: "初中2026级" 或 "高中2025级"
-            if '初' in grade_level:
-                # 初中: 初一, 初二, 初三
-                if '一' in grade_level:
-                    grade_level = '初一'
-                elif '二' in grade_level:
-                    grade_level = '初二'
-                elif '三' in grade_level:
-                    grade_level = '初三'
-            elif '高' in grade_level:
-                # 高中: 高一, 高二, 高三
-                if '一' in grade_level:
-                    grade_level = '高一'
-                elif '二' in grade_level:
-                    grade_level = '高二'
-                elif '三' in grade_level:
-                    grade_level = '高三'
+        grade_level = self.get_grade_level_from_cohort()
         return SUBJECT_DEFAULT_MAX_SCORES.get(grade_level, {})
 
 class ExamSubject(models.Model):

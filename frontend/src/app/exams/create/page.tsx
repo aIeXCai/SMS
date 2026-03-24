@@ -69,12 +69,12 @@ export default function CreateExamPage() {
     }
   }, [loading, user, canExamWrite, router]);
 
-  const loadDefaultSubjects = async (grade: string) => {
-    if (!grade) return;
+  const loadDefaultSubjects = async (grade: string, year: string) => {
+    if (!grade || !year) return;
     setLoadingSubjects(true);
     try {
       const res = await fetch(
-        `${backendBaseUrl}/api/exams/default-subjects/?grade_level=${encodeURIComponent(grade)}`,
+        `${backendBaseUrl}/api/exams/default-subjects/?grade_level=${encodeURIComponent(grade)}&academic_year=${encodeURIComponent(year)}`,
         { headers: { ...authHeader } }
       );
       if (res.ok) {
@@ -110,8 +110,8 @@ export default function CreateExamPage() {
 
   const handleNextStep = async () => {
     if (!validateStep1()) return;
-    // Load default subjects for the chosen grade
-    await loadDefaultSubjects(gradeLevel);
+    // Load default subjects for the chosen grade and academic year
+    await loadDefaultSubjects(gradeLevel, academicYear);
     setStep(2);
   };
 
