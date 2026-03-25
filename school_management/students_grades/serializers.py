@@ -28,8 +28,8 @@ class StudentSerializer(serializers.ModelSerializer):
         allow_null=True
     )
     # 新增字段：cohort 是主查询字段，grade_level 保留用于展示但已废弃
-    cohort = serializers.CharField(source='cohort', read_only=True, required=False)
-    grade_level = serializers.CharField(source='grade_level', read_only=True, required=False)
+    cohort = serializers.CharField(read_only=True, required=False)
+    grade_level = serializers.CharField(read_only=True, required=False)
 
     class Meta:
         model = Student
