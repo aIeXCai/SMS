@@ -221,11 +221,11 @@
 
 ## 阶段 E：前端切换
 
-- [ ] 所有筛选组件改为 cohort 下拉框（代替原有的 grade_level）
-- [ ] 所有请求参数改为 cohort
-- [ ] 列表展示改为 cohort 格式（例如 初中2023级）
-- [ ] 保留 grade_level 显示字段 fallback（避免灰度期间空白）
-- [ ] 批量升年级功能保持 grade_level 变更（cohort 不变）
+- [x] 所有筛选组件改为 cohort 下拉框（代替原有的 grade_level）
+- [x] 所有请求参数改为 cohort
+- [x] 列表展示改为 cohort 格式（例如 初中2023级）
+- [x] 保留 grade_level 显示字段 fallback（避免灰度期间空白）
+- [x] 批量升年级功能保持 grade_level 变更（cohort 不变）
 
 交互建议：
 - 查询页直接选 cohort（如"初中2023级"）

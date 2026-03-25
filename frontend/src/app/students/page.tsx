@@ -15,6 +15,7 @@ type Student = {
   current_class: {
     id: number;
     grade_level: string;
+    cohort: string;
     class_name: string;
   } | null;
   status: string;
@@ -33,6 +34,7 @@ type Stats = {
   suspended_students: number;
   status_choices: string[];
   grade_level_choices: string[];
+  cohort_choices: string[];
   class_name_choices: string[];
 };
 
@@ -108,7 +110,7 @@ export default function StudentsPage() {
     const params = new URLSearchParams();
     if (search) params.set("search", search);
     if (filterStatus) params.set("status", filterStatus);
-    if (filterGrade) params.set("current_class__grade_level", filterGrade);
+    if (filterGrade) params.set("current_class__cohort", filterGrade);
     if (filterClass) params.set("current_class__class_name", filterClass);
     return `${backendBaseUrl}/api/students/?${params.toString()}`;
   };
@@ -460,16 +462,16 @@ export default function StudentsPage() {
                     />
                   </div>
                   <div className="col-lg-2 col-md-6 mb-3">
-                    <label className="form-label">年级</label>
+                    <label className="form-label">入学年份</label>
                     <select
                       className="form-select"
                       value={filterGrade}
                       onChange={(e) => setFilterGrade(e.target.value)}
                     >
                       <option value="">全部</option>
-                      {stats?.grade_level_choices.map((grade) => (
-                        <option key={grade} value={grade}>
-                          {grade}
+                      {stats?.cohort_choices.map((cohort) => (
+                        <option key={cohort} value={cohort}>
+                          {cohort}
                         </option>
                       ))}
                     </select>
@@ -651,10 +653,13 @@ export default function StudentsPage() {
                       <i className="fas fa-venus-mars me-1"></i>性别
                     </th>
                     <th>
-                      <i className="fas fa-users me-1"></i>班级
+                      <i className="fas fa-layer-group me-1"></i>入学年份
                     </th>
                     <th>
                       <i className="fas fa-layer-group me-1"></i>年级
+                    </th>
+                    <th>
+                      <i className="fas fa-users me-1"></i>班级
                     </th>
                     <th>
                       <i className="fas fa-info-circle me-1"></i>状态
@@ -707,16 +712,23 @@ export default function StudentsPage() {
                         </td>
                         <td>
                           {student.current_class ? (
-                            <span className="badge bg-info">{student.current_class.class_name}</span>
+                            <span className="badge bg-secondary">{student.current_class.cohort}</span>
                           ) : (
-                            <span className="text-muted">未分配</span>
+                            <span className="text-muted">-</span>
                           )}
                         </td>
                         <td>
                           {student.current_class ? (
-                            <span className="badge bg-secondary">{student.current_class.grade_level}</span>
+                            <span className="badge bg-warning">{student.current_class.grade_level}</span>
                           ) : (
                             <span className="text-muted">-</span>
+                          )}
+                        </td>
+                        <td>
+                          {student.current_class ? (
+                            <span className="badge bg-info">{student.current_class.class_name}</span>
+                          ) : (
+                            <span className="text-muted">未分配</span>
                           )}
                         </td>
                         <td>

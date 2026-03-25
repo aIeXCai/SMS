@@ -153,7 +153,8 @@ class StudentViewSet(viewsets.ModelViewSet):
             'graduated_students': graduated_students,
             'suspended_students': suspended_students,
             'status_choices': [c[0] for c in STATUS_CHOICES],
-            'grade_level_choices': [c[0] for c in GRADE_LEVEL_CHOICES],
+            'grade_level_choices': [c[0] for c in GRADE_LEVEL_CHOICES],  # deprecated
+            'cohort_choices': [c[0] for c in COHORT_CHOICES],
             'class_name_choices': [c[0] for c in CLASS_NAME_CHOICES],
         })
 
@@ -856,11 +857,19 @@ class ScoreViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], url_path='options')
     def options(self, request):
-        exams = Exam.objects.all().order_by('-academic_year', '-date', 'name')[:100]
+        grade_level_filter = request.query_params.get('grade_level')
+        exams = Exam.objects.all()
+        if grade_level_filter:
+            exams = exams.filter(grade_level=grade_level_filter)
+        exams = exams.order_by('-academic_year', '-date', 'name')[:100]
+        academic_year_filter = request.query_params.get('academic_year')
+        all_exams_qs = Exam.objects.all()
+        if grade_level_filter:
+            all_exams_qs = all_exams_qs.filter(grade_level=grade_level_filter)
         academic_year_values = sorted(
             {
                 value
-                for value in Exam.objects.exclude(academic_year__isnull=True)
+                for value in all_exams_qs.exclude(academic_year__isnull=True)
                 .exclude(academic_year='')
                 .values_list('academic_year', flat=True)
                 if value

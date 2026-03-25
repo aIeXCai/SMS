@@ -28,8 +28,8 @@ class StudentSerializer(serializers.ModelSerializer):
         allow_null=True
     )
     # 新增字段：cohort 是主查询字段，grade_level 保留用于展示但已废弃
-    cohort = serializers.CharField(read_only=True, required=False)
-    grade_level = serializers.CharField(read_only=True, required=False)
+    cohort = serializers.CharField(required=False)
+    grade_level = serializers.CharField(required=False)
 
     class Meta:
         model = Student
@@ -53,14 +53,22 @@ class StudentSerializer(serializers.ModelSerializer):
         if current_class_data and isinstance(current_class_data, dict):
             grade_level = current_class_data.get('grade_level')
             class_name = current_class_data.get('class_name')
-            
+            cohort = current_class_data.get('cohort')
+
             if grade_level and class_name:
                 class_obj, created = Class.objects.get_or_create(
                     grade_level=grade_level,
-                    class_name=class_name
+                    class_name=class_name,
+                    defaults={
+                        'cohort': cohort or ''
+                    }
                 )
+                # 如果已存在但 cohort 不同，更新 cohort
+                if not created and cohort and class_obj.cohort != cohort:
+                    class_obj.cohort = cohort
+                    class_obj.save(update_fields=['cohort'])
                 validated_data['current_class'] = class_obj
-        
+
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
@@ -69,12 +77,21 @@ class StudentSerializer(serializers.ModelSerializer):
         if current_class_data and isinstance(current_class_data, dict):
             grade_level = current_class_data.get('grade_level')
             class_name = current_class_data.get('class_name')
-            
+            cohort = current_class_data.get('cohort')
+
             if grade_level and class_name:
                 class_obj, created = Class.objects.get_or_create(
                     grade_level=grade_level,
-                    class_name=class_name
+                    class_name=class_name,
+                    defaults={
+                        'cohort': cohort or ''
+                    }
                 )
+                # 如果已存在但 cohort 不同，更新 cohort
+                if not created and cohort and class_obj.cohort != cohort:
+                    class_obj.cohort = cohort
+                    class_obj.save(update_fields=['cohort'])
+                validated_data['current_class'] = class_obj
                 validated_data['current_class'] = class_obj
         
         return super().update(instance, validated_data)

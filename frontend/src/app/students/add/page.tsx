@@ -17,6 +17,7 @@ export default function StudentAddPage() {
   const [statsChoices, setStatsChoices] = useState({
     status_choices: ['在读', '转学', '休学', '复学', '毕业'],
     grade_level_choices: [] as string[],
+    cohort_choices: [] as string[],
     class_name_choices: [] as string[]
   });
   
@@ -33,6 +34,9 @@ export default function StudentAddPage() {
     guardian_contact_phone: "",
     entry_date: "",
     graduation_date: "",
+    section: "",
+    cohort_year: "",
+    cohort: "",
     grade_level: "",
     class_name: "",
   });
@@ -62,6 +66,7 @@ export default function StudentAddPage() {
           setStatsChoices({
             status_choices: data.status_choices || ['在读', '转学', '休学', '复学', '毕业'],
             grade_level_choices: data.grade_level_choices || [],
+            cohort_choices: data.cohort_choices || [],
             class_name_choices: data.class_name_choices || [],
           });
         }
@@ -81,7 +86,18 @@ export default function StudentAddPage() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData(prev => {
+      const newData = { ...prev, [name]: value };
+      // 当 section 或 cohort_year 变化时，自动计算 cohort
+      if (name === 'section' || name === 'cohort_year') {
+        const section = name === 'section' ? value : prev.section;
+        const cohortYear = name === 'cohort_year' ? value : prev.cohort_year;
+        if (section && cohortYear) {
+          newData.cohort = `${section}${cohortYear}级`;
+        }
+      }
+      return newData;
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -94,7 +110,7 @@ export default function StudentAddPage() {
 
     try {
       const payload: any = { ...formData };
-      
+
       const dateFields = ['date_of_birth', 'entry_date', 'graduation_date'];
       dateFields.forEach(f => {
         if (!payload[f]) payload[f] = null;
@@ -105,13 +121,17 @@ export default function StudentAddPage() {
         if (!payload[f]) payload[f] = null;
       });
 
-      if (payload.grade_level && payload.class_name) {
+      // 构建 current_class 对象
+      if (payload.grade_level && payload.class_name && payload.cohort) {
         payload.current_class = {
+          cohort: payload.cohort,
           grade_level: payload.grade_level,
           class_name: payload.class_name
         };
       }
-      delete payload.grade_level;
+      // 删除不需要发送到后端的字段
+      delete payload.section;
+      delete payload.cohort_year;
       delete payload.class_name;
 
       const res = await fetch(`${backendBaseUrl}/api/students/`, {
@@ -302,6 +322,51 @@ export default function StudentAddPage() {
                     <div className="col-md-6 mb-3">
                       <div className="form-floating">
                         <select
+                          className="form-select"
+                          id="section"
+                          name="section"
+                          value={formData.section}
+                          onChange={handleChange}
+                          required
+                        >
+                          <option value="">请选择学段</option>
+                          <option value="初中">初中</option>
+                          <option value="高中">高中</option>
+                        </select>
+                        <label htmlFor="section" className="required-field">
+                          <i className="fas fa-layer-group me-1"></i>学段
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="col-md-6 mb-3">
+                      <div className="form-floating">
+                        <select
+                          className="form-select"
+                          id="cohort_year"
+                          name="cohort_year"
+                          value={formData.cohort_year}
+                          onChange={handleChange}
+                          required
+                        >
+                          <option value="">请选择入学年份</option>
+                          <option value="2023">2023级</option>
+                          <option value="2024">2024级</option>
+                          <option value="2025">2025级</option>
+                          <option value="2026">2026级</option>
+                          <option value="2027">2027级</option>
+                          <option value="2028">2028级</option>
+                          <option value="2029">2029级</option>
+                        </select>
+                        <label htmlFor="cohort_year" className="required-field">
+                          <i className="fas fa-calendar me-1"></i>入学年份
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="col-md-6 mb-3">
+                      <div className="form-floating">
+                        <select
                           className={`form-select ${fieldErrors.grade_level ? "is-invalid" : ""}`}
                           id="grade_level"
                           name="grade_level"
@@ -315,7 +380,7 @@ export default function StudentAddPage() {
                           ))}
                         </select>
                         <label htmlFor="grade_level" className="required-field">
-                          <i className="fas fa-layer-group me-1"></i>年级
+                          <i className="fas fa-graduation-cap me-1"></i>当前年级
                         </label>
                         {fieldErrors.grade_level && (
                           <div className="invalid-feedback">
