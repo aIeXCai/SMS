@@ -11,7 +11,12 @@ interface User {
   first_name?: string;
   last_name?: string;
   role: string;
+  // 旧字段（兼容）
   managed_grade?: string;
+  // 新字段
+  managed_section?: string;
+  managed_cohort_year?: number;
+  managed_cohort?: string;  // 计算字段：初中2026级
 }
 
 interface AuthContextType {

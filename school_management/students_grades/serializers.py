@@ -27,9 +27,6 @@ class StudentSerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True
     )
-    # 新增字段：cohort 是主查询字段，grade_level 保留用于展示但已废弃
-    cohort = serializers.CharField(required=False)
-    grade_level = serializers.CharField(required=False)
 
     class Meta:
         model = Student
@@ -38,14 +35,9 @@ class StudentSerializer(serializers.ModelSerializer):
             'entry_date', 'graduation_date', 'id_card_number',
             'student_enrollment_number', 'home_address', 'guardian_name',
             'guardian_contact_phone', 'current_class', 'current_class_id',
-            'status', 'cohort', 'grade_level'
+            'status'
         ]
         read_only_fields = ['id']
-        # 标记 grade_level 为废弃字段
-        extra_kwargs = {
-            'grade_level': {'help_text': 'DEPRECATED: 旧格式年级字段，请使用 cohort'},
-            'cohort': {'help_text': '新的届别格式，如"初中2024级"'}
-        }
 
     def create(self, validated_data):
         # 处理嵌套的班级数据
@@ -92,8 +84,7 @@ class StudentSerializer(serializers.ModelSerializer):
                     class_obj.cohort = cohort
                     class_obj.save(update_fields=['cohort'])
                 validated_data['current_class'] = class_obj
-                validated_data['current_class'] = class_obj
-        
+
         return super().update(instance, validated_data)
 
 
