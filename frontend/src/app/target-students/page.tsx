@@ -37,15 +37,6 @@ const EMPTY_RULE: RuleForm = {
   absent_policy: "strict_fail",
 };
 
-const GRADE_LEVELS: Option[] = [
-  { value: "初一", label: "初一" },
-  { value: "初二", label: "初二" },
-  { value: "初三", label: "初三" },
-  { value: "高一", label: "高一" },
-  { value: "高二", label: "高二" },
-  { value: "高三", label: "高三" },
-];
-
 const QUANTIFIER_OPTIONS: Option[] = [
   { value: "all", label: "每次都满足" },
   { value: "at_least", label: "至少K次满足" },
@@ -74,6 +65,7 @@ export default function TargetStudentsPage() {
 
   const [form, setForm] = useState<RuleForm>(EMPTY_RULE);
   const [examOptions, setExamOptions] = useState<Option[]>([]);
+  const [gradeOptions, setGradeOptions] = useState<Option[]>([]);
   const [selectedExamIds, setSelectedExamIds] = useState<string[]>([]);
   const [examDropdownOpen, setExamDropdownOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -98,6 +90,24 @@ export default function TargetStudentsPage() {
       router.push("/login");
     }
   }, [loading, effectiveToken, router]);
+
+  // Fetch grade options from API
+  useEffect(() => {
+    if (!effectiveToken) return;
+    const fetchGradeOptions = async () => {
+      try {
+        const res = await fetch(`${SCORES_API_BASE}/options/`, {
+          headers: { ...authHeader },
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        setGradeOptions(data.grade_levels || []);
+      } catch (e) {
+        console.error("Failed to fetch grade options:", e);
+      }
+    };
+    fetchGradeOptions();
+  }, [effectiveToken, authHeader]);
 
   // Fetch exam options based on selected grade_level
   useEffect(() => {
@@ -328,7 +338,7 @@ export default function TargetStudentsPage() {
                 <label className="form-label">年级</label>
                 <select className="form-select" value={form.grade_level} onChange={(e) => handleGradeLevelChange(e.target.value)}>
                   <option value="">--- 请选择年级 ---</option>
-                  {GRADE_LEVELS.map((x) => (
+                  {gradeOptions.map((x) => (
                     <option key={x.value} value={x.value}>{x.label}</option>
                   ))}
                 </select>
