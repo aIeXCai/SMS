@@ -149,8 +149,13 @@ def build_exam_scope(grade_level, exam_scope):
 
 
 def build_candidate_students(grade_level, only_active=True):
-    """Build candidate student queryset for the target grade."""
-    students = Student.objects.select_related("current_class").filter(grade_level=grade_level)
+    """
+    Build candidate student queryset for the target grade.
+
+    grade_level 参数实际上是 cohort 格式（如"初中2023级"），
+    Student 用 cohort 字段过滤。
+    """
+    students = Student.objects.select_related("current_class").filter(cohort=grade_level)
     if only_active:
         students = students.filter(status="在读")
     return list(students.order_by("student_id", "id"))

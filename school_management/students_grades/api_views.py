@@ -37,8 +37,8 @@ class StudentViewSet(viewsets.ModelViewSet):
     serializer_class = StudentSerializer
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    # 这里保留原有的筛选字段，并补充按班级名称筛选的能力
-    filterset_fields = ['status', 'gender', 'current_class__grade_level', 'current_class__class_name']
+    # cohort 存储 cohort 格式（如"初中2023级"），grade_level 保留用于展示
+    filterset_fields = ['status', 'gender', 'current_class__cohort', 'current_class__class_name']
     search_fields = ['name', 'student_id', 'current_class__class_name']
     ordering_fields = ['student_id', 'name', 'entry_date']
     ordering = ['student_id']
@@ -515,7 +515,7 @@ class ClassViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = ClassSerializer
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
-    filterset_fields = ['grade_level']
+    filterset_fields = ['cohort']  # grade_level 保留用于展示，cohort 用于查询
     ordering = ['grade_level', 'class_name']
 
 
@@ -661,7 +661,7 @@ class ScoreViewSet(viewsets.ModelViewSet):
         exam_subjects = ExamSubject.objects.filter(exam=exam)
         max_scores = {subject.subject_code: float(subject.max_score) for subject in exam_subjects}
 
-        default_config = SUBJECT_DEFAULT_MAX_SCORES.get(exam.grade_level, {})
+        default_config = SUBJECT_DEFAULT_MAX_SCORES.get(exam.get_grade_level_from_cohort(), {})
         for subject_code, _ in SCORE_SUBJECT_CHOICES:
             if subject_code not in max_scores:
                 max_scores[subject_code] = float(default_config.get(subject_code, 100))
@@ -701,7 +701,8 @@ class ScoreViewSet(viewsets.ModelViewSet):
         elif subject_filter:
             scores = scores.filter(subject=subject_filter)
         if grade_filter:
-            scores = scores.filter(student__grade_level=grade_filter)
+            # grade_filter 现在传入 cohort 格式（如"初中2023级"），直接用 student__cohort 过滤
+            scores = scores.filter(student__cohort=grade_filter)
         if class_filter:
             scores = scores.filter(student__current_class__class_name=class_filter)
         if academic_year_filter:
@@ -746,6 +747,7 @@ class ScoreViewSet(viewsets.ModelViewSet):
                 'student': {
                     'student_id': student.student_id,
                     'name': student.name,
+                    'cohort': student.cohort or '',
                     'grade_level': student.grade_level,
                     'grade_level_display': grade_label_map.get(student.grade_level, student.grade_level),
                 },
@@ -801,13 +803,14 @@ class ScoreViewSet(viewsets.ModelViewSet):
         sheet.title = "成绩导出"
 
         all_subjects = [subject_code for subject_code, _ in SCORE_SUBJECT_CHOICES]
-        headers = ["学号", "学生姓名", "年级", "班级", "考试名称", "学年", "考试日期"] + all_subjects
+        headers = ["学号", "学生姓名", "届别", "年级", "班级", "考试名称", "学年", "考试日期"] + all_subjects
         sheet.append(headers)
 
         for row in rows:
             output_row = [
                 row['student']['student_id'],
                 row['student']['name'],
+                row['student']['cohort'],
                 row['student']['grade_level_display'],
                 row['class']['class_name'] or "N/A",
                 row['exam']['name'],
@@ -826,13 +829,14 @@ class ScoreViewSet(viewsets.ModelViewSet):
         sheet = workbook.active
         sheet.title = "成绩查询导出"
 
-        headers = ["学号", "学生姓名", "年级", "班级", "考试名称", "学年", "考试日期"] + all_subjects + ["总分", "年级排名"]
+        headers = ["学号", "学生姓名", "入学级别", "年级", "班级", "考试名称", "学年", "考试日期"] + all_subjects + ["总分", "年级排名"]
         sheet.append(headers)
 
         for row in rows:
             output_row = [
                 row['student']['student_id'],
                 row['student']['name'],
+                row['student']['cohort'],
                 row['student']['grade_level_display'],
                 row['class']['class_name'] or "N/A",
                 row['exam']['name'],
@@ -871,7 +875,7 @@ class ScoreViewSet(viewsets.ModelViewSet):
                 }
                 for exam in exams
             ],
-            'grade_levels': [{'value': value, 'label': label} for value, label in GRADE_LEVEL_CHOICES],
+            'grade_levels': [{'value': value, 'label': label} for value, label in COHORT_CHOICES],
             'class_name_choices': [{'value': value, 'label': label} for value, label in CLASS_NAME_CHOICES],
             'subjects': [{'value': value, 'label': label} for value, label in SCORE_SUBJECT_CHOICES],
             'academic_years': [{'value': value, 'label': value} for value in academic_year_values],
@@ -1096,7 +1100,7 @@ class ScoreViewSet(viewsets.ModelViewSet):
         except Class.DoesNotExist:
             return Response({'success': False, 'error': '班级不存在'}, status=status.HTTP_404_NOT_FOUND)
 
-        if grade_level and target_class.grade_level != grade_level:
+        if grade_level and target_class.cohort != grade_level:
             return Response({'success': False, 'error': '班级与年级参数不一致'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
@@ -1185,7 +1189,7 @@ class ScoreViewSet(viewsets.ModelViewSet):
             return Response({'success': False, 'error': '有效班级不足，无法进行多班级分析'}, status=status.HTTP_400_BAD_REQUEST)
 
         if grade_level:
-            invalid_classes = [item for item in selected_classes if item.grade_level != grade_level]
+            invalid_classes = [item for item in selected_classes if item.cohort != grade_level]
             if invalid_classes:
                 return Response({'success': False, 'error': '存在与年级参数不一致的班级'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -1693,7 +1697,7 @@ class ScoreViewSet(viewsets.ModelViewSet):
             }
 
             if not max_score_map:
-                default_config = SUBJECT_DEFAULT_MAX_SCORES.get(exam.grade_level, {})
+                default_config = SUBJECT_DEFAULT_MAX_SCORES.get(exam.get_grade_level_from_cohort(), {})
                 for subject_code, _ in SCORE_SUBJECT_CHOICES:
                     if subject_code in default_config:
                         max_score_map[subject_code] = float(default_config[subject_code])

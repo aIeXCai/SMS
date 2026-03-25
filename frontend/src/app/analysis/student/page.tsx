@@ -13,7 +13,7 @@ type GradeOption = {
 type ClassOption = {
   id: number;
   class_name: string;
-  grade_level: string;
+  cohort: string;
   display_name: string;
 };
 
@@ -149,7 +149,7 @@ export default function StudentAnalysisEntryPage() {
   const updateClassOptions = async (gradeValue: string) => {
     setClassOptions([]);
     try {
-      const response = await fetch(`${CLASSES_API_BASE}/?grade_level=${encodeURIComponent(gradeValue)}&ordering=class_name&page_size=2000`, {
+      const response = await fetch(`${CLASSES_API_BASE}/?cohort=${encodeURIComponent(gradeValue)}&ordering=class_name&page_size=2000`, {
         headers: { ...authHeader },
       });
       if (!response.ok) {
@@ -160,8 +160,8 @@ export default function StudentAnalysisEntryPage() {
       const mappedClasses: ClassOption[] = classes.map((item) => ({
         id: item.id,
         class_name: item.class_name,
-        grade_level: item.grade_level,
-        display_name: `${item.grade_level}${item.class_name}`,
+        cohort: item.cohort || "",
+        display_name: `${item.cohort || ""}${item.class_name}`,
       }));
       const sortedClasses = [...mappedClasses].sort((a, b) => {
         const aNum = Number((a.class_name.match(/\d+/) || ["999"])[0]);
@@ -180,7 +180,7 @@ export default function StudentAnalysisEntryPage() {
     setStudentOptions([]);
     try {
       const response = await fetch(
-        `${STUDENTS_API_BASE}/?current_class__grade_level=${encodeURIComponent(gradeValue)}&current_class__class_name=${encodeURIComponent(className)}&ordering=student_id&page_size=2000`,
+        `${STUDENTS_API_BASE}/?current_class__cohort=${encodeURIComponent(gradeValue)}&current_class__class_name=${encodeURIComponent(className)}&ordering=student_id&page_size=2000`,
         { headers: { ...authHeader } }
       );
       if (!response.ok) {

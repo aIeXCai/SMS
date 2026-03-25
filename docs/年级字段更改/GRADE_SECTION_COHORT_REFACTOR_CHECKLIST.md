@@ -194,13 +194,20 @@
 
 ## 阶段 D：后端逻辑双栈兼容
 
-- [ ] API 入参新增 section、cohort_year
-- [ ] 保留旧入参 grade_level，服务端做兼容转换（向后兼容）
-- [ ] **查询逻辑改为只按 section + cohort_year 过滤**
-- [ ] 排名任务改为按 section + cohort_year 分组
-- [ ] 分析服务改为按 section + cohort_year 聚合
-- [ ] 导入导出模板新增列：学段、届别
-- [ ] 旧列年级保留一版周期，并在响应中标记 deprecated
+- [x] API 入参新增 cohort（ExamViewSet.options 返回 COHORT_CHOICES）
+- [x] 保留旧入参 grade_level，服务端做兼容转换（向后兼容）
+- [x] **查询逻辑改为只按 cohort 过滤**（cohort 格式如"初中2023级"）
+  - StudentViewSet filterset_fields: `current_class__grade_level` → `current_class__cohort`
+  - ClassViewSet filterset_fields: `grade_level` → `cohort`
+  - Score 查询: `student__grade_level` → `student__cohort`
+  - target_student_service.py: `Student/Class` 查询改用 cohort 过滤
+  - analysis_service.py: `analyze_grade` 改用 cohort 过滤
+- [x] 排名任务改为按 cohort 分组
+  - tasks.py: `Score.objects.filter(exam=exam).values_list('student__grade_level')` → `student__cohort`
+  - tasks.py: `Score.objects.filter(exam=exam, student__grade_level=grade_level)` → `student__cohort=grade_level`（grade_level 参数实际为 cohort 值）
+- [x] 分析服务改为按 cohort 聚合
+- [x] 导入导出模板新增 cohort 列
+- [x] 旧列年级保留一版周期，并在响应中标记 deprecated
 
 **查询策略变更**：
 - **Student/Class**：查询使用 cohort 字段（如 `cohort = "初中2026级"`）
@@ -214,15 +221,15 @@
 
 ## 阶段 E：前端切换
 
-- [ ] 所有筛选组件增加学段、届别两个控件
-- [ ] 所有请求参数改为 section + cohort_year
-- [ ] 列表展示改为 full_grade_display（例如 高中2026级）
-- [ ] 保留旧显示字段 fallback（避免灰度期间空白）
-- [ ] 批量升年级页面改名为批量升届/升学段（按实际业务）
+- [ ] 所有筛选组件改为 cohort 下拉框（代替原有的 grade_level）
+- [ ] 所有请求参数改为 cohort
+- [ ] 列表展示改为 cohort 格式（例如 初中2023级）
+- [ ] 保留 grade_level 显示字段 fallback（避免灰度期间空白）
+- [ ] 批量升年级功能保持 grade_level 变更（cohort 不变）
 
 交互建议：
-- 查询页先选学段，再联动届别列表
-- 如果仅展示 xx级，tooltip 或副标题显示学段，避免歧义
+- 查询页直接选 cohort（如"初中2023级"）
+- 列表展示 cohort 格式
 
 ## 阶段 F：权限与角色字段治理
 

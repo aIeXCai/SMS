@@ -31,7 +31,9 @@ def _compute_total_max_score(exam, extra_subject_codes=None):
     total_max_score = sum(subject_max_score_map.values())
 
     if extra_subject_codes:
-        grade_config = SUBJECT_DEFAULT_MAX_SCORES.get(exam.grade_level, {})
+        # exam.grade_level 是 cohort 格式（如"初中2024级"），需要转换为旧格式（如"初三"）
+        base_grade_level = exam.get_grade_level_from_cohort()
+        grade_config = SUBJECT_DEFAULT_MAX_SCORES.get(base_grade_level, {})
         for subject_code in extra_subject_codes:
             if subject_code not in subject_max_score_map:
                 total_max_score += grade_config.get(subject_code, 100)
@@ -65,7 +67,8 @@ def analyze_single_class(scores, target_class, exam):
 
             subject_max_score = exam_subject_max_score_map.get(subject_code)
             if not subject_max_score:
-                grade_config = SUBJECT_DEFAULT_MAX_SCORES.get(exam.grade_level, {})
+                base_grade_level = exam.get_grade_level_from_cohort()
+                grade_config = SUBJECT_DEFAULT_MAX_SCORES.get(base_grade_level, {})
                 subject_max_score = grade_config.get(subject_code, 100)
 
             subject_stats[subject_code]["exam_max_score"] = subject_max_score
@@ -304,12 +307,18 @@ def analyze_multiple_classes(selected_classes, exam):
 
 
 def analyze_grade(exam, grade_level):
-    classes = Class.objects.filter(grade_level=grade_level)
+    """
+    分析年级成绩。
+
+    grade_level 参数是 cohort 格式（如"初中2023级"）。
+    Class 用 cohort 字段存储，Score 用 student__current_class__cohort 过滤。
+    """
+    classes = Class.objects.filter(cohort=grade_level)
     classes = sorted(classes, key=lambda item: int("".join(filter(str.isdigit, item.class_name))) if any(char.isdigit() for char in item.class_name) else 999)
 
     all_scores = Score.objects.filter(
         exam=exam,
-        student__current_class__grade_level=grade_level,
+        student__current_class__cohort=grade_level,
     ).select_related("student", "student__current_class")
 
     exam_subjects = ExamSubject.objects.filter(exam=exam)

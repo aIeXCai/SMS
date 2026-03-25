@@ -16,6 +16,7 @@ type ExamItem = {
 type ClassItem = {
   id: number;
   grade_level: string;
+  cohort: string;
   class_name: string;
 };
 
@@ -70,7 +71,7 @@ export default function ClassGradeAnalysisEntryPage() {
 
   const visibleClasses = useMemo(() => {
     if (!selectedGrade) return allClasses;
-    return allClasses.filter((cls) => cls.grade_level === selectedGrade);
+    return allClasses.filter((cls) => cls.cohort === selectedGrade);
   }, [allClasses, selectedGrade]);
 
   const allVisibleClassIds = useMemo(() => visibleClasses.map((cls) => String(cls.id)), [visibleClasses]);
@@ -263,8 +264,8 @@ export default function ClassGradeAnalysisEntryPage() {
     }
   };
 
-  const handleToggleClass = (classId: string, gradeLevel: string, checked: boolean) => {
-    if (selectedGrade && gradeLevel !== selectedGrade) return;
+  const handleToggleClass = (classId: string, cohort: string, checked: boolean) => {
+    if (selectedGrade && cohort !== selectedGrade) return;
 
     setSelectedClasses((prev) => {
       let next = prev.includes("all") ? [] : [...prev];
@@ -445,17 +446,17 @@ export default function ClassGradeAnalysisEntryPage() {
                             <span className="form-check-label">所有班级</span>
                           </label>
                           {allClasses.map((cls) => {
-                            const isVisible = !selectedGrade || cls.grade_level === selectedGrade;
+                            const isVisible = !selectedGrade || cls.cohort === selectedGrade;
                             if (!isVisible) return null;
                             const classId = String(cls.id);
-                            const classText = `${cls.grade_level}${cls.class_name}`;
+                            const classText = `${cls.cohort}${cls.class_name}`;
                             return (
                               <label key={cls.id} className="class-dropdown-item">
                                 <input
                                   type="checkbox"
                                   className="form-check-input class-checkbox"
                                   checked={!selectedClasses.includes("all") && selectedClasses.includes(classId)}
-                                  onChange={(event) => handleToggleClass(classId, cls.grade_level, event.target.checked)}
+                                  onChange={(event) => handleToggleClass(classId, cls.cohort, event.target.checked)}
                                 />
                                 <span className="form-check-label">{classText}</span>
                               </label>

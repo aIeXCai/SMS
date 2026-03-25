@@ -34,9 +34,9 @@ def update_all_rankings_async(exam_id, grade_level=None, *args, **kwargs):
         if grade_level:
             grade_levels = [grade_level]
         else:
-            # 修复distinct()查询，确保正确去重
+            # grade_level 参数实际是 cohort 格式（如"初中2023级"）
             grade_levels = list(set(Score.objects.filter(exam=exam).values_list(
-                'student__grade_level', flat=True
+                'student__cohort', flat=True
             )))
         
         total_updated = 0
@@ -90,9 +90,10 @@ def update_grade_rankings_optimized(exam, grade_level):
     start_time = time.time()
     
     # 获取该年级所有学生的总分
+    # grade_level 参数实际是 cohort 格式（如"初中2023级"）
     students_total_scores = list(Score.objects.filter(
         exam=exam,
-        student__grade_level=grade_level
+        student__cohort=grade_level
     ).values('student_id', 'student__current_class_id').annotate(
         total_score=Sum('score_value')
     ).order_by('-total_score', 'student_id'))  # 添加student_id确保排序稳定
@@ -157,10 +158,10 @@ def update_grade_rankings_optimized(exam, grade_level):
     # 使用原生SQL确保真正的去重
     with connection.cursor() as cursor:
         cursor.execute("""
-            SELECT DISTINCT subject 
+            SELECT DISTINCT subject
             FROM students_grades_score s
             INNER JOIN students_grades_student st ON s.student_id = st.id
-            WHERE s.exam_id = %s AND st.grade_level = %s
+            WHERE s.exam_id = %s AND st.cohort = %s
         """, [exam.id, grade_level])
         subjects_list = [row[0] for row in cursor.fetchall()]
     
@@ -180,7 +181,7 @@ def update_grade_rankings_optimized(exam, grade_level):
         subject_scores = list(Score.objects.filter(
             exam=exam,
             subject=subject,
-            student__grade_level=grade_level
+            student__cohort=grade_level
         ).values('student_id', 'student__current_class_id', 'score_value').order_by(
             '-score_value', 'student_id'
         ))
@@ -242,7 +243,7 @@ def update_grade_rankings_optimized(exam, grade_level):
     print(f"  开始批量更新排名...")
     scores_to_update = Score.objects.filter(
         exam=exam,
-        student__grade_level=grade_level
+        student__cohort=grade_level
     )
     
     update_list = []
