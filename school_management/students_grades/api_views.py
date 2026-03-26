@@ -466,6 +466,13 @@ class StudentViewSet(viewsets.ModelViewSet):
                                         'cohort': student_data.get('cohort', '')
                                     }
                                 )
+                                # 如果已存在但 cohort 为空，自动补全 cohort
+                                if not created and not current_class_obj.cohort and student_data.get('cohort'):
+                                    current_class_obj.cohort = student_data.get('cohort')
+                                    current_class_obj.save(update_fields=['cohort'])
+                                    warning_messages.append(
+                                        f"第 {row_idx} 行：班级 {student_data.get('grade_level', '')}{class_name} 的 cohort 已自动补全为 {student_data.get('cohort')}"
+                                    )
                                 if created:
                                     success_messages.append(f"自动创建班级：{student_data.get('grade_level', '')}{class_name}")
                             except Exception as e:

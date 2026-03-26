@@ -54,6 +54,9 @@ export default function StudentsPage() {
   const [filterStatus, setFilterStatus] = useState("");
   const [filterGrade, setFilterGrade] = useState("");
   const [filterClass, setFilterClass] = useState("");
+  const [filterGradeDropdownOpen, setFilterGradeDropdownOpen] = useState(false);
+  const [filterClassDropdownOpen, setFilterClassDropdownOpen] = useState(false);
+  const [filterStatusDropdownOpen, setFilterStatusDropdownOpen] = useState(false);
 
   const [selected, setSelected] = useState<Record<number, boolean>>({});
   const [batchStatus, setBatchStatus] = useState<string>("");
@@ -302,6 +305,20 @@ export default function StudentsPage() {
     router.push("/students/batch-promote");
   };
 
+  // Close all dropdowns on outside click
+  useEffect(() => {
+    const onClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest(".custom-dropdown")) {
+        setFilterGradeDropdownOpen(false);
+        setFilterClassDropdownOpen(false);
+        setFilterStatusDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, []);
+
   useEffect(() => {
     if (!token) return;
     fetchStats();
@@ -461,52 +478,64 @@ export default function StudentsPage() {
                       placeholder="输入关键字后自动更新"
                     />
                   </div>
-                  <div className="col-lg-2 col-md-6 mb-3">
+                  <div className="col-lg-3 col-md-6 mb-3">
                     <label className="form-label">入学年份</label>
-                    <select
-                      className="form-select"
-                      value={filterGrade}
-                      onChange={(e) => setFilterGrade(e.target.value)}
-                    >
-                      <option value="">全部</option>
-                      {stats?.cohort_choices.map((cohort) => (
-                        <option key={cohort} value={cohort}>
-                          {cohort}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="custom-dropdown">
+                      <button type="button" className={`custom-dropdown-toggle ${filterGradeDropdownOpen ? "active" : ""}`} onClick={() => setFilterGradeDropdownOpen((v) => !v)}>
+                        <span>{filterGrade || "全部"}</span>
+                        <i className="fas fa-chevron-down custom-dropdown-arrow"></i>
+                      </button>
+                      <div className={`custom-dropdown-menu ${filterGradeDropdownOpen ? "show" : ""}`}>
+                        <button type="button" className="custom-dropdown-item" onClick={() => { setFilterGrade(""); setFilterGradeDropdownOpen(false); }}>
+                          全部
+                        </button>
+                        {stats?.cohort_choices.map((cohort) => (
+                          <button key={cohort} type="button" className="custom-dropdown-item" onClick={() => { setFilterGrade(cohort); setFilterGradeDropdownOpen(false); }}>
+                            {cohort}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                   <div className="col-lg-2 col-md-6 mb-3">
                     <label className="form-label">班级</label>
-                    <select
-                      className="form-select"
-                      value={filterClass}
-                      onChange={(e) => setFilterClass(e.target.value)}
-                    >
-                      <option value="">全部</option>
-                      {stats?.class_name_choices.map((cls) => (
-                        <option key={cls} value={cls}>
-                          {cls}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="custom-dropdown">
+                      <button type="button" className={`custom-dropdown-toggle ${filterClassDropdownOpen ? "active" : ""}`} onClick={() => setFilterClassDropdownOpen((v) => !v)}>
+                        <span>{filterClass || "全部"}</span>
+                        <i className="fas fa-chevron-down custom-dropdown-arrow"></i>
+                      </button>
+                      <div className={`custom-dropdown-menu ${filterClassDropdownOpen ? "show" : ""}`}>
+                        <button type="button" className="custom-dropdown-item" onClick={() => { setFilterClass(""); setFilterClassDropdownOpen(false); }}>
+                          全部
+                        </button>
+                        {stats?.class_name_choices.map((cls) => (
+                          <button key={cls} type="button" className="custom-dropdown-item" onClick={() => { setFilterClass(cls); setFilterClassDropdownOpen(false); }}>
+                            {cls}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                   <div className="col-lg-2 col-md-6 mb-3">
                     <label className="form-label">状态</label>
-                    <select
-                      className="form-select"
-                      value={filterStatus}
-                      onChange={(e) => setFilterStatus(e.target.value)}
-                    >
-                      <option value="">全部</option>
-                      {stats?.status_choices.map((st) => (
-                        <option key={st} value={st}>
-                          {st}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="custom-dropdown">
+                      <button type="button" className={`custom-dropdown-toggle ${filterStatusDropdownOpen ? "active" : ""}`} onClick={() => setFilterStatusDropdownOpen((v) => !v)}>
+                        <span>{filterStatus || "全部"}</span>
+                        <i className="fas fa-chevron-down custom-dropdown-arrow"></i>
+                      </button>
+                      <div className={`custom-dropdown-menu ${filterStatusDropdownOpen ? "show" : ""}`}>
+                        <button type="button" className="custom-dropdown-item" onClick={() => { setFilterStatus(""); setFilterStatusDropdownOpen(false); }}>
+                          全部
+                        </button>
+                        {stats?.status_choices.map((st) => (
+                          <button key={st} type="button" className="custom-dropdown-item" onClick={() => { setFilterStatus(st); setFilterStatusDropdownOpen(false); }}>
+                            {st}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
-                  <div className="col-lg-3 col-md-12 mb-3 d-flex align-items-end">
+                  <div className="col-lg-2 col-md-12 mb-3 d-flex align-items-end">
                     <button 
                       className="btn btn-outline-secondary w-100"
                       onClick={() => {
@@ -849,6 +878,7 @@ export default function StudentsPage() {
           border-radius: 15px;
           box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
           margin-bottom: 2rem;
+          overflow: visible !important;
         }
 
         .filter-card .card-header {
@@ -857,6 +887,19 @@ export default function StudentsPage() {
           border-radius: 15px 15px 0 0;
           padding: 1rem 1.5rem;
           font-weight: 600;
+        }
+
+        .filter-card .card-body {
+          overflow: visible !important;
+        }
+
+        .filter-card .card-body > .row {
+          overflow: visible !important;
+          flex-wrap: wrap;
+        }
+
+        .filter-card .card-body > .row > [class*="col-"] {
+          overflow: visible !important;
         }
 
         .batch-operations-card {
@@ -989,6 +1032,82 @@ export default function StudentsPage() {
             padding: 0.125rem 0.25rem;
             font-size: 0.75rem;
           }
+
+        }
+
+        /* 自定义下拉框样式 */
+        .custom-dropdown {
+          position: relative;
+          width: 100%;
+          color: #495057;
+        }
+        .filter-card .form-control,
+        .filter-card .custom-dropdown-toggle {
+          height: 38px !important;
+          padding: 0.375rem 0.75rem !important;
+          font-size: 14px !important;
+          line-height: 1.5 !important;
+        }
+        .custom-dropdown-toggle {
+          width: 100%;
+          padding: 0.375rem 0.75rem;
+          border: 1px solid #ced4da;
+          border-radius: 0.375rem;
+          background-color: #fff;
+          cursor: pointer;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          transition: all 0.2s ease;
+          text-align: left;
+          font-size: 14px;
+        }
+        .custom-dropdown-toggle:hover,
+        .custom-dropdown-toggle.active {
+          border-color: #007bff;
+          box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+        }
+        .custom-dropdown-arrow {
+          transition: transform 0.2s ease;
+          color: #6c757d;
+          margin-left: auto;
+        }
+        .custom-dropdown-toggle.active .custom-dropdown-arrow {
+          transform: rotate(180deg);
+        }
+        .custom-dropdown-menu {
+          position: absolute;
+          top: calc(100% + 2px);
+          left: 0;
+          width: 100%;
+          min-width: 100%;
+          background: white;
+          border: 1px solid #ced4da;
+          border-radius: 0.375rem;
+          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+          z-index: 1050;
+          max-height: 250px;
+          overflow-y: auto;
+          display: none;
+          box-sizing: border-box;
+        }
+        .custom-dropdown-menu.show {
+          display: block;
+        }
+        .custom-dropdown-item {
+          display: block;
+          width: 100%;
+          padding: 0.375rem 0.75rem;
+          cursor: pointer;
+          transition: background-color 0.15s ease;
+          font-size: 14px;
+          border: none;
+          background: transparent;
+          text-align: left;
+          color: inherit;
+        }
+        .custom-dropdown-item:hover {
+          background-color: #f8f9fa;
         }
       `}</style>
       

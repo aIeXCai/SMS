@@ -35,8 +35,8 @@
 
 ## 3. 关键术语与定义
 
-1. 目标考试集合 E：按 grade_level + exam_scope 解析出的考试集合。
-2. 候选学生集合 S：默认该年级在读学生（status=在读）。
+1. 目标考试集合 E：按 grade_level（cohort格式，如初中2023级）+ exam_scope 解析出的考试集合。
+2. 候选学生集合 S：默认该年级在读学生（status=在读，按 cohort 过滤）。
 3. 命中（hit）：某学生在某考试满足 rank <= threshold。
 4. 缺考（miss）：该学生在目标考试中不存在可判定的总分年级排名。
 

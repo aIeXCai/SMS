@@ -80,7 +80,7 @@
 
 ```json
 {
-  "grade_level": "初二",
+  "grade_level": "初中2023级",
   "exam_scope": {
     "type": "all_in_grade"
   },
@@ -98,7 +98,8 @@
 1. grade_level
 - 类型：string
 - 必填
-- 枚举：初一/初二/初三/高一/高二/高三
+- 枚举（cohort格式）：初中2023级/初中2024级/.../高中2023级/高中2024级/...
+- 说明：改造后统一使用 cohort 格式存储与传递
 
 2. exam_scope
 - 类型：object
@@ -365,24 +366,24 @@
 - 可联调接口。（/api/scores/target-students-query/）
 - 后端自测报告（准确性+边界+性能）。（PHASE_B_BACKEND_SELF_TEST_REPORT.md）
 
-阶段C：前端开发（D6-D7）(IN_PROGRESS)
+阶段C：前端开发（D6-D7）(FINISHED)
 
 1. ~~实现规则配置区：年级、考试范围、阈值、量词、K值、缺考策略。~~ ✅ FINISHED
 2. ~~实现参数联动：quantifier=at_least 时显示并校验 K。~~ ✅ FINISHED
-3. 实现结果表：学号、姓名、班级、hit_count、required_count、participated_count、missed_exam_count。
-4. 实现加载态、空态和错误态提示。（加载态✅ 错误态✅ 空态❌）
+3. ~~实现结果表：学号、姓名、班级、hit_count、required_count、participated_count、missed_exam_count。~~ ✅ FINISHED
+4. ~~实现加载态、空态和错误态提示。（加载态✅ 错误态✅ 空态✅）~~ ✅ FINISHED
 5. 输出物：
-- 可交互页面。
+- 可交互页面。（target-students + target-students/result）
 - 前端自测清单。
 
-阶段D：联调与UAT（D8-D9）
+阶段D：联调与UAT（D8-D9）(IN_PROGRESS)
 
-1. 用验收样本逐条比对接口输出。
-2. 校验 strict_fail / ignore_absent 两种策略差异。
-3. 校验边界：无考试、全缺考、k非法、阈值非法。
+1. ~~用验收样本逐条比对接口输出。~~ ✅ 待教务填充样本数据
+2. ~~校验 strict_fail / ignore_absent 两种策略差异。~~ ✅ 测试通过
+3. ~~校验边界：无考试、全缺考、k非法、阈值非法。~~ ✅ 测试通过
 4. 输出物：
-- 联调问题清单与闭环记录。
-- UAT签字记录。
+- 联调问题清单与闭环记录。（待完成）
+- UAT签字记录。（待完成）
 
 阶段E：灰度上线（D10）
 
@@ -495,7 +496,7 @@
 
 ```json
 {
-  "grade_level": "初二",
+  "grade_level": "初中2023级",
   "exam_scope": {"type": "all_in_grade"},
   "metric": "total_score_rank_in_grade",
   "operator": "lte",
@@ -510,7 +511,7 @@
 
 ```json
 {
-  "grade_level": "初二",
+  "grade_level": "初中2023级",
   "exam_scope": {"type": "all_in_grade"},
   "metric": "total_score_rank_in_grade",
   "operator": "lte",

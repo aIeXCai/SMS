@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState, useCallback } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 
 type Option = { value: string; label: string };
@@ -24,6 +24,22 @@ type RuleForm = {
   quantifier: "all" | "at_least";
   k: string;
   absent_policy: "strict_fail" | "ignore_absent";
+};
+
+type QueryPayload = {
+  grade_level: string;
+  exam_scope: {
+    type: ExamScopeType;
+    exam_ids?: string[];
+    date_from?: string;
+    date_to?: string;
+  };
+  metric: string;
+  operator: string;
+  threshold: number;
+  quantifier: string;
+  k?: number;
+  absent_policy: string;
 };
 
 const EMPTY_RULE: RuleForm = {
@@ -59,9 +75,48 @@ const backendBaseUrl =
     : "http://localhost:8000";
 const SCORES_API_BASE = `${backendBaseUrl}/api/scores`;
 
-export default function TargetStudentsPage() {
+type StudentRecord = {
+  student_pk: number;
+  student_id: string;
+  name: string;
+  cohort: string;
+  grade_level: string;
+  grade_level_display: string;
+  class_name: string | null;
+  hit_count: number;
+  required_count: number;
+  participated_count: number;
+  missed_exam_count: number;
+  avg_rank: number | null;
+};
+
+type ResultData = {
+  rule_summary: {
+    grade_level: string;
+    metric: string;
+    operator: string;
+    threshold: number;
+    quantifier: string;
+    k: number | null;
+    absent_policy: string;
+  };
+  exam_count: number;
+  matched_count: number;
+  students: StudentRecord[];
+  pagination?: {
+    page: number;
+    page_size: number;
+    total: number;
+    num_pages: number;
+    has_next: boolean;
+    has_previous: boolean;
+  };
+};
+
+export default function TargetStudentsResultPage() {
   const { user, token, loading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [form, setForm] = useState<RuleForm>(EMPTY_RULE);
   const [examOptions, setExamOptions] = useState<Option[]>([]);
@@ -72,9 +127,16 @@ export default function TargetStudentsPage() {
   const [examScopeDropdownOpen, setExamScopeDropdownOpen] = useState(false);
   const [quantifierDropdownOpen, setQuantifierDropdownOpen] = useState(false);
   const [absentPolicyDropdownOpen, setAbsentPolicyDropdownOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [messages, setMessages] = useState<
     Array<{ id: number; type: "success" | "danger" | "info"; text: string }>
   >([]);
+  const [result, setResult] = useState<ResultData | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize] = useState(100);
+  const [initialized, setInitialized] = useState(false);
+  const [sortField, setSortField] = useState<"avg_rank" | null>(null);
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
   const effectiveToken = useMemo(() => {
     if (token) return token;
@@ -87,11 +149,109 @@ export default function TargetStudentsPage() {
     return { Authorization: `Bearer ${effectiveToken}` };
   }, [effectiveToken]);
 
+  // Parse query parameters on mount
   useEffect(() => {
     if (!loading && !effectiveToken) {
       router.push("/login");
+      return;
     }
-  }, [loading, effectiveToken, router]);
+
+    const params = searchParams.toString();
+    if (!params) {
+      // No params, redirect to main page
+      router.push("/target-students");
+      return;
+    }
+
+    try {
+      const decoded = decodeURIComponent(params);
+      const formData = new URLSearchParams(decoded);
+
+      const savedForm: RuleForm = {
+        grade_level: formData.get("grade_level") || "",
+        exam_scope: {
+          type: (formData.get("exam_scope_type") as ExamScopeType) || "all_in_grade",
+          exam_ids: formData.get("exam_ids") ? formData.get("exam_ids")!.split(",") : undefined,
+          date_from: formData.get("date_from") || undefined,
+          date_to: formData.get("date_to") || undefined,
+        },
+        metric: "total_score_rank_in_grade",
+        operator: "lte",
+        threshold: formData.get("threshold") || "",
+        quantifier: (formData.get("quantifier") as "all" | "at_least") || "all",
+        k: formData.get("k") || "",
+        absent_policy: (formData.get("absent_policy") as "strict_fail" | "ignore_absent") || "strict_fail",
+      };
+
+      setForm(savedForm);
+      if (savedForm.exam_scope.type === "selected_exam_ids" && savedForm.exam_scope.exam_ids) {
+        setSelectedExamIds(savedForm.exam_scope.exam_ids);
+      }
+      setInitialized(true);
+    } catch (e) {
+      console.error("Failed to parse query params:", e);
+      router.push("/target-students");
+    }
+  }, [loading, effectiveToken, searchParams, router]);
+
+  // Auto-trigger query when form is initialized from URL params
+  useEffect(() => {
+    if (!initialized || !effectiveToken) return;
+
+    const thresholdNum = parseInt(form.threshold, 10);
+    if (!form.threshold || isNaN(thresholdNum) || thresholdNum <= 0) return;
+
+    const payload: QueryPayload = {
+      grade_level: form.grade_level,
+      exam_scope: { type: form.exam_scope.type },
+      metric: form.metric,
+      operator: form.operator,
+      threshold: thresholdNum,
+      quantifier: form.quantifier,
+      absent_policy: form.absent_policy,
+    };
+
+    if (form.exam_scope.type === "selected_exam_ids") {
+      payload.exam_scope.exam_ids = selectedExamIds;
+    } else if (form.exam_scope.type === "date_range") {
+      payload.exam_scope.date_from = form.exam_scope.date_from;
+      payload.exam_scope.date_to = form.exam_scope.date_to;
+    }
+
+    if (form.quantifier === "at_least") {
+      payload.k = parseInt(form.k, 10);
+    }
+
+    setIsLoading(true);
+    setMessages([]);
+    setResult(null);
+    setCurrentPage(1);
+
+    fetch(`${SCORES_API_BASE}/target-students-query/`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeader,
+      },
+      body: JSON.stringify(payload),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success) {
+          setResult(data.data);
+          setMessages([{ id: Date.now(), type: "success", text: `查询完成，共 ${data.data.matched_count} 名目标生` }]);
+        } else {
+          setMessages([{ id: Date.now(), type: "danger", text: data.error || "查询失败" }]);
+        }
+      })
+      .catch((e) => {
+        console.error("Query failed:", e);
+        setMessages([{ id: Date.now(), type: "danger", text: "查询失败，请稍后重试" }]);
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+  }, [initialized, effectiveToken, authHeader]);
 
   // Fetch grade options from API
   useEffect(() => {
@@ -208,6 +368,26 @@ export default function TargetStudentsPage() {
     return `已选择 ${selectedExamIds.length} 个考试`;
   })();
 
+  const buildQueryString = useCallback(() => {
+    const params = new URLSearchParams();
+    params.set("grade_level", form.grade_level);
+    params.set("exam_scope_type", form.exam_scope.type);
+    if (form.exam_scope.type === "selected_exam_ids" && selectedExamIds.length > 0) {
+      params.set("exam_ids", selectedExamIds.join(","));
+    }
+    if (form.exam_scope.type === "date_range") {
+      if (form.exam_scope.date_from) params.set("date_from", form.exam_scope.date_from);
+      if (form.exam_scope.date_to) params.set("date_to", form.exam_scope.date_to);
+    }
+    params.set("threshold", form.threshold);
+    params.set("quantifier", form.quantifier);
+    if (form.quantifier === "at_least") {
+      params.set("k", form.k);
+    }
+    params.set("absent_policy", form.absent_policy);
+    return params.toString();
+  }, [form, selectedExamIds]);
+
   const handleQuery = async () => {
     if (!form.grade_level) {
       setMessages([{ id: Date.now(), type: "info", text: "请选择年级" }]);
@@ -240,33 +420,100 @@ export default function TargetStudentsPage() {
       }
     }
 
-    // Build query string for URL
-    const params = new URLSearchParams();
-    params.set("grade_level", form.grade_level);
-    params.set("exam_scope_type", form.exam_scope.type);
-    if (form.exam_scope.type === "selected_exam_ids" && selectedExamIds.length > 0) {
-      params.set("exam_ids", selectedExamIds.join(","));
-    }
-    if (form.exam_scope.type === "date_range") {
-      if (form.exam_scope.date_from) params.set("date_from", form.exam_scope.date_from);
-      if (form.exam_scope.date_to) params.set("date_to", form.exam_scope.date_to);
-    }
-    params.set("threshold", form.threshold);
-    params.set("quantifier", form.quantifier);
-    if (form.quantifier === "at_least") {
-      params.set("k", form.k);
-    }
-    params.set("absent_policy", form.absent_policy);
+    const payload: QueryPayload = {
+      grade_level: form.grade_level,
+      exam_scope: { type: form.exam_scope.type },
+      metric: form.metric,
+      operator: form.operator,
+      threshold: thresholdNum,
+      quantifier: form.quantifier,
+      absent_policy: form.absent_policy,
+    };
 
-    // Redirect to result page with query params
-    router.push(`/target-students/result?${params.toString()}`);
+    if (form.exam_scope.type === "selected_exam_ids") {
+      payload.exam_scope.exam_ids = selectedExamIds;
+    } else if (form.exam_scope.type === "date_range") {
+      payload.exam_scope.date_from = form.exam_scope.date_from;
+      payload.exam_scope.date_to = form.exam_scope.date_to;
+    }
+
+    if (form.quantifier === "at_least") {
+      payload.k = parseInt(form.k, 10);
+    }
+
+    // Update URL with query params
+    const queryString = buildQueryString();
+    router.push(`/target-students/result?${queryString}`);
+
+    setIsLoading(true);
+    setMessages([]);
+    setResult(null);
+    setCurrentPage(1);
+
+    try {
+      const res = await fetch(`${SCORES_API_BASE}/target-students-query/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeader,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setMessages([{ id: Date.now(), type: "danger", text: data.error || "查询失败，请稍后重试" }]);
+        return;
+      }
+
+      if (data.success) {
+        setResult(data.data);
+        setMessages([{ id: Date.now(), type: "success", text: `查询完成，共 ${data.data.matched_count} 名目标生` }]);
+      } else {
+        setMessages([{ id: Date.now(), type: "danger", text: data.error || "查询失败" }]);
+      }
+    } catch (e) {
+      console.error("Query failed:", e);
+      setMessages([{ id: Date.now(), type: "danger", text: "查询失败，请稍后重试" }]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleReset = () => {
     setForm(EMPTY_RULE);
     setSelectedExamIds([]);
+    setResult(null);
     setMessages([]);
+    router.push("/target-students");
   };
+
+  // Sorted and paginated students
+  const sortedStudents = useMemo(() => {
+    if (!result || !result.students) return [];
+    const students = [...result.students];
+    if (sortField === "avg_rank") {
+      students.sort((a, b) => {
+        if (a.avg_rank === null && b.avg_rank === null) return 0;
+        if (a.avg_rank === null) return 1;
+        if (b.avg_rank === null) return -1;
+        return sortDirection === "asc" ? a.avg_rank - b.avg_rank : b.avg_rank - a.avg_rank;
+      });
+    }
+    return students;
+  }, [result, sortField, sortDirection]);
+
+  const paginatedStudents = useMemo(() => {
+    if (!sortedStudents) return [];
+    const start = (currentPage - 1) * pageSize;
+    return sortedStudents.slice(start, start + pageSize);
+  }, [sortedStudents, currentPage, pageSize]);
+
+  const totalPages = useMemo(() => {
+    if (!sortedStudents) return 1;
+    return Math.ceil(sortedStudents.length / pageSize);
+  }, [sortedStudents, pageSize]);
 
   if (loading) return <div className="p-4">加载中...</div>;
   if (!user) return null;
@@ -278,9 +525,18 @@ export default function TargetStudentsPage() {
           <div className="row align-items-center">
             <div className="col-md-8">
               <h1>
-                <i className="fas fa-bullseye me-3"></i>目标生筛选
+                <i className="fas fa-bullseye me-3"></i>目标生筛选结果
               </h1>
-              <p className="mb-0 opacity-75">基于成绩排名自动识别目标学生</p>
+              <p className="mb-0 opacity-75">查看筛选结果或调整条件继续查询</p>
+            </div>
+            <div className="col-md-4 text-end">
+              <button
+                type="button"
+                className="btn btn-light me-2"
+                onClick={() => router.push("/target-students")}
+              >
+                <i className="fas fa-arrow-left me-1"></i>返回筛选
+              </button>
             </div>
           </div>
         </div>
@@ -301,7 +557,7 @@ export default function TargetStudentsPage() {
 
         <div className="card filter-card mb-3">
           <div className="card-header">
-            <h5 className="mb-0"><i className="fas fa-sliders-h me-2"></i>规则配置</h5>
+            <h5 className="mb-0"><i className="fas fa-sliders-h me-2"></i>筛选条件</h5>
           </div>
           <div className="card-body">
             <div className="row g-3">
@@ -437,8 +693,8 @@ export default function TargetStudentsPage() {
               </div>
 
               <div className="col-md-3 d-flex align-items-end gap-2">
-                <button type="button" className="btn btn-primary" onClick={handleQuery}>
-                  <i className="fas fa-search me-1"></i>查询
+                <button type="button" className="btn btn-primary" onClick={handleQuery} disabled={isLoading}>
+                  {isLoading ? (<><span className="spinner-border spinner-border-sm me-2"></span>查询中...</>) : (<><i className="fas fa-search me-1"></i>查询</>)}
                 </button>
                 <button type="button" className="btn btn-secondary" onClick={handleReset}>
                   <i className="fas fa-undo me-1"></i>重置
@@ -448,92 +704,119 @@ export default function TargetStudentsPage() {
           </div>
         </div>
 
-        {/* 操作指南 */}
-        <div className="row mt-0">
-          <div className="col-12">
-            <div className="alert alert-info border-0 tips-alert">
-              <div className="d-flex align-items-center">
-                <i className="fas fa-info-circle fa-2x me-3 text-success"></i>
-                <div>
-                  <h6 className="alert-heading mb-1 text-success"><i className="fas fa-lightbulb me-1"></i>操作指南</h6>
-                  <p className="mb-0 small text-success">
-                    <strong>1. 选择年级</strong> → <strong>2. 设置考试范围</strong> → <strong>3. 输入前N名阈值</strong> → <strong>4. 选择满足方式</strong> → <strong>5. 点击查询</strong>
-                  </p>
-                </div>
-              </div>
+        {result && (
+          <div className="card filter-card mt-3">
+            <div className="card-header d-flex justify-content-between align-items-center">
+              <h5 className="mb-0"><i className="fas fa-list me-2"></i>筛选结果</h5>
+              <span className="badge bg-primary fs-6">
+                共 {result.matched_count} 名目标生
+              </span>
             </div>
-          </div>
-        </div>
+            <div className="card-body">
+              <div className="alert alert-info mb-3">
+                <strong>规则摘要：</strong>
+                {result.rule_summary.grade_level} | 前 {result.rule_summary.threshold} 名 |
+                {result.rule_summary.quantifier === "all" ? "每次都满足" : `至少${result.rule_summary.k}次满足`} |
+                考试数量：{result.exam_count}
+              </div>
 
-        {/* 功能介绍 */}
-        <div className="row g-4 mt-2">
-          {/* 左侧：功能特点 */}
-          <div className="col-lg-6">
-            <div className="intro-card h-100">
-              <div className="intro-card-header">
-                <div className="intro-icon-wrapper">
-                  <i className="fas fa-star"></i>
+              {sortedStudents.length === 0 ? (
+                <div className="text-center py-5">
+                  <i className="fas fa-search fa-3x text-muted mb-3"></i>
+                  <h5 className="text-muted">暂无符合条件的学生</h5>
+                  <p className="text-muted">请尝试调整筛选条件</p>
                 </div>
-                <h5 className="mb-0">功能特点</h5>
-              </div>
-              <div className="intro-card-body">
-                <div className="feature-item">
-                  <div className="feature-icon">
-                    <i className="fas fa-chart-line"></i>
+              ) : (
+                <>
+                  <div className="table-responsive">
+                    <table className="table table-hover table-bordered align-middle result-table">
+                      <thead className="table-light">
+                        <tr>
+                          <th className="text-center" style={{ width: "70px" }}>序号</th>
+                          <th className="text-center">姓名</th>
+                          <th className="text-center">入学年级</th>
+                          <th className="text-center">年级</th>
+                          <th className="text-center">班级</th>
+                          <th className="text-center">参加考试次数</th>
+                          <th className="text-center">满足条件次数</th>
+                          <th className="text-center">缺考次数</th>
+                          <th
+                            className="text-center sortable-header"
+                            onClick={() => {
+                              if (sortField === "avg_rank") {
+                                setSortDirection(d => d === "asc" ? "desc" : "asc");
+                              } else {
+                                setSortField("avg_rank");
+                                setSortDirection("asc");
+                              }
+                            }}
+                            style={{ cursor: "pointer", minWidth: "100px" }}
+                          >
+                            <span>
+                              平均排名
+                              <i className={`fas fa-caret-down ms-1 ${sortField === "avg_rank" ? "text-warning" : "text-white-50"}`}></i>
+                            </span>
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {paginatedStudents.map((student, index) => (
+                          <tr key={student.student_pk}>
+                            <td className="text-center text-muted">{(currentPage - 1) * pageSize + index + 1}</td>
+                            <td className="text-center fw-medium">{student.name}</td>
+                            <td className="text-center">{student.cohort || "-"}</td>
+                            <td className="text-center">{student.grade_level_display || student.grade_level || "-"}</td>
+                            <td className="text-center">{student.class_name || "-"}</td>
+                            <td className="text-center">
+                              <span className="badge bg-secondary">{student.participated_count}</span>
+                            </td>
+                            <td className="text-center">
+                              <span className="badge bg-success">{student.hit_count}</span>
+                            </td>
+                            <td className="text-center">
+                              <span className="badge bg-warning">{student.missed_exam_count}</span>
+                            </td>
+                            <td className="text-center">
+                              {student.avg_rank !== null ? (
+                                <span className="badge bg-info">{student.avg_rank}</span>
+                              ) : (
+                                <span className="text-muted">-</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
-                  <div className="feature-content">
-                    <h6>稳定优生识别</h6>
-                    <p>筛选多次考试中持续保持前列的学生</p>
-                  </div>
-                </div>
-                <div className="feature-item">
-                  <div className="feature-icon">
-                    <i className="fas fa-crown"></i>
-                  </div>
-                  <div className="feature-content">
-                    <h6>拔尖生定位</h6>
-                    <p>快速找出年级排名前列的目标学生</p>
-                  </div>
-                </div>
-                <div className="feature-item">
-                  <div className="feature-icon">
-                    <i className="fas fa-sliders-h"></i>
-                  </div>
-                  <div className="feature-content">
-                    <h6>灵活条件配置</h6>
-                    <p>支持指定考试范围、K次命中、缺考处理等多种规则</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
 
-          {/* 右侧：指标说明 */}
-          <div className="col-lg-6">
-            <div className="intro-card h-100">
-              <div className="intro-card-header">
-                <div className="intro-icon-wrapper">
-                  <i className="fas fa-info-circle"></i>
-                </div>
-                <h5 className="mb-0">指标说明</h5>
-              </div>
-              <div className="intro-card-body">
-                <div className="indicator-item">
-                  <div className="indicator-tag">总分年级排名</div>
-                  <p>该学生在某次考试中的总分在年级所有学生中的排名</p>
-                </div>
-                <div className="indicator-item">
-                  <div className="indicator-tag">前N名</div>
-                  <p>排名数值 ≤ N 的学生（如前50名，即排名1-50名）</p>
-                </div>
-                <div className="indicator-item">
-                  <div className="indicator-tag warning">缺考判定</div>
-                  <p><strong>缺考视为不达标：</strong>缺考直接判定为不满足条件<br/><strong>忽略缺考：</strong>缺考不计入统计，仅统计有成绩的学生</p>
-                </div>
-              </div>
+                  {totalPages > 1 && (
+                    <nav className="d-flex justify-content-center mt-3">
+                      <ul className="pagination mb-0">
+                        <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
+                          <button className="page-link" onClick={() => setCurrentPage(1)}>首页</button>
+                        </li>
+                        <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
+                          <button className="page-link" onClick={() => setCurrentPage(p => Math.max(1, p - 1))}>上一页</button>
+                        </li>
+                        <li className="page-item active">
+                          <span className="page-link">
+                            第 {currentPage} / {totalPages} 页
+                          </span>
+                        </li>
+                        <li className={`page-item ${currentPage === totalPages ? "disabled" : ""}`}>
+                          <button className="page-link" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}>下一页</button>
+                        </li>
+                        <li className={`page-item ${currentPage === totalPages ? "disabled" : ""}`}>
+                          <button className="page-link" onClick={() => setCurrentPage(totalPages)}>末页</button>
+                        </li>
+                      </ul>
+                    </nav>
+                  )}
+                </>
+              )}
             </div>
           </div>
-        </div>
+        )}
 
         <button type="button" className="btn btn-primary position-fixed bottom-0 end-0 m-4" style={{ zIndex: 1000 }} onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
           <i className="fas fa-arrow-up"></i>
@@ -576,7 +859,11 @@ export default function TargetStudentsPage() {
           padding: 0.375rem 0.75rem;
           font-size: 14px;
         }
-        .custom-dropdown { position: relative; width: 100%; color: #495057; }
+        .custom-dropdown {
+          position: relative;
+          width: 100%;
+          color: #495057;
+        }
         .exam-selector-wrap {
           overflow: visible;
         }
@@ -688,137 +975,46 @@ export default function TargetStudentsPage() {
             min-width: 0;
           }
         }
-        .tips-alert {
-          background: linear-gradient(135deg, #e8f5e8 0%, #c8e6c9 100%);
-          border-radius: 12px;
-        }
-        .analysis-card {
-          border: none;
-          border-radius: 15px;
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-        }
-        .analysis-card .card-body {
-          padding: 2rem;
-          text-align: center;
-        }
-        .analysis-icon {
-          width: 64px;
-          height: 64px;
-          border-radius: 50%;
-          background: linear-gradient(135deg, #e8f5e8 0%, #c8e6c9 100%);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          margin: 0 auto 1rem;
-        }
-        .analysis-icon i {
-          font-size: 1.75rem;
-          color: #2e7d32;
-        }
-        .target-student-intro .card-title {
-          color: #2e7d32;
-          font-weight: 600;
-        }
-        /* 功能介绍卡片样式 */
-        .intro-card {
-          background: #fff;
-          border: none;
-          border-radius: 16px;
-          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        .result-table {
+          border-collapse: separate;
+          border-spacing: 0;
+          border-radius: 8px;
           overflow: hidden;
-          transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
-        .intro-card:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
-        }
-        .intro-card-header {
+        .result-table thead th {
           background: linear-gradient(135deg, #2e7d32 0%, #43a047 100%);
           color: white;
-          padding: 1.25rem 1.5rem;
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-        }
-        .intro-card-header h5 {
           font-weight: 600;
-          margin: 0;
+          border: none;
+          padding: 12px 16px;
+          vertical-align: middle;
         }
-        .intro-icon-wrapper {
-          width: 40px;
-          height: 40px;
-          border-radius: 10px;
-          background: rgba(255, 255, 255, 0.2);
-          display: flex;
-          align-items: center;
-          justify-content: center;
+        .result-table tbody tr {
+          transition: all 0.2s ease;
         }
-        .intro-icon-wrapper i {
-          font-size: 1.25rem;
+        .result-table tbody tr:hover {
+          background-color: #f5f9f5;
+          transform: scale(1.01);
         }
-        .intro-card-body {
-          padding: 1.5rem;
+        .result-table tbody td {
+          border-color: #e8f5e9;
+          padding: 12px 16px;
+          vertical-align: middle;
         }
-        .feature-item {
-          display: flex;
-          align-items: flex-start;
-          gap: 1rem;
-          margin-bottom: 1.25rem;
-        }
-        .feature-item:last-child {
-          margin-bottom: 0;
-        }
-        .feature-icon {
-          width: 44px;
-          height: 44px;
-          border-radius: 12px;
-          background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-        }
-        .feature-icon i {
-          color: #2e7d32;
-          font-size: 1.1rem;
-        }
-        .feature-content h6 {
-          font-size: 0.95rem;
-          font-weight: 600;
-          color: #2c3e50;
-          margin-bottom: 0.25rem;
-        }
-        .feature-content p {
-          font-size: 0.85rem;
-          color: #6c757d;
-          margin: 0;
-          line-height: 1.5;
-        }
-        .indicator-item {
-          margin-bottom: 1rem;
-        }
-        .indicator-item:last-child {
-          margin-bottom: 0;
-        }
-        .indicator-tag {
-          display: inline-block;
-          background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
-          color: #1565c0;
-          font-size: 0.8rem;
-          font-weight: 600;
-          padding: 0.25rem 0.75rem;
+        .result-table .badge {
+          font-weight: 500;
+          padding: 6px 10px;
           border-radius: 6px;
-          margin-bottom: 0.5rem;
         }
-        .indicator-tag.warning {
-          background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
-          color: #e65100;
+        .sortable-header {
+          user-select: none;
+          transition: background-color 0.2s;
         }
-        .indicator-item p {
-          font-size: 0.85rem;
-          color: #495057;
-          margin: 0;
-          line-height: 1.6;
+        .sortable-header:hover {
+          background-color: rgba(255, 255, 255, 0.15);
+        }
+        .text-muted {
+          color: #6c757d !important;
         }
       `}</style>
     </div>

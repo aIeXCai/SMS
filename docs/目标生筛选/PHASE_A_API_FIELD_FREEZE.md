@@ -24,7 +24,7 @@
 
 ```json
 {
-  "grade_level": "初二",
+  "grade_level": "初中2023级",
   "exam_scope": {
     "type": "all_in_grade",
     "exam_ids": [],
@@ -45,7 +45,8 @@
 1. grade_level
 - 类型：string
 - 必填：是
-- 枚举：初一/初二/初三/高一/高二/高三
+- 枚举（cohort格式）：初中2023级/初中2024级/.../高中2023级/高中2024级/...
+- 说明：改造后统一使用 cohort 格式存储与传递
 
 2. exam_scope.type
 - 类型：string
@@ -108,7 +109,7 @@
   "success": true,
   "data": {
     "rule_summary": {
-      "grade_level": "初二",
+      "grade_level": "初中2023级",
       "metric": "total_score_rank_in_grade",
       "operator": "lte",
       "threshold": 50,
@@ -186,7 +187,7 @@
 
 ```json
 {
-  "grade_level": "初二",
+  "grade_level": "初中2023级",
   "exam_scope": {"type": "all_in_grade"},
   "metric": "total_score_rank_in_grade",
   "operator": "lte",
@@ -201,7 +202,7 @@
 
 ```json
 {
-  "grade_level": "初二",
+  "grade_level": "初中2023级",
   "exam_scope": {"type": "all_in_grade"},
   "metric": "total_score_rank_in_grade",
   "operator": "lte",

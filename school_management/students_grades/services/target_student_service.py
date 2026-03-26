@@ -4,7 +4,7 @@ from django.db.models import Min
 
 from ..models.exam import Exam
 from ..models.score import Score
-from ..models.student import GRADE_LEVEL_CHOICES, Student
+from ..models.student import COHORT_CHOICES, Student
 
 
 ALLOWED_METRICS = {"total_score_rank_in_grade"}
@@ -22,11 +22,11 @@ def validate_rule_payload(payload):
 
     grade_level = payload.get("grade_level")
     if not grade_level:
-        raise ValueError("缺少年级参数 grade_level")
+        raise ValueError("缺少年级参数 grade_level（cohort格式，如初中2023级）")
 
-    grade_values = {value for value, _ in GRADE_LEVEL_CHOICES}
+    grade_values = {value for value, _ in COHORT_CHOICES}
     if grade_level not in grade_values:
-        raise ValueError("grade_level 非法")
+        raise ValueError("grade_level 非法，应为 cohort 格式（如初中2023级）")
 
     exam_scope = payload.get("exam_scope") or {}
     if not isinstance(exam_scope, dict):
@@ -185,6 +185,7 @@ def compute_student_hits(students, exams, threshold):
     for student in students:
         hit_count = 0
         participated_count = 0
+        rank_sum = 0
 
         for exam in exams:
             rank = rank_map.get((student.id, exam.id))
@@ -192,6 +193,7 @@ def compute_student_hits(students, exams, threshold):
                 continue
 
             participated_count += 1
+            rank_sum += rank
             if rank <= threshold:
                 hit_count += 1
 
@@ -202,6 +204,7 @@ def compute_student_hits(students, exams, threshold):
                 "participated_count": participated_count,
                 "missed_exam_count": exam_count - participated_count,
                 "exam_count": exam_count,
+                "avg_rank": round(rank_sum / participated_count, 1) if participated_count > 0 else None,
             }
         )
 
@@ -249,11 +252,15 @@ def execute_target_student_rule(payload):
                 "student_pk": student.id,
                 "student_id": student.student_id,
                 "name": student.name,
+                "cohort": student.cohort,
+                "grade_level": student.grade_level,
+                "grade_level_display": student.get_grade_level_display() if student.grade_level else None,
                 "class_name": student.current_class.class_name if student.current_class else None,
                 "hit_count": stat["hit_count"],
                 "required_count": stat["exam_count"] if rule["absent_policy"] == "strict_fail" else stat["participated_count"],
                 "participated_count": stat["participated_count"],
                 "missed_exam_count": stat["missed_exam_count"],
+                "avg_rank": stat["avg_rank"],
             }
         )
 

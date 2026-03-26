@@ -19,12 +19,13 @@ class TargetStudentsQueryApiTests(TestCase):
             role='staff',
         )
 
-        self.class_2_1 = Class.objects.create(grade_level='初二', class_name='1班')
+        self.class_2_1 = Class.objects.create(grade_level='初二', cohort='初中2023级', class_name='1班')
 
         self.student_a = Student.objects.create(
             student_id='T001',
             name='甲同学',
             grade_level='初二',
+            cohort='初中2023级',
             current_class=self.class_2_1,
             status='在读',
         )
@@ -32,6 +33,7 @@ class TargetStudentsQueryApiTests(TestCase):
             student_id='T002',
             name='乙同学',
             grade_level='初二',
+            cohort='初中2023级',
             current_class=self.class_2_1,
             status='在读',
         )
@@ -39,6 +41,7 @@ class TargetStudentsQueryApiTests(TestCase):
             student_id='T003',
             name='丙同学',
             grade_level='初二',
+            cohort='初中2023级',
             current_class=self.class_2_1,
             status='在读',
         )
@@ -46,19 +49,19 @@ class TargetStudentsQueryApiTests(TestCase):
         self.exam_a = Exam.objects.create(
             name='初二第一次月考',
             academic_year='2025-2026',
-            grade_level='初二',
+            grade_level='初中2023级',
             date=date(2025, 9, 10),
         )
         self.exam_b = Exam.objects.create(
             name='初二第二次月考',
             academic_year='2025-2026',
-            grade_level='初二',
+            grade_level='初中2023级',
             date=date(2025, 10, 12),
         )
         self.exam_c = Exam.objects.create(
             name='初二期中考试',
             academic_year='2025-2026',
-            grade_level='初二',
+            grade_level='初中2023级',
             date=date(2025, 11, 15),
         )
 
@@ -93,7 +96,7 @@ class TargetStudentsQueryApiTests(TestCase):
 
     def _base_payload(self):
         return {
-            'grade_level': '初二',
+            'grade_level': '初中2023级',
             'exam_scope': {'type': 'all_in_grade'},
             'metric': 'total_score_rank_in_grade',
             'operator': 'lte',
