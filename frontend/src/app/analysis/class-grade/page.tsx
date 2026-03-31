@@ -58,16 +58,12 @@ export default function ClassGradeAnalysisEntryPage() {
     return { Authorization: `Bearer ${effectiveToken}` };
   }, [effectiveToken]);
 
-  const gradeLabelMap = useMemo(() => {
-    const map = new Map<string, string>();
-    gradeLevels.forEach((grade) => map.set(grade.value, grade.label));
-    return map;
-  }, [gradeLevels]);
-
   const visibleExams = useMemo(() => {
-    if (!selectedAcademicYear) return exams;
-    return exams.filter((exam) => exam.academic_year === selectedAcademicYear);
-  }, [exams, selectedAcademicYear]);
+    if (!selectedAcademicYear || !selectedGrade) return [];
+    return exams.filter(
+      (exam) => exam.academic_year === selectedAcademicYear && exam.grade_level === selectedGrade
+    );
+  }, [exams, selectedAcademicYear, selectedGrade]);
 
   const visibleClasses = useMemo(() => {
     if (!selectedGrade) return allClasses;
@@ -233,26 +229,29 @@ export default function ClassGradeAnalysisEntryPage() {
     setSelectedAcademicYear(value);
     setSelectedAcademicYearLabel(label);
 
+    // 重置考试选择，因为学年改变了
     if (selectedExam) {
-      const selectedExamRow = exams.find((exam) => String(exam.id) === selectedExam);
-      if (selectedExamRow && selectedExamRow.academic_year !== value) {
-        setSelectedExam("");
-        setSelectedExamLabel("请选择考试");
-      }
+      setSelectedExam("");
+      setSelectedExamLabel("请选择考试");
     }
     closeAllDropdowns();
   };
 
   const handleSelectExam = (exam: ExamItem) => {
-    const gradeLabel = gradeLabelMap.get(exam.grade_level) || exam.grade_level;
     setSelectedExam(String(exam.id));
-    setSelectedExamLabel(`${exam.name} (${gradeLabel})`);
+    setSelectedExamLabel(exam.name);
     closeAllDropdowns();
   };
 
   const handleSelectGrade = (value: string, label: string) => {
     setSelectedGrade(value);
     setSelectedGradeLabel(label);
+
+    // 重置考试选择，因为年级改变了
+    if (selectedExam) {
+      setSelectedExam("");
+      setSelectedExamLabel("请选择考试");
+    }
     closeAllDropdowns();
   };
 
@@ -377,33 +376,6 @@ export default function ClassGradeAnalysisEntryPage() {
 
                 <div className="col-lg-3 col-md-6">
                   <div className="form-group">
-                    <label className="form-label fw-semibold"><i className="fas fa-clipboard-list me-2 text-success"></i>考试</label>
-                    <div className="class-dropdown">
-                      <button type="button" className={`class-dropdown-toggle ${showExamDropdown ? "active" : ""}`} onClick={toggleExamDropdown}>
-                        <span>{selectedExamLabel}</span>
-                        <i className="fas fa-chevron-down class-dropdown-arrow"></i>
-                      </button>
-                      <div className={`class-dropdown-menu ${showExamDropdown ? "show" : ""}`}>
-                        {visibleExams.length === 0 && selectedAcademicYear ? (
-                          <div className="class-dropdown-item exam-placeholder-item text-muted">该学年下暂无考试</div>
-                        ) : (
-                          visibleExams.map((exam) => {
-                            const gradeLabel = gradeLabelMap.get(exam.grade_level) || exam.grade_level;
-                            return (
-                              <button key={exam.id} type="button" className="class-dropdown-item" onClick={() => handleSelectExam(exam)}>
-                                <i className="fas fa-file-alt me-2"></i>
-                                {exam.name} <span className="text-muted">({gradeLabel})</span>
-                              </button>
-                            );
-                          })
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="col-lg-3 col-md-6">
-                  <div className="form-group">
                     <label className="form-label fw-semibold"><i className="fas fa-layer-group me-2 text-warning"></i>年级</label>
                     <div className="class-dropdown">
                       <button type="button" className={`class-dropdown-toggle ${showGradeDropdown ? "active" : ""}`} onClick={toggleGradeDropdown}>
@@ -418,6 +390,32 @@ export default function ClassGradeAnalysisEntryPage() {
                               <i className="fas fa-graduation-cap me-2"></i>{grade.label}
                             </button>
                           ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="col-lg-3 col-md-6">
+                  <div className="form-group">
+                    <label className="form-label fw-semibold"><i className="fas fa-clipboard-list me-2 text-success"></i>考试</label>
+                    <div className="class-dropdown">
+                      <button type="button" className={`class-dropdown-toggle ${showExamDropdown ? "active" : ""}`} onClick={toggleExamDropdown}>
+                        <span>{selectedExamLabel}</span>
+                        <i className="fas fa-chevron-down class-dropdown-arrow"></i>
+                      </button>
+                      <div className={`class-dropdown-menu ${showExamDropdown ? "show" : ""}`}>
+                        {!selectedAcademicYear || !selectedGrade ? (
+                          <div className="class-dropdown-item exam-placeholder-item text-muted">请先选择学年和年级</div>
+                        ) : visibleExams.length === 0 ? (
+                          <div className="class-dropdown-item exam-placeholder-item text-muted">该学年和年级下暂无考试</div>
+                        ) : (
+                          visibleExams.map((exam) => (
+                            <button key={exam.id} type="button" className="class-dropdown-item" onClick={() => handleSelectExam(exam)}>
+                              <i className="fas fa-file-alt me-2"></i>
+                              {exam.name}
+                            </button>
+                          ))
+                        )}
                       </div>
                     </div>
                   </div>
@@ -478,7 +476,7 @@ export default function ClassGradeAnalysisEntryPage() {
                   <i className="fas fa-info-circle fa-2x me-3 text-success"></i>
                   <div>
                     <h6 className="alert-heading mb-1 text-success"><i className="fas fa-lightbulb me-1"></i>操作指南</h6>
-                    <p className="mb-0 small text-success">请按照以下步骤进行操作：<strong>1. 选择学年</strong> → <strong>2. 选择考试</strong> → <strong>3. 选择年级</strong> → <strong>4. 选择班级</strong> → <strong>5. 开始分析</strong></p>
+                    <p className="mb-0 small text-success">请按照以下步骤进行操作：<strong>1. 选择学年</strong> → <strong>2. 选择年级</strong> → <strong>3. 选择考试</strong> → <strong>4. 选择班级</strong> → <strong>5. 开始分析</strong></p>
                   </div>
                 </div>
               </div>
