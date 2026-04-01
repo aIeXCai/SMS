@@ -2098,13 +2098,13 @@ class FilterComparisonService:
 #### 阶段 4: 前端高级筛选页面
 
 **任务 4.1**: 基础页面
-- [ ] 创建 `advanced/page.tsx`
-- [ ] 页面布局
+- [x] 创建 `advanced/page.tsx`
+- [x] 页面布局
 
 **任务 4.2**: 筛选条件构建器组件
-- [ ] `FilterBuilder.tsx`
-- [ ] 条件增删改
-- [ ] 逻辑选择（AND/OR）
+- [x] `FilterBuilder.tsx`
+- [x] 条件增删改
+- [x] 逻辑选择（AND/OR）
 
 **任务 4.3**: 筛选结果展示组件
 - [ ] `FilterResults.tsx`
