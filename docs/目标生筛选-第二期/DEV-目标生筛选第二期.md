@@ -206,81 +206,6 @@ SMS/
 
 **文件路径**: `school_management/students_grades/models/filter.py`
 
-```python
-from django.db import models
-from django.conf import settings
-
-class SavedFilterRule(models.Model):
-    """用户保存的筛选规则"""
-    
-    RULE_TYPE_CHOICES = [
-        ('simple', '简单筛选'),
-        ('advanced', '高级筛选'),
-    ]
-    
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name='saved_filter_rules',
-        verbose_name='所属用户'
-    )
-    
-    name = models.CharField(
-        max_length=100,
-        verbose_name='规则名称',
-        help_text='如"数学培优班名单"'
-    )
-    
-    rule_type = models.CharField(
-        max_length=20,
-        choices=RULE_TYPE_CHOICES,
-        default='advanced',
-        verbose_name='规则类型'
-    )
-    
-    # 规则配置（JSON格式）
-    rule_config = models.JSONField(
-        verbose_name='规则配置',
-        help_text='''
-        {
-            "logic": "AND",
-            "conditions": [
-                {"subject": "total", "dimension": "grade", "operator": "top_n", "value": 50},
-                {"subject": "math", "dimension": "grade", "operator": "top_n", "value": 30}
-            ]
-        }
-        '''
-    )
-    
-    # 使用统计
-    usage_count = models.IntegerField(
-        default=0,
-        verbose_name='使用次数'
-    )
-    
-    last_used_at = models.DateTimeField(
-        null=True,
-        blank=True,
-        verbose_name='最后使用时间'
-    )
-    
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
-    updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
-    
-    class Meta:
-        db_table = 'saved_filter_rules'
-        ordering = ['-last_used_at', '-created_at']
-        verbose_name = '保存的筛选规则'
-        verbose_name_plural = verbose_name
-        indexes = [
-            models.Index(fields=['user', '-last_used_at']),
-            models.Index(fields=['rule_type']),
-        ]
-    
-    def __str__(self):
-        return f"{self.user.username} - {self.name}"
-```
-
 **字段说明**:
 
 | 字段 | 类型 | 说明 |
@@ -302,74 +227,6 @@ class SavedFilterRule(models.Model):
 #### 3.1.2 FilterResultSnapshot（筛选结果快照）
 
 **文件路径**: `school_management/students_grades/models/filter.py`
-
-```python
-class FilterResultSnapshot(models.Model):
-    """筛选结果快照"""
-    
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name='filter_snapshots',
-        verbose_name='所属用户'
-    )
-    
-    exam = models.ForeignKey(
-        'Exam',
-        on_delete=models.CASCADE,
-        related_name='filter_snapshots',
-        verbose_name='关联考试'
-    )
-    
-    rule = models.ForeignKey(
-        'SavedFilterRule',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='snapshots',
-        verbose_name='使用的规则'
-    )
-    
-    # 规则配置快照（防止规则被修改后历史数据丢失）
-    rule_config_snapshot = models.JSONField(
-        verbose_name='规则配置快照',
-        help_text='保存创建快照时的规则配置'
-    )
-    
-    # 筛选结果快照
-    result_snapshot = models.JSONField(
-        verbose_name='筛选结果快照',
-        help_text='''
-        {
-            "student_ids": [1, 5, 12, 23, ...],
-            "count": 28,
-            "created_at": "2026-03-30T14:30:00Z"
-        }
-        '''
-    )
-    
-    snapshot_name = models.CharField(
-        max_length=100,
-        verbose_name='快照名称',
-        help_text='如"期中考试-数学培优班"'
-    )
-    
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
-    
-    class Meta:
-        db_table = 'filter_result_snapshots'
-        ordering = ['-created_at']
-        verbose_name = '筛选结果快照'
-        verbose_name_plural = verbose_name
-        indexes = [
-            models.Index(fields=['user', '-created_at']),
-            models.Index(fields=['exam', '-created_at']),
-            models.Index(fields=['rule', '-created_at']),
-        ]
-    
-    def __str__(self):
-        return f"{self.snapshot_name} - {self.created_at.strftime('%Y-%m-%d')}"
-```
 
 **字段说明**:
 
@@ -393,83 +250,6 @@ class FilterResultSnapshot(models.Model):
 
 **文件路径**: `school_management/students_grades/migrations/XXXX_add_filter_models.py`
 
-```python
-# Generated migration file (示例)
-
-from django.db import migrations, models
-import django.db.models.deletion
-import django.conf.settings
-
-class Migration(migrations.Migration):
-
-    dependencies = [
-        ('students_grades', 'XXXX_previous_migration'),
-        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-    ]
-
-    operations = [
-        migrations.CreateModel(
-            name='SavedFilterRule',
-            fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(help_text='如"数学培优班名单"', max_length=100, verbose_name='规则名称')),
-                ('rule_type', models.CharField(choices=[('simple', '简单筛选'), ('advanced', '高级筛选')], default='advanced', max_length=20, verbose_name='规则类型')),
-                ('rule_config', models.JSONField(help_text='\n        示例:\n        {\n            "logic": "AND",\n            "conditions": [\n                {"subject": "total", "dimension": "grade", "operator": "top_n", "value": 50},\n                {"subject": "math", "dimension": "grade", "operator": "top_n", "value": 30}\n            ]\n        }\n        ', verbose_name='规则配置')),
-                ('usage_count', models.IntegerField(default=0, verbose_name='使用次数')),
-                ('last_used_at', models.DateTimeField(blank=True, null=True, verbose_name='最后使用时间')),
-                ('created_at', models.DateTimeField(auto_now_add=True, verbose_name='创建时间')),
-                ('updated_at', models.DateTimeField(auto_now=True, verbose_name='更新时间')),
-                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='saved_filter_rules', to=settings.AUTH_USER_MODEL, verbose_name='所属用户')),
-            ],
-            options={
-                'verbose_name': '保存的筛选规则',
-                'verbose_name_plural': '保存的筛选规则',
-                'db_table': 'saved_filter_rules',
-                'ordering': ['-last_used_at', '-created_at'],
-                'indexes': [
-                    models.Index(fields=['user', '-last_used_at'], name='idx_user_last_used'),
-                    models.Index(fields=['rule_type'], name='idx_rule_type'),
-                ],
-            },
-        ),
-        migrations.CreateModel(
-            name='FilterResultSnapshot',
-            fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('rule_config_snapshot', models.JSONField(verbose_name='规则配置快照')),
-                ('result_snapshot', models.JSONField(help_text='\n        示例:\n        {\n            "student_ids": [1, 5, 12, 23, ...],\n            "count": 28,\n            "created_at": "2026-03-30T14:30:00Z"\n        }\n        ', verbose_name='筛选结果快照')),
-                ('snapshot_name', models.CharField(help_text='如"期中考试-数学培优班"', max_length=100, verbose_name='快照名称')),
-                ('created_at', models.DateTimeField(auto_now_add=True, verbose_name='创建时间')),
-                ('exam', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='filter_snapshots', to='students_grades.exam', verbose_name='关联考试')),
-                ('rule', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='snapshots', to='students_grades.savedfilterrule', verbose_name='使用的规则')),
-                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='filter_snapshots', to=settings.AUTH_USER_MODEL, verbose_name='所属用户')),
-            ],
-            options={
-                'verbose_name': '筛选结果快照',
-                'verbose_name_plural': '筛选结果快照',
-                'db_table': 'filter_result_snapshots',
-                'ordering': ['-created_at'],
-                'indexes': [
-                    models.Index(fields=['user', '-created_at'], name='idx_user_created'),
-                    models.Index(fields=['exam', '-created_at'], name='idx_exam_created'),
-                    models.Index(fields=['rule', '-created_at'], name='idx_rule_created'),
-                ],
-            },
-        ),
-    ]
-```
-
-**执行迁移命令**:
-
-```bash
-# 开发环境
-python manage.py makemigrations students_grades --name add_filter_models
-python manage.py migrate students_grades
-
-# 生产环境（PostgreSQL）
-python manage.py makemigrations students_grades --name add_filter_models
-python manage.py migrate students_grades
-```
 
 ### 3.3 现有模型扩展
 
@@ -2282,14 +2062,14 @@ class FilterComparisonService:
 #### 阶段 2: 后端服务实现
 
 **任务 2.1**: 高级筛选服务
-- [ ] `AdvancedFilterService.apply_filter()`
-- [ ] `AdvancedFilterService._apply_single_condition()`
-- [ ] 单元测试
+- [x] `AdvancedFilterService.apply_filter()`
+- [x] `AdvancedFilterService._apply_single_condition()`
+- [x] 单元测试
 
 **任务 2.2**: 快照对比服务
-- [ ] `FilterComparisonService.compare_snapshots()`
-- [ ] `FilterComparisonService._calculate_rank_changes()`
-- [ ] 单元测试
+- [x] `FilterComparisonService.compare_snapshots()`
+- [x] `FilterComparisonService._calculate_rank_changes()`
+- [x] 单元测试
 
 #### 阶段 3: 后端 API 开发（含权限/路由约束）
 

@@ -114,7 +114,7 @@ class Exam(models.Model):
         - grade_index = 2025 - 2023 + 1 = 3
         - 初中第3年 = 初三
         """
-        if not self.grade_level or not self.academic_year:
+        if not self.grade_level:
             return None
 
         grade_level = self.grade_level
@@ -122,6 +122,10 @@ class Exam(models.Model):
         # 如果是旧格式（直接是"初一"等），直接返回
         if grade_level in ['初一', '初二', '初三', '高一', '高二', '高三']:
             return grade_level
+
+        # cohort 需要 academic_year 才能换算出基础年级
+        if not self.academic_year:
+            return None
 
         # cohort 格式: "初中2026级" 或 "高中2025级"
         try:

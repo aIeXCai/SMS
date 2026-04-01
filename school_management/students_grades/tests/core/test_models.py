@@ -184,14 +184,14 @@ class ClassStudentTests(TestCase):
     """Tests covering Class and Student models and their string/uniqueness behaviors."""
 
     def test_class_str_and_unique(self):
-        """Class.__str__ should produce a combined grade+class name, and duplicate class per grade should be rejected."""
-        c = Class.objects.create(grade_level='初一', class_name='1班')
+        """Class.__str__ should produce a combined grade+class name, and duplicate class per cohort should be rejected."""
+        c = Class.objects.create(grade_level='初一', cohort='初中2026级', class_name='1班')
         # string form is grade + class_name
         self.assertEqual(str(c), '初一1班')
 
-        # duplicate (same grade_level and class_name) should violate unique_together
+        # duplicate (same cohort and class_name) should violate unique_together
         with self.assertRaises(IntegrityError):
-            Class.objects.create(grade_level='初一', class_name='1班')
+            Class.objects.create(grade_level='初一', cohort='初中2026级', class_name='1班')
 
     def test_student_str_and_unique_and_unassigned_class(self):
         """Student string includes name and student_id; on no current_class it shows '未分班'.
