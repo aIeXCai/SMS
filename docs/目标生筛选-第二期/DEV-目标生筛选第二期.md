@@ -2074,26 +2074,26 @@ class FilterComparisonService:
 #### 阶段 3: 后端 API 开发（含权限/路由约束）
 
 **任务 3.1**: 序列化器开发
-- [ ] `SavedFilterRuleSerializer`
-- [ ] `FilterResultSnapshotSerializer`
-- [ ] 为 `exam_id`、`rule_id` 增加显式 `source` + `write_only` 映射
-- [ ] 验证逻辑
+- [x] `SavedFilterRuleSerializer`
+- [x] `FilterResultSnapshotSerializer`
+- [x] 为 `exam_id`、`rule_id` 增加显式 `source` + `write_only` 映射
+- [x] 验证逻辑
 
 **任务 3.2**: API 视图开发
-- [ ] 高级筛选 API (`advanced_filter`)
-- [ ] 规则管理 API (`FilterRuleListView`, `FilterRuleDetailView`)
-- [ ] 快照管理 API (`FilterSnapshotListView`, `FilterSnapshotDetailView`)
-- [ ] 快照对比 API (`compare_snapshots`)
-- [ ] 删除接口统一使用 `destroy()` 返回自定义响应（`perform_destroy()` 仅执行删除）
+- [x] 高级筛选 API (`advanced_filter`)
+- [x] 规则管理 API (`FilterRuleListView`, `FilterRuleDetailView`)
+- [x] 快照管理 API (`FilterSnapshotListView`, `FilterSnapshotDetailView`)
+- [x] 快照对比 API (`compare_snapshots`)
+- [x] 删除接口统一使用 `destroy()` 返回自定义响应（`perform_destroy()` 仅执行删除）
 
 **任务 3.3**: URL 路由配置
-- [ ] 使用 `path()` 显式挂载筛选相关接口（不对 `ListCreateAPIView` 使用 `router.register`）
-- [ ] 测试路由访问
+- [x] 使用 `path()` 显式挂载筛选相关接口（不对 `ListCreateAPIView` 使用 `router.register`）
+- [x] 测试路由访问
 
 **任务 3.4**: 权限约束落地
-- [ ] 所有写接口（POST/PUT/PATCH/DELETE）接入统一写权限分支
-- [ ] 规则与快照接口保持对象级权限（仅本人可读写删）
-- [ ] 编写未授权写入场景，验证稳定返回 `403 Forbidden`
+- [x] 所有写接口（POST/PUT/PATCH/DELETE）接入统一写权限分支
+- [x] 规则与快照接口保持对象级权限（仅本人可读写删）
+- [x] 编写未授权写入场景，验证稳定返回 `403 Forbidden`
 
 #### 阶段 4: 前端高级筛选页面
 

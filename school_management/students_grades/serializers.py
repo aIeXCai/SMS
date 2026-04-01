@@ -3,6 +3,8 @@ from .models.student import Student
 from .models.student import Class
 from .models.exam import Exam, ExamSubject
 from .models.score import Score
+from .models.filter import SavedFilterRule, FilterResultSnapshot
+from .services.advanced_filter import AdvancedFilterService
 
 
 class ClassSerializer(serializers.ModelSerializer):
@@ -150,3 +152,136 @@ class ScoreSerializer(serializers.ModelSerializer):
             'id', 'student', 'exam', 'subject', 'score_value',
             'student_name', 'student_id_display', 'exam_name'
         ]
+
+
+class SavedFilterRuleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SavedFilterRule
+        fields = [
+            'id',
+            'name',
+            'rule_type',
+            'rule_config',
+            'usage_count',
+            'last_used_at',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ['id', 'usage_count', 'last_used_at', 'created_at', 'updated_at']
+
+    def validate_rule_type(self, value):
+        if value not in {'simple', 'advanced'}:
+            raise serializers.ValidationError('rule_type 必须是 simple 或 advanced')
+        return value
+
+    def validate_rule_config(self, value):
+        if not isinstance(value, dict):
+            raise serializers.ValidationError('rule_config 必须是对象')
+
+        logic = (value.get('logic') or '').upper()
+        if logic not in {'AND', 'OR'}:
+            raise serializers.ValidationError('rule_config.logic 必须是 AND 或 OR')
+
+        conditions = value.get('conditions')
+        if not isinstance(conditions, list) or len(conditions) == 0:
+            raise serializers.ValidationError('rule_config.conditions 必须是非空数组')
+
+        for condition in conditions:
+            if not AdvancedFilterService.validate_condition(condition):
+                raise serializers.ValidationError('rule_config.conditions 存在非法条件')
+
+        return {
+            **value,
+            'logic': logic,
+        }
+
+
+class FilterResultSnapshotSerializer(serializers.ModelSerializer):
+    exam_id = serializers.PrimaryKeyRelatedField(
+        queryset=Exam.objects.all(),
+        source='exam',
+        write_only=True,
+    )
+    rule_id = serializers.PrimaryKeyRelatedField(
+        queryset=SavedFilterRule.objects.all(),
+        source='rule',
+        write_only=True,
+        required=False,
+        allow_null=True,
+    )
+
+    exam_name = serializers.CharField(source='exam.name', read_only=True)
+    rule_name = serializers.CharField(source='rule.name', read_only=True)
+    student_count = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = FilterResultSnapshot
+        fields = [
+            'id',
+            'snapshot_name',
+            'exam_id',
+            'exam_name',
+            'rule_id',
+            'rule_name',
+            'rule_config_snapshot',
+            'result_snapshot',
+            'student_count',
+            'created_at',
+        ]
+        read_only_fields = ['id', 'exam_name', 'rule_name', 'student_count', 'created_at']
+
+    def get_student_count(self, obj):
+        if not isinstance(obj.result_snapshot, dict):
+            return 0
+        return int(obj.result_snapshot.get('count') or 0)
+
+    def validate_rule_id(self, value):
+        request = self.context.get('request')
+        if request and value and value.user_id != request.user.id:
+            raise serializers.ValidationError('只能使用自己的规则')
+        return value
+
+    def validate_result_snapshot(self, value):
+        if not isinstance(value, dict):
+            raise serializers.ValidationError('result_snapshot 必须是对象')
+
+        student_ids = value.get('student_ids')
+        count = value.get('count')
+
+        if not isinstance(student_ids, list):
+            raise serializers.ValidationError('result_snapshot.student_ids 必须是数组')
+
+        normalized_ids = []
+        for student_id in student_ids:
+            if not isinstance(student_id, int) or student_id <= 0:
+                raise serializers.ValidationError('result_snapshot.student_ids 只能包含正整数')
+            normalized_ids.append(student_id)
+
+        if len(normalized_ids) != len(set(normalized_ids)):
+            raise serializers.ValidationError('result_snapshot.student_ids 不能有重复值')
+
+        if not isinstance(count, int) or count < 0:
+            raise serializers.ValidationError('result_snapshot.count 必须是非负整数')
+
+        if count != len(normalized_ids):
+            raise serializers.ValidationError('result_snapshot.count 与 student_ids 数量不一致')
+
+        return {
+            **value,
+            'student_ids': normalized_ids,
+            'count': count,
+        }
+
+    def validate(self, attrs):
+        request = self.context.get('request')
+        exam = attrs.get('exam')
+        rule = attrs.get('rule')
+
+        if request and exam and rule and request.user.id != rule.user_id:
+            raise serializers.ValidationError({'rule_id': '只能使用自己的规则'})
+
+        if request and exam:
+            # 快照所属用户由视图层 perform_create 注入，此处仅做 exam 基本存在性后的扩展位
+            pass
+
+        return attrs
