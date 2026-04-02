@@ -2,6 +2,7 @@ import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 import datetime
 import json
+from decimal import Decimal, InvalidOperation
 from collections import defaultdict
 from django.http import HttpResponse
 from django.db import transaction, models
@@ -1721,7 +1722,7 @@ class ScoreViewSet(viewsets.ModelViewSet):
                 for subject in exam.exam_subjects.all()
             }
             max_score_map = {
-                subject.subject_code: float(subject.max_score)
+                subject.subject_code: Decimal(str(subject.max_score))
                 for subject in exam.exam_subjects.all()
             }
 
@@ -1729,7 +1730,7 @@ class ScoreViewSet(viewsets.ModelViewSet):
                 default_config = SUBJECT_DEFAULT_MAX_SCORES.get(exam.get_grade_level_from_cohort(), {})
                 for subject_code, _ in SCORE_SUBJECT_CHOICES:
                     if subject_code in default_config:
-                        max_score_map[subject_code] = float(default_config[subject_code])
+                        max_score_map[subject_code] = Decimal(str(default_config[subject_code]))
 
             subject_codes = [subject_code for subject_code, _ in SCORE_SUBJECT_CHOICES if subject_code in headers]
 
@@ -1748,9 +1749,22 @@ class ScoreViewSet(viewsets.ModelViewSet):
             students = Student.objects.filter(student_id__in=student_ids).select_related('current_class')
             students_map = {student.student_id: student for student in students}
 
+            existing_scores = Score.objects.filter(
+                exam=exam,
+                student_id__in=[student.id for student in students],
+                subject__in=subject_codes,
+            )
+            existing_scores_map = {
+                (score.student_id, score.subject): score
+                for score in existing_scores
+            }
+
             imported_count = 0
             failed_count = 0
             error_details = []
+            pending_create_map = {}
+            pending_update_map = {}
+            now_ts = timezone.now()
 
             with transaction.atomic():
                 for row_idx, row_data in excel_rows:
@@ -1771,8 +1785,8 @@ class ScoreViewSet(viewsets.ModelViewSet):
                             if raw_score in [None, '']:
                                 continue
                             try:
-                                score_value = float(raw_score)
-                            except (TypeError, ValueError):
+                                score_value = Decimal(str(raw_score))
+                            except (TypeError, ValueError, InvalidOperation):
                                 row_errors.append(f'{subject_code} 分数格式错误')
                                 continue
 
@@ -1785,16 +1799,42 @@ class ScoreViewSet(viewsets.ModelViewSet):
                                 row_errors.append(f'{subject_code} 分数 {score_value} 超过满分 {max_score}')
                                 continue
 
-                            Score.objects.update_or_create(
-                                student=student,
-                                exam=exam,
-                                subject=subject_code,
-                                defaults={
-                                    'score_value': score_value,
-                                    'exam_subject': exam_subject_map.get(subject_code)
-                                }
-                            )
-                            changed_any = True
+                            exam_subject_obj = exam_subject_map.get(subject_code)
+                            key = (student.id, subject_code)
+                            existing_score = existing_scores_map.get(key)
+
+                            if existing_score:
+                                if (
+                                    existing_score.score_value != score_value
+                                    or existing_score.exam_subject_id != (exam_subject_obj.id if exam_subject_obj else None)
+                                ):
+                                    existing_score.score_value = score_value
+                                    existing_score.exam_subject = exam_subject_obj
+                                    existing_score.updated_at = now_ts
+                                    pending_update_map[existing_score.id] = existing_score
+                                    changed_any = True
+                            else:
+                                pending_score = pending_create_map.get(key)
+                                if pending_score:
+                                    if (
+                                        pending_score.score_value != score_value
+                                        or pending_score.exam_subject_id != (exam_subject_obj.id if exam_subject_obj else None)
+                                    ):
+                                        pending_score.score_value = score_value
+                                        pending_score.exam_subject = exam_subject_obj
+                                        pending_score.updated_at = now_ts
+                                        changed_any = True
+                                else:
+                                    pending_create_map[key] = Score(
+                                        student=student,
+                                        exam=exam,
+                                        subject=subject_code,
+                                        score_value=score_value,
+                                        exam_subject=exam_subject_obj,
+                                        created_at=now_ts,
+                                        updated_at=now_ts,
+                                    )
+                                    changed_any = True
 
                     if row_errors:
                         failed_count += 1
@@ -1806,6 +1846,16 @@ class ScoreViewSet(viewsets.ModelViewSet):
                         })
                     elif changed_any:
                         imported_count += 1
+
+                if pending_create_map:
+                    Score.objects.bulk_create(list(pending_create_map.values()), batch_size=1000)
+
+                if pending_update_map:
+                    Score.objects.bulk_update(
+                        list(pending_update_map.values()),
+                        ['score_value', 'exam_subject', 'updated_at'],
+                        batch_size=1000,
+                    )
 
             try:
                 update_all_rankings_async.delay(exam.pk)
