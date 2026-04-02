@@ -2121,18 +2121,18 @@ class FilterComparisonService:
 #### 阶段 5: 前端规则管理页面
 
 **任务 5.1**: 基础页面
-- [ ] 创建 `rules/page.tsx`
-- [ ] 页面布局
+- [x] 创建 `rules/page.tsx`
+- [x] 页面布局
 
 **任务 5.2**: 规则列表组件
-- [ ] `RuleList.tsx`
-- [ ] 规则表格
-- [ ] 分页
+- [x] `RuleList.tsx`
+- [x] 规则表格
+- [x] 分页
 
 **任务 5.3**: 规则编辑对话框
-- [ ] `RuleEditor.tsx`
-- [ ] 新建/编辑规则
-- [ ] 表单验证
+- [x] `RuleEditor.tsx`
+- [x] 新建/编辑规则
+- [x] 表单验证
 
 #### 阶段 6: 前端变化追踪页面
 
