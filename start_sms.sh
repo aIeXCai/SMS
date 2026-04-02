@@ -14,6 +14,16 @@ cd "$SCRIPT_DIR"
 
 echo "📁 项目目录: $SCRIPT_DIR"
 
+# 加载本地环境变量（例如 MySQL 连接信息）
+if [ -f "$SCRIPT_DIR/.env" ]; then
+    echo "🔐 加载 .env 环境变量"
+    set -a
+    source "$SCRIPT_DIR/.env"
+    set +a
+else
+    echo "⚠️  未找到 .env 文件，将使用系统环境变量"
+fi
+
 # 颜色定义
 RED='\033[0;31m'
 GREEN='\033[0;32m'

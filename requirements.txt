@@ -20,6 +20,7 @@ redis>=5.0.0
 # psycopg2-binary>=2.9.0  # PostgreSQL adapter
 # For MySQL, uncomment the line below:
 # mysqlclient>=2.1.0      # MySQL adapter
+PyMySQL>=1.1.2            # MySQL adapter fallback (pure Python)
 
 # Development Dependencies (optional)
 # django-debug-toolbar>=4.0.0

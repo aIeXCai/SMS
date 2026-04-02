@@ -12,6 +12,16 @@ REM 进入项目目录
 cd /d "%~dp0"
 echo 📁 项目目录: %CD%
 
+REM 加载本地环境变量（例如 MySQL 连接信息）
+if exist ".env" (
+    echo 🔐 加载 .env 环境变量...
+    for /f "usebackq eol=# tokens=1,* delims==" %%A in (".env") do (
+        if not "%%A"=="" set "%%A=%%B"
+    )
+) else (
+    echo ⚠️  未找到 .env 文件，将使用系统环境变量
+)
+
 REM 检查 Redis 连接
 echo.
 echo 🔍 检查 Redis 连接...

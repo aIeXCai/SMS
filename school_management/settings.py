@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 from datetime import timedelta
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -87,26 +88,28 @@ TEMPLATES = [
 WSGI_APPLICATION = 'school_management.wsgi.application'
 
 
-# SQLite配置（开发环境使用）
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+# 双库配置：默认使用 MySQL；保留 sqlite 便于回滚和对账。
+MYSQL_DATABASE_CONFIG = {
+    'ENGINE': 'django.db.backends.mysql',
+    'NAME': os.getenv('MYSQL_DB', ''),
+    'USER': os.getenv('MYSQL_USER', ''),
+    'PASSWORD': os.getenv('MYSQL_PASSWORD', ''),
+    'HOST': os.getenv('MYSQL_HOST', '127.0.0.1'),
+    'PORT': os.getenv('MYSQL_PORT', '3306'),
+    'OPTIONS': {
+        'charset': 'utf8mb4',
+    },
+    'CONN_MAX_AGE': 60,
 }
 
-# PostgreSQL配置（生产环境使用）
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.postgresql',
-#         'NAME': 'school_db',
-#         'USER': 'postgres',
-#         'PASSWORD': '12345',
-#         'HOST': 'localhost',
-#         'PORT': '5432',
-#         'CONN_MAX_AGE': 0,  # 禁用持久连接，避免游标问题
-#     }
-# }
+DATABASES = {
+    'default': MYSQL_DATABASE_CONFIG,
+    'mysql': MYSQL_DATABASE_CONFIG,
+    'sqlite': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+    },
+}
 
 
 # Password validation
