@@ -100,7 +100,7 @@ class FilterComparisonService:
             class_name = student.current_class.class_name if student.current_class else "未分班"
             results[student_id] = {
                 "student_id": student.id,
-                "student_number": student.student_id,
+                "cohort": student.cohort,
                 "name": student.name,
                 "class_name": class_name,
                 "old_rank": old_rank,
@@ -141,7 +141,8 @@ class FilterComparisonService:
             effective_rank = new_rank if new_rank is not None else old_rank
             return (
                 effective_rank if effective_rank is not None else 10**9,
-                item.get("student_number") or "",
+                item.get("cohort") or "",
+                item.get("name") or "",
             )
 
         return sorted(entries, key=_sort_key)

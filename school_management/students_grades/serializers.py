@@ -211,6 +211,7 @@ class FilterResultSnapshotSerializer(serializers.ModelSerializer):
     )
 
     exam_name = serializers.CharField(source='exam.name', read_only=True)
+    exam_academic_year = serializers.CharField(source='exam.academic_year', read_only=True)
     rule_name = serializers.CharField(source='rule.name', read_only=True)
     student_count = serializers.SerializerMethodField(read_only=True)
 
@@ -221,6 +222,7 @@ class FilterResultSnapshotSerializer(serializers.ModelSerializer):
             'snapshot_name',
             'exam_id',
             'exam_name',
+            'exam_academic_year',
             'rule_id',
             'rule_name',
             'rule_config_snapshot',
@@ -228,7 +230,7 @@ class FilterResultSnapshotSerializer(serializers.ModelSerializer):
             'student_count',
             'created_at',
         ]
-        read_only_fields = ['id', 'exam_name', 'rule_name', 'student_count', 'created_at']
+        read_only_fields = ['id', 'exam_name', 'exam_academic_year', 'rule_name', 'student_count', 'created_at']
 
     def get_student_count(self, obj):
         if not isinstance(obj.result_snapshot, dict):

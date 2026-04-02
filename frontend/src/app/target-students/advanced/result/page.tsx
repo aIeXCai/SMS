@@ -47,6 +47,37 @@ const backendBaseUrl =
     : "http://localhost:8000";
 const SCORES_API_BASE = `${backendBaseUrl}/api/scores`;
 const ADVANCED_FILTER_API = `${backendBaseUrl}/api/students/advanced-filter/`;
+const FILTER_SNAPSHOT_API = `${backendBaseUrl}/api/filter-snapshots/`;
+
+const resolveErrorMessage = (payload: unknown, fallback: string) => {
+  if (!payload || typeof payload !== "object") return fallback;
+
+  const data = payload as Record<string, unknown>;
+
+  if (typeof data.message === "string" && data.message.trim()) {
+    return data.message;
+  }
+
+  if (typeof data.detail === "string" && data.detail.trim()) {
+    return data.detail;
+  }
+
+  if (
+    Array.isArray(data.non_field_errors) &&
+    data.non_field_errors.length > 0 &&
+    typeof data.non_field_errors[0] === "string"
+  ) {
+    return data.non_field_errors[0];
+  }
+
+  for (const value of Object.values(data)) {
+    if (Array.isArray(value) && value.length > 0 && typeof value[0] === "string") {
+      return value[0];
+    }
+  }
+
+  return fallback;
+};
 
 export default function AdvancedTargetStudentsResultPage() {
   const { token, loading, user } = useAuth();
@@ -64,6 +95,9 @@ export default function AdvancedTargetStudentsResultPage() {
     Array<{ id: number; type: "success" | "danger" | "info"; text: string }>
   >([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSavingSnapshot, setIsSavingSnapshot] = useState(false);
+  const [showSnapshotModal, setShowSnapshotModal] = useState(false);
+  const [snapshotNameDraft, setSnapshotNameDraft] = useState("");
 
   const effectiveToken = useMemo(() => {
     if (token) return token;
@@ -192,6 +226,11 @@ export default function AdvancedTargetStudentsResultPage() {
     return examOptions.find((item) => item.value === examId)?.label || examId;
   }, [examOptions, examId]);
 
+  const buildDefaultSnapshotName = () => {
+    const now = new Date();
+    return `高级筛选快照_${examLabel}_${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  };
+
   const handleExportExcel = () => {
     if (!result || result.students.length === 0) {
       setMessages([{ id: Date.now(), type: "info", text: "暂无可导出的筛选结果" }]);
@@ -238,6 +277,94 @@ export default function AdvancedTargetStudentsResultPage() {
     const datePart = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
     const fileName = `高级筛选结果_${examLabel}_${datePart}.xlsx`;
     XLSX.writeFile(workbook, fileName);
+  };
+
+  const openSnapshotModal = () => {
+    if (!result || result.students.length === 0) {
+      setMessages([{ id: Date.now(), type: "info", text: "暂无可保存的筛选结果" }]);
+      return;
+    }
+
+    setSnapshotNameDraft(buildDefaultSnapshotName());
+    setShowSnapshotModal(true);
+  };
+
+  const handleSaveSnapshot = async (goToTrackingAfterSave: boolean) => {
+    const snapshotName = snapshotNameDraft.trim();
+
+    if (!snapshotName) {
+      setMessages([{ id: Date.now(), type: "danger", text: "快照名称不能为空" }]);
+      return;
+    }
+
+    if (!result || result.students.length === 0) {
+      setMessages([{ id: Date.now(), type: "info", text: "暂无可保存的筛选结果" }]);
+      setShowSnapshotModal(false);
+      return;
+    }
+
+    try {
+      setIsSavingSnapshot(true);
+      const studentIds = result.students.map((student) => student.student_id);
+
+      const res = await fetch(FILTER_SNAPSHOT_API, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeader,
+        },
+        body: JSON.stringify({
+          snapshot_name: snapshotName,
+          exam_id: Number(examId),
+          rule_config_snapshot: {
+            logic,
+            conditions,
+          },
+          result_snapshot: {
+            student_ids: studentIds,
+            count: studentIds.length,
+          },
+        }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        setMessages([
+          {
+            id: Date.now(),
+            type: "danger",
+            text: resolveErrorMessage(data, "保存快照失败，请稍后重试"),
+          },
+        ]);
+        return;
+      }
+
+      setMessages([
+        {
+          id: Date.now(),
+          type: "success",
+          text: `快照“${snapshotName}”已保存，可在变化追踪页发起对比`,
+        },
+      ]);
+      setShowSnapshotModal(false);
+
+      const snapshotId =
+        data && typeof data === "object" && "id" in data && typeof data.id === "number"
+          ? data.id
+          : null;
+      if (goToTrackingAfterSave) {
+        const targetPath = snapshotId
+          ? `/target-students/tracking?snapshot_id=${snapshotId}`
+          : "/target-students/tracking";
+        router.push(targetPath);
+      }
+    } catch (error) {
+      console.error("Save snapshot failed:", error);
+      setMessages([{ id: Date.now(), type: "danger", text: "保存快照失败，请稍后重试" }]);
+    } finally {
+      setIsSavingSnapshot(false);
+    }
   };
 
   if (loading) return <div className="p-4">加载中...</div>;
@@ -339,11 +466,22 @@ export default function AdvancedTargetStudentsResultPage() {
 
         <div className="card filter-card mt-3">
           <div className="card-header d-flex justify-content-between align-items-center">
-            <h5 className="mb-0"><i className="fas fa-list me-2"></i>筛选结果</h5>
             <div className="d-flex align-items-center gap-2">
+              <h5 className="mb-0"><i className="fas fa-list me-2"></i>筛选结果</h5>
               <span className="badge bg-primary fs-6">
                 共 {result?.count || 0} 名目标生
               </span>
+            </div>
+            <div className="d-flex align-items-center gap-2">
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={openSnapshotModal}
+                disabled={isLoading || isSavingSnapshot || !result || result.students.length === 0}
+              >
+                <i className="fas fa-save me-1"></i>
+                {isSavingSnapshot ? "保存中..." : "保存为快照"}
+              </button>
               <button
                 type="button"
                 className="btn btn-success btn-sm"
@@ -351,6 +489,13 @@ export default function AdvancedTargetStudentsResultPage() {
                 disabled={isLoading || !result || result.students.length === 0}
               >
                 <i className="fas fa-file-excel me-1"></i>导出 Excel
+              </button>
+              <button
+                type="button"
+                className="btn btn-outline-primary btn-sm"
+                onClick={() => router.push("/target-students/tracking")}
+              >
+                <i className="fas fa-chart-line me-1"></i>前往变化追踪
               </button>
             </div>
           </div>
@@ -373,6 +518,74 @@ export default function AdvancedTargetStudentsResultPage() {
           <i className="fas fa-arrow-up"></i>
         </button>
       </div>
+
+        {showSnapshotModal && (
+          <>
+            <div className="modal fade show d-block" tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="saveSnapshotModalLabel">
+              <div className="modal-dialog modal-dialog-centered" role="document">
+                <div className="modal-content border-0 shadow">
+                  <div className="modal-header bg-light">
+                    <h5 className="modal-title" id="saveSnapshotModalLabel">
+                      <i className="fas fa-save me-2 text-primary"></i>
+                      保存筛选快照
+                    </h5>
+                    <button
+                      type="button"
+                      className="btn-close"
+                      aria-label="Close"
+                      onClick={() => {
+                        if (!isSavingSnapshot) setShowSnapshotModal(false);
+                      }}
+                    ></button>
+                  </div>
+                  <div className="modal-body">
+                    <div className="mb-3">
+                      <label className="form-label">快照名称</label>
+                      <input
+                        className="form-control"
+                        value={snapshotNameDraft}
+                        onChange={(e) => setSnapshotNameDraft(e.target.value)}
+                        maxLength={100}
+                        placeholder="请输入快照名称"
+                        disabled={isSavingSnapshot}
+                      />
+                    </div>
+                    <div className="small text-secondary">
+                      将保存本次筛选条件与目标生名单（共 {result?.count || 0} 人）。
+                    </div>
+                  </div>
+                  <div className="modal-footer">
+                    <button
+                      type="button"
+                      className="btn btn-light"
+                      onClick={() => setShowSnapshotModal(false)}
+                      disabled={isSavingSnapshot}
+                    >
+                      取消
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={() => handleSaveSnapshot(false)}
+                      disabled={isSavingSnapshot}
+                    >
+                      {isSavingSnapshot ? "保存中..." : "保存快照"}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-outline-primary"
+                      onClick={() => handleSaveSnapshot(true)}
+                      disabled={isSavingSnapshot}
+                    >
+                      {isSavingSnapshot ? "保存中..." : "保存并前往追踪"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="modal-backdrop fade show"></div>
+          </>
+        )}
 
       <style jsx global>{`
         .page-header {

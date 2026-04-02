@@ -2137,23 +2137,24 @@ class FilterComparisonService:
 #### 阶段 6: 前端变化追踪页面
 
 **任务 6.1**: 基础页面
-- [ ] 创建 `tracking/page.tsx`
-- [ ] 页面布局
+- [x] 创建 `tracking/page.tsx`
+- [x] 页面布局
 
 **任务 6.2**: 快照列表组件
-- [ ] `SnapshotList.tsx`
-- [ ] 快照表格
-- [ ] 选择对比快照
+- [x] `SnapshotList.tsx`
+- [x] 快照表格
+- [x] 选择对比快照
+
+**前置联动计划（高级筛选结果页 -> 变化追踪）**
+- [x] 在 `advanced/result/page.tsx` 新增“保存为快照”按钮
+- [x] 在 `advanced/result/page.tsx` 新增“前往变化追踪”入口
+- [x] 完成“筛选结果 -> 保存快照 -> 进入追踪页”闭环链路
 
 **任务 6.3**: 对比结果展示
-- [ ] `ComparisonResult.tsx`
-- [ ] 新增/退出/保留学生列表
-- [ ] 排名变化展示
-
-**任务 6.4**: 报告导出
-- [ ] `ReportExporter.tsx`
-- [ ] 导出 PDF
-- [ ] 导出 Excel
+- [x] `ComparisonResult.tsx`
+- [x] 新增/退出/保留学生列表
+- [x] 排名变化展示
+- [x] 导出 Excel
 
 #### 阶段 7: 测试分层执行 + Bug 修复
 
