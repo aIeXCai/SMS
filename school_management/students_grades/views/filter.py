@@ -9,6 +9,75 @@ from ..services import AdvancedFilterService, FilterComparisonService
 from school_management.users.permissions import IsAdminOrGradeManagerOrStaff
 
 
+SUBJECT_LABEL_MAP = {
+    'total': '总分',
+    'chinese': '语文',
+    'math': '数学',
+    'english': '英语',
+    'physics': '物理',
+    'chemistry': '化学',
+    'biology': '生物',
+    'history': '历史',
+    'geography': '地理',
+    'politics': '政治',
+}
+
+
+def _get_condition_rank_map(exam_id: int, condition: dict, student_ids: list[int]) -> dict[int, int]:
+    subject = condition.get('subject')
+    dimension = condition.get('dimension')
+
+    if subject == 'total':
+        rank_field = 'total_score_rank_in_grade' if dimension == 'grade' else 'total_score_rank_in_class'
+        rows = (
+            Score.objects.filter(exam_id=exam_id, student_id__in=student_ids)
+            .values('student_id')
+            .annotate(rank_value=models.Min(rank_field))
+        )
+    else:
+        subject_name = AdvancedFilterService.SUBJECT_MAP.get(subject)
+        if not subject_name:
+            return {}
+        rank_field = 'grade_rank_in_subject' if dimension == 'grade' else 'class_rank_in_subject'
+        rows = (
+            Score.objects.filter(exam_id=exam_id, student_id__in=student_ids, subject=subject_name)
+            .values('student_id')
+            .annotate(rank_value=models.Min(rank_field))
+        )
+
+    return {
+        row['student_id']: row['rank_value']
+        for row in rows
+        if row.get('rank_value') is not None
+    }
+
+
+def _get_condition_score_map(exam_id: int, condition: dict, student_ids: list[int]) -> dict[int, float]:
+    subject = condition.get('subject')
+
+    if subject == 'total':
+        rows = (
+            Score.objects.filter(exam_id=exam_id, student_id__in=student_ids)
+            .values('student_id')
+            .annotate(score_value=models.Sum('score_value'))
+        )
+    else:
+        subject_name = AdvancedFilterService.SUBJECT_MAP.get(subject)
+        if not subject_name:
+            return {}
+        rows = (
+            Score.objects.filter(exam_id=exam_id, student_id__in=student_ids, subject=subject_name)
+            .values('student_id')
+            .annotate(score_value=models.Max('score_value'))
+        )
+
+    return {
+        row['student_id']: float(row['score_value'])
+        for row in rows
+        if row.get('score_value') is not None
+    }
+
+
 class _FilterWritePermissionMixin:
     """筛选相关视图权限：读操作登录可用，写操作仅 admin/grade_manager/staff。"""
 
@@ -49,19 +118,48 @@ def advanced_filter(request):
         )
         rank_map = {row['student_id']: row['total_rank'] for row in rank_rows}
 
+        condition_columns = []
+        condition_rank_maps = []
+        condition_score_maps = []
+        for index, condition in enumerate(conditions, start=1):
+            subject = condition.get('subject', '')
+            condition_columns.append(
+                {
+                    'index': index,
+                    'subject': subject,
+                    'subject_label': SUBJECT_LABEL_MAP.get(subject, subject),
+                    'dimension': condition.get('dimension'),
+                }
+            )
+            condition_rank_maps.append(_get_condition_rank_map(int(exam_id), condition, student_ids))
+            condition_score_maps.append(_get_condition_score_map(int(exam_id), condition, student_ids))
+
         result_students = []
         for student_id in student_ids:
             student = students.get(student_id)
             if not student:
                 continue
             class_name = student.current_class.class_name if student.current_class else '未分班'
+            condition_details = []
+            for idx, column in enumerate(condition_columns):
+                condition_details.append(
+                    {
+                        'condition_index': column['index'],
+                        'subject': column['subject'],
+                        'subject_label': column['subject_label'],
+                        'score': condition_score_maps[idx].get(student_id),
+                        'rank': condition_rank_maps[idx].get(student_id),
+                    }
+                )
             result_students.append(
                 {
                     'student_id': student.id,
                     'student_number': student.student_id,
                     'name': student.name,
+                    'cohort': student.cohort,
                     'class_name': class_name,
                     'total_rank': rank_map.get(student.id),
+                    'condition_details': condition_details,
                 }
             )
 
@@ -72,7 +170,14 @@ def advanced_filter(request):
             )
         )
 
-        return Response({'count': len(result_students), 'students': result_students})
+        return Response(
+            {
+                'count': len(result_students),
+                'logic': (logic or '').upper(),
+                'condition_columns': condition_columns,
+                'students': result_students,
+            }
+        )
     except Exam.DoesNotExist:
         return Response({'message': '考试不存在'}, status=status.HTTP_404_NOT_FOUND)
     except ValueError as exc:

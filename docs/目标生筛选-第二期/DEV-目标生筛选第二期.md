@@ -2107,14 +2107,16 @@ class FilterComparisonService:
 - [x] 逻辑选择（AND/OR）
 
 **任务 4.3**: 筛选结果展示组件
-- [ ] `FilterResults.tsx`
-- [ ] 结果表格
-- [ ] 导出功能
+- [x] `FilterResults.tsx`
+- [x] 结果表格
+- [x] 导出功能（Excel）
+- [x] 动态条件列（科目分数 + 科目排名）
+- [x] 条件列与条件排名列升序/降序
 
 **任务 4.4**: 规则选择器
-- [ ] `RuleSelector.tsx`
-- [ ] 规则下拉选择
-- [ ] 规则加载
+- [x] `RuleSelector.tsx`
+- [x] 规则下拉选择
+- [x] 规则加载
 
 #### 阶段 5: 前端规则管理页面
 

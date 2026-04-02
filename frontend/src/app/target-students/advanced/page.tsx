@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import FilterBuilder, { FilterCondition, FilterLogic } from "./components/FilterBuilder";
+import RuleSelector from "./components/RuleSelector";
 import { useAuth } from "@/contexts/AuthContext";
 
 type Option = { value: string; label: string };
@@ -11,15 +13,70 @@ const backendBaseUrl =
     ? `http://${window.location.hostname}:8000`
     : "http://localhost:8000";
 const SCORES_API_BASE = `${backendBaseUrl}/api/scores`;
+const FILTER_RULE_API = `${backendBaseUrl}/api/filter-rules/`;
+
+type SavedRule = {
+  id: number;
+  name: string;
+  rule_type: "simple" | "advanced";
+  rule_config: {
+    logic?: string;
+    conditions?: Array<{
+      subject: string;
+      dimension: "grade" | "class";
+      operator: "top_n" | "bottom_n" | "range";
+      value: number | [number, number];
+    }>;
+    grade_level?: string;
+    exam_id?: number | string;
+  };
+};
+
+function isValidCondition(condition: unknown): condition is FilterCondition {
+  if (!condition || typeof condition !== "object") return false;
+  const item = condition as FilterCondition;
+
+  const validSubjects = new Set([
+    "total",
+    "chinese",
+    "math",
+    "english",
+    "physics",
+    "chemistry",
+    "biology",
+    "history",
+    "geography",
+    "politics",
+  ]);
+
+  if (!validSubjects.has(item.subject)) return false;
+  if (item.dimension !== "grade" && item.dimension !== "class") return false;
+  if (item.operator !== "top_n" && item.operator !== "bottom_n" && item.operator !== "range") return false;
+
+  if (item.operator === "range") {
+    if (!Array.isArray(item.value) || item.value.length !== 2) return false;
+    const [start, end] = item.value;
+    return Number.isInteger(start) && Number.isInteger(end) && start > 0 && end > 0 && start <= end;
+  }
+
+  return typeof item.value === "number" && Number.isInteger(item.value) && item.value > 0;
+}
 
 export default function AdvancedTargetStudentsPage() {
   const { token } = useAuth();
+  const router = useRouter();
   const [logic, setLogic] = useState<FilterLogic>("AND");
   const [conditions, setConditions] = useState<FilterCondition[]>([]);
   const [gradeLevel, setGradeLevel] = useState("");
   const [examId, setExamId] = useState("");
   const [gradeOptions, setGradeOptions] = useState<Option[]>([]);
   const [examOptions, setExamOptions] = useState<Option[]>([]);
+  const [savedRules, setSavedRules] = useState<SavedRule[]>([]);
+  const [selectedRuleId, setSelectedRuleId] = useState("");
+  const [loadingRules, setLoadingRules] = useState(false);
+  const [builderPresetKey, setBuilderPresetKey] = useState(0);
+  const [builderPresetLogic, setBuilderPresetLogic] = useState<FilterLogic>("AND");
+  const [builderPresetConditions, setBuilderPresetConditions] = useState<FilterCondition[]>([]);
 
   const effectiveToken = useMemo(() => {
     if (token) return token;
@@ -74,9 +131,75 @@ export default function AdvancedTargetStudentsPage() {
     fetchExamOptions();
   }, [effectiveToken, gradeLevel, authHeader]);
 
+  useEffect(() => {
+    if (!effectiveToken) return;
+
+    const fetchRules = async () => {
+      setLoadingRules(true);
+      try {
+        const res = await fetch(FILTER_RULE_API, {
+          headers: { ...authHeader },
+        });
+        if (!res.ok) return;
+        const data = (await res.json()) as SavedRule[];
+        const advancedRules = data.filter((item) => item.rule_type === "advanced");
+        setSavedRules(advancedRules);
+      } catch (error) {
+        console.error("Failed to fetch filter rules:", error);
+      } finally {
+        setLoadingRules(false);
+      }
+    };
+
+    fetchRules();
+  }, [effectiveToken, authHeader]);
+
   const handleGradeChange = (value: string) => {
     setGradeLevel(value);
     setExamId("");
+  };
+
+  const handleLoadSelectedRule = () => {
+    if (!selectedRuleId) {
+      window.alert("请先选择规则");
+      return;
+    }
+
+    const selected = savedRules.find((item) => String(item.id) === selectedRuleId);
+    if (!selected) {
+      window.alert("未找到对应规则");
+      return;
+    }
+
+    const rawLogic = (selected.rule_config?.logic || "AND").toUpperCase();
+    const nextLogic: FilterLogic = rawLogic === "OR" ? "OR" : "AND";
+
+    const rawConditions = selected.rule_config?.conditions || [];
+    const nextConditions = rawConditions
+      .filter(isValidCondition)
+      .map((condition, index) => ({
+        ...condition,
+        id: `${Date.now()}-${index}-${Math.random().toString(36).slice(2, 6)}`,
+      }));
+
+    if (nextConditions.length === 0) {
+      window.alert("该规则没有可用条件，无法加载");
+      return;
+    }
+
+    const nextGradeLevel = selected.rule_config?.grade_level;
+    if (typeof nextGradeLevel === "string" && nextGradeLevel.trim()) {
+      setGradeLevel(nextGradeLevel);
+    }
+
+    const nextExamId = selected.rule_config?.exam_id;
+    if (typeof nextExamId === "string" || typeof nextExamId === "number") {
+      setExamId(String(nextExamId));
+    }
+
+    setBuilderPresetLogic(nextLogic);
+    setBuilderPresetConditions(nextConditions);
+    setBuilderPresetKey((prev) => prev + 1);
   };
 
   return (
@@ -150,12 +273,15 @@ export default function AdvancedTargetStudentsPage() {
                   </div>
                   <div className="col-12">
                     <FilterBuilder
+                      presetKey={builderPresetKey}
+                      presetLogic={builderPresetLogic}
+                      presetConditions={builderPresetConditions}
                       onChange={(payload) => {
                         setLogic(payload.logic);
                         setConditions(payload.conditions);
                       }}
                       canStart={Boolean(gradeLevel && examId)}
-                      onStartFilter={() => {
+                      onStartFilter={(payload) => {
                         if (!gradeLevel) {
                           window.alert("请先选择年级");
                           return;
@@ -164,7 +290,13 @@ export default function AdvancedTargetStudentsPage() {
                           window.alert("请选择考试后再开始筛选");
                           return;
                         }
-                        // 4.3 将在这里接入跳转到独立结果页与参数透传
+
+                        const params = new URLSearchParams();
+                        params.set("exam_id", examId);
+                        params.set("grade_level", gradeLevel);
+                        params.set("logic", payload.logic);
+                        params.set("conditions", JSON.stringify(payload.conditions));
+                        router.push(`/target-students/advanced/result?${params.toString()}`);
                       }}
                     />
                   </div>
@@ -181,17 +313,28 @@ export default function AdvancedTargetStudentsPage() {
                 </h5>
               </div>
               <div className="card-body">
-                <p className="text-secondary mb-3">4.4 将在此接入规则选择器，快速套用历史规则。</p>
-                <button type="button" className="btn btn-outline-success w-100" disabled>
-                  载入已保存规则
-                </button>
+                <p className="text-secondary mb-3">选择已保存的高级规则，可一键回填条件组合。</p>
+                <RuleSelector
+                  rules={savedRules.map((item) => ({ id: item.id, name: item.name }))}
+                  selectedRuleId={selectedRuleId}
+                  onSelect={setSelectedRuleId}
+                  onLoad={handleLoadSelectedRule}
+                  loading={loadingRules}
+                />
 
-                <hr className="my-3" />
+                {savedRules.length === 0 && !loadingRules && (
+                  <div className="small text-secondary mt-2">暂无可用高级规则，可在规则页创建后返回加载。</div>
+                )}
 
-                <h6 className="fw-semibold">结果展示方式</h6>
-                <p className="text-secondary mb-2">和简单筛选一致，点击“开始筛选”后进入独立结果页展示名单与统计。</p>
-                <div className="border rounded-3 p-2 bg-light-subtle text-secondary small">
-                  预计结果页路由：/target-students/advanced/result
+                <div className="border rounded-3 p-2 bg-light-subtle text-secondary small mt-3">
+                  规则管理：
+                  <button
+                    type="button"
+                    className="btn btn-link btn-sm p-0 ms-1 align-baseline"
+                    onClick={() => router.push("/target-students/rules")}
+                  >
+                    前往我的规则
+                  </button>
                 </div>
               </div>
             </div>

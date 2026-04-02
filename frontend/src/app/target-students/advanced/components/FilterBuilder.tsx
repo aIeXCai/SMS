@@ -26,6 +26,9 @@ type FilterBuilderProps = {
   onChange?: (payload: { logic: FilterLogic; conditions: FilterCondition[] }) => void;
   onStartFilter?: (payload: { logic: FilterLogic; conditions: FilterCondition[] }) => void;
   canStart?: boolean;
+  presetLogic?: FilterLogic;
+  presetConditions?: FilterCondition[];
+  presetKey?: number;
 };
 
 const SUBJECT_OPTIONS = [
@@ -97,7 +100,36 @@ function normalizeConditions(conditions: BuilderCondition[]): FilterCondition[] 
   return result;
 }
 
-export default function FilterBuilder({ onChange, onStartFilter, canStart = true }: FilterBuilderProps) {
+function toBuilderCondition(item: FilterCondition): BuilderCondition {
+  if (item.operator === "range" && Array.isArray(item.value)) {
+    return {
+      id: item.id || `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      subject: item.subject,
+      dimension: item.dimension,
+      operator: item.operator,
+      valueA: String(item.value[0]),
+      valueB: String(item.value[1]),
+    };
+  }
+
+  return {
+    id: item.id || `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    subject: item.subject,
+    dimension: item.dimension,
+    operator: item.operator,
+    valueA: String(item.value),
+    valueB: "",
+  };
+}
+
+export default function FilterBuilder({
+  onChange,
+  onStartFilter,
+  canStart = true,
+  presetLogic,
+  presetConditions,
+  presetKey,
+}: FilterBuilderProps) {
   const [logic, setLogic] = useState<FilterLogic>("AND");
   const [conditions, setConditions] = useState<BuilderCondition[]>([buildDefaultCondition()]);
 
@@ -106,6 +138,21 @@ export default function FilterBuilder({ onChange, onStartFilter, canStart = true
   useEffect(() => {
     onChange?.({ logic, conditions: normalized });
   }, [logic, normalized, onChange]);
+
+  useEffect(() => {
+    if (!presetKey) {
+      return;
+    }
+
+    setLogic(presetLogic || "AND");
+
+    if (!presetConditions || presetConditions.length === 0) {
+      setConditions([buildDefaultCondition()]);
+      return;
+    }
+
+    setConditions(presetConditions.map(toBuilderCondition));
+  }, [presetKey, presetLogic, presetConditions]);
 
   const updateCondition = (id: string, patch: Partial<BuilderCondition>) => {
     setConditions((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)));
