@@ -6,6 +6,10 @@ from .filter import (
     FilterSnapshotDetailView,
     compare_snapshots,
 )
+from .score import ScoreViewSet
+from .student import StudentViewSet
+from .classroom import ClassViewSet
+from .exam import ExamViewSet
 
 __all__ = [
     'advanced_filter',
@@ -14,4 +18,8 @@ __all__ = [
     'FilterSnapshotListView',
     'FilterSnapshotDetailView',
     'compare_snapshots',
+    'ScoreViewSet',
+    'StudentViewSet',
+    'ClassViewSet',
+    'ExamViewSet',
 ]

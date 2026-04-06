@@ -76,3 +76,6 @@ temp/
 # Backup sqlite files
 *.sqlite3.backup
 db.sqlite3.backup
+
+# Data export dump
+data_migration.json
