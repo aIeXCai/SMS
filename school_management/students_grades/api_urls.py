@@ -1,6 +1,17 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .api_views import StudentViewSet, ClassViewSet, ExamViewSet, ScoreViewSet
+from .api_views import (
+    StudentViewSet,
+    ClassViewSet,
+    ExamViewSet,
+    ScoreViewSet,
+    advanced_filter,
+    FilterRuleListView,
+    FilterRuleDetailView,
+    FilterSnapshotListView,
+    FilterSnapshotDetailView,
+    compare_snapshots,
+)
 
 # API 路由配置
 router = DefaultRouter(trailing_slash='/?')
@@ -10,6 +21,13 @@ router.register(r'exams', ExamViewSet)
 router.register(r'scores', ScoreViewSet)
 
 urlpatterns = [
+    path('students/advanced-filter/', advanced_filter),
+    path('filter-rules/', FilterRuleListView.as_view()),
+    path('filter-rules/<int:id>/', FilterRuleDetailView.as_view()),
+    path('filter-snapshots/', FilterSnapshotListView.as_view()),
+    path('filter-snapshots/<int:id>/', FilterSnapshotDetailView.as_view()),
+    path('filter-snapshots/compare/', compare_snapshots),
+
     # 兼容无尾斜杠调用（APPEND_SLASH=False）
     path('scores/options', ScoreViewSet.as_view({'get': 'options'})),
     path('scores/student-search', ScoreViewSet.as_view({'get': 'student_search'})),

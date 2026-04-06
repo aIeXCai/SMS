@@ -4,6 +4,7 @@ from .exam import (
     ACADEMIC_YEAR_CHOICES, SUBJECT_CHOICES, SUBJECT_DEFAULT_MAX_SCORES
 )
 from .score import Score
+from .filter import SavedFilterRule, FilterResultSnapshot
 
 __all__ = [
     # 学生相关
@@ -12,5 +13,7 @@ __all__ = [
     'Exam', 'ExamSubject', 
     'ACADEMIC_YEAR_CHOICES', 'SUBJECT_CHOICES', 'SUBJECT_DEFAULT_MAX_SCORES',
     # 成绩相关
-    'Score'
+    'Score',
+    # 筛选相关
+    'SavedFilterRule', 'FilterResultSnapshot'
 ]

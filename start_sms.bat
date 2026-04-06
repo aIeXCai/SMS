@@ -12,6 +12,16 @@ REM 进入项目目录
 cd /d "%~dp0"
 echo 📁 项目目录: %CD%
 
+REM 加载本地环境变量（例如 MySQL 连接信息）
+if exist ".env" (
+    echo 🔐 加载 .env 环境变量...
+    for /f "usebackq eol=# tokens=1,* delims==" %%A in (".env") do (
+        if not "%%A"=="" set "%%A=%%B"
+    )
+) else (
+    echo ⚠️  未找到 .env 文件，将使用系统环境变量
+)
+
 REM 检查 Redis 连接
 echo.
 echo 🔍 检查 Redis 连接...
@@ -78,6 +88,31 @@ echo.
 echo 当前 Python 环境:
 python --version
 
+REM 选择数据库类型（1=MySQL, 2=SQLite）
+echo.
+echo 🗄️  请选择启动数据库:
+echo   1^) MySQL
+echo   2^) 本地 SQLite
+
+:choose_db
+set "DB_CHOICE="
+set /p DB_CHOICE=请输入选项 [1/2]: 
+if "%DB_CHOICE%"=="1" (
+    set "DJANGO_SETTINGS_MODULE=school_management.settings"
+    set "DB_LABEL=MySQL"
+    goto db_selected
+)
+if "%DB_CHOICE%"=="2" (
+    set "DJANGO_SETTINGS_MODULE=school_management.settings_sqlite_local"
+    set "DB_LABEL=SQLite"
+    goto db_selected
+)
+echo ⚠️  输入无效，请输入 1 或 2
+goto choose_db
+
+:db_selected
+echo ✅ 已选择数据库: %DB_LABEL%
+
 REM 检查前端环境
 echo.
 echo 📦 检查前端环境...
@@ -131,12 +166,12 @@ if %ERRORLEVEL% NEQ 0 (
 REM 应用数据库迁移
 echo.
 echo 🗃️  应用数据库迁移...
-python manage.py migrate --verbosity=1
+python manage.py migrate --settings=%DJANGO_SETTINGS_MODULE% --verbosity=1
 
 REM 清理失败的任务
 echo.
 echo 🧹 清理失败的异步任务...
-python -c "import os, django; os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'school_management.settings'); django.setup(); import django_rq; queue = django_rq.get_queue('default'); failed_count = queue.failed_job_registry.count; queue.failed_job_registry.requeue() if failed_count > 0 else print('没有失败的任务需要清理'); print(f'已重新排队 {failed_count} 个失败任务' if failed_count > 0 else '')"
+python -c "import os, django; os.environ.setdefault('DJANGO_SETTINGS_MODULE', '%DJANGO_SETTINGS_MODULE%'); django.setup(); import django_rq; queue = django_rq.get_queue('default'); failed_count = queue.failed_job_registry.count; queue.failed_job_registry.requeue() if failed_count > 0 else print('没有失败的任务需要清理'); print(f'已重新排队 {failed_count} 个失败任务' if failed_count > 0 else '')"
 
 REM 创建日志目录
 if not exist "logs" mkdir logs
@@ -160,7 +195,7 @@ if exist "frontend\package.json" (
 REM 启动 RQ Worker (后台)
 echo.
 echo ⚡ 启动 RQ Worker...
-start "RQ Worker" cmd /k "cd /d "%CD%" && python manage.py rqworker --worker-class rq.worker.SimpleWorker default"
+start "RQ Worker" cmd /k "cd /d "%CD%" && set DJANGO_SETTINGS_MODULE=%DJANGO_SETTINGS_MODULE% && python manage.py rqworker --worker-class rq.worker.SimpleWorker default"
 echo ✅ RQ Worker 已启动 (新窗口)
 
 REM 启动 Django 服务器 (前台)
@@ -187,4 +222,4 @@ echo ========================================
 echo.
 
 REM 启动 Django 服务器
-python manage.py runserver 0.0.0.0:8000
+python manage.py runserver --settings=%DJANGO_SETTINGS_MODULE% 0.0.0.0:8000

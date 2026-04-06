@@ -12,9 +12,28 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 from datetime import timedelta
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+def _load_env_file(env_path: Path) -> None:
+    if not env_path.exists():
+        return
+    for raw_line in env_path.read_text(encoding='utf-8').splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith('#') or '=' not in line:
+            continue
+        key, value = line.split('=', 1)
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if key:
+            os.environ.setdefault(key, value)
+
+
+# 允许 manage.py / gunicorn 直接读取项目根目录 .env
+_load_env_file(BASE_DIR / '.env')
 
 
 # Quick-start development settings - unsuitable for production
@@ -87,26 +106,28 @@ TEMPLATES = [
 WSGI_APPLICATION = 'school_management.wsgi.application'
 
 
-# SQLite配置（开发环境使用）
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+# 双库配置：默认使用 MySQL；保留 sqlite 便于回滚和对账。
+MYSQL_DATABASE_CONFIG = {
+    'ENGINE': 'django.db.backends.mysql',
+    'NAME': os.getenv('MYSQL_DB', os.getenv('DB_NAME', '')),
+    'USER': os.getenv('MYSQL_USER', os.getenv('DB_USER', '')),
+    'PASSWORD': os.getenv('MYSQL_PASSWORD', os.getenv('DB_PASSWORD', '')),
+    'HOST': os.getenv('MYSQL_HOST', os.getenv('DB_HOST', '127.0.0.1')),
+    'PORT': os.getenv('MYSQL_PORT', os.getenv('DB_PORT', '3306')),
+    'OPTIONS': {
+        'charset': 'utf8mb4',
+    },
+    'CONN_MAX_AGE': 60,
 }
 
-# PostgreSQL配置（生产环境使用）
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.postgresql',
-#         'NAME': 'school_db',
-#         'USER': 'postgres',
-#         'PASSWORD': '12345',
-#         'HOST': 'localhost',
-#         'PORT': '5432',
-#         'CONN_MAX_AGE': 0,  # 禁用持久连接，避免游标问题
-#     }
-# }
+DATABASES = {
+    'default': MYSQL_DATABASE_CONFIG,
+    'mysql': MYSQL_DATABASE_CONFIG,
+    'sqlite': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+    },
+}
 
 
 # Password validation

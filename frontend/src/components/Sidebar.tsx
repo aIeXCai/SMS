@@ -15,6 +15,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const { user, logout } = useAuth();
   const pathname = usePathname() || "";
   const [analysisOpen, setAnalysisOpen] = useState(false);
+  const [targetStudentsOpen, setTargetStudentsOpen] = useState(false);
   const fullName = `${user?.last_name ?? ""}${user?.first_name ?? ""}`.trim() || user?.username || "";
 
   const getRoleDisplay = (role: string) => {
@@ -34,6 +35,10 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
     // 默认打开成绩分析子菜单，如果当前路径属于分析页
     if (pathname?.startsWith("/analysis")) {
       setAnalysisOpen(true);
+    }
+    // 默认打开目标生筛选子菜单，如果当前路径属于目标生模块
+    if (pathname?.startsWith("/target-students")) {
+      setTargetStudentsOpen(true);
     }
   }, [pathname]);
 
@@ -152,13 +157,52 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
                 </li>
               </ul>
             </li>
-            <li className="nav-item">
-              {makeLink(
-                "/target-students",
-                "目标生筛选",
-                "fa-bullseye",
-                pathname.startsWith("/target-students")
-              )}
+            <li className={`nav-item has-submenu ${targetStudentsOpen ? "open" : ""}`}>
+              <a
+                className={`nav-link${pathname.startsWith("/target-students") ? " active" : ""}`}
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setTargetStudentsOpen((prev) => !prev);
+                }}
+              >
+                <i className="fas fa-bullseye" />
+                目标生筛选
+              </a>
+              <ul className="nav-submenu">
+                <li className="nav-item">
+                  {makeLink(
+                    "/target-students",
+                    "简单筛选",
+                    "",
+                    pathname === "/target-students"
+                  )}
+                </li>
+                <li className="nav-item">
+                  {makeLink(
+                    "/target-students/advanced",
+                    "高级筛选",
+                    "",
+                    pathname.startsWith("/target-students/advanced")
+                  )}
+                </li>
+                <li className="nav-item">
+                  {makeLink(
+                    "/target-students/rules",
+                    "我的规则",
+                    "",
+                    pathname.startsWith("/target-students/rules")
+                  )}
+                </li>
+                <li className="nav-item">
+                  {makeLink(
+                    "/target-students/tracking",
+                    "变化追踪",
+                    "",
+                    pathname.startsWith("/target-students/tracking")
+                  )}
+                </li>
+              </ul>
             </li>
           </ul>
         </div>
