@@ -292,7 +292,11 @@ export default function TargetStudentTrackingPage() {
                   <button
                     type="button"
                     className="btn btn-outline-success"
-                    onClick={() => setBaselineSnapshotId(null)}
+                    onClick={() => {
+                      setBaselineSnapshotId(null);
+                      setComparisonError(null);
+                      setComparisonResult(null);
+                    }}
                     disabled={!baselineSnapshotId}
                   >
                     清空基准快照
@@ -300,7 +304,11 @@ export default function TargetStudentTrackingPage() {
                   <button
                     type="button"
                     className="btn btn-outline-secondary"
-                    onClick={() => setComparisonSnapshotId(null)}
+                    onClick={() => {
+                      setComparisonSnapshotId(null);
+                      setComparisonError(null);
+                      setComparisonResult(null);
+                    }}
                     disabled={!comparisonSnapshotId}
                   >
                     清空对比快照

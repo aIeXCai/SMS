@@ -126,6 +126,57 @@ class FilterApiViewsTest(TestCase):
         )
         self.assertEqual(ok.status_code, 201)
 
+    def test_filter_rule_crud_api(self):
+        self.client.force_login(self.staff_user)
+
+        create_resp = self.client.post(
+            '/api/filter-rules/',
+            data=json.dumps(
+                {
+                    'name': '规则CRUD测试',
+                    'rule_type': 'advanced',
+                    'rule_config': {
+                        'logic': 'AND',
+                        'conditions': [
+                            {'subject': 'total', 'dimension': 'grade', 'operator': 'top_n', 'value': 5}
+                        ],
+                    },
+                }
+            ),
+            content_type='application/json',
+        )
+        self.assertEqual(create_resp.status_code, 201)
+        created = create_resp.json()
+        rule_id = created['id']
+
+        list_resp = self.client.get('/api/filter-rules/')
+        self.assertEqual(list_resp.status_code, 200)
+        names = {item['name'] for item in list_resp.json()}
+        self.assertIn('规则CRUD测试', names)
+
+        update_resp = self.client.put(
+            f'/api/filter-rules/{rule_id}/',
+            data=json.dumps(
+                {
+                    'name': '规则CRUD测试-已更新',
+                    'rule_type': 'advanced',
+                    'rule_config': {
+                        'logic': 'OR',
+                        'conditions': [
+                            {'subject': 'math', 'dimension': 'grade', 'operator': 'top_n', 'value': 3}
+                        ],
+                    },
+                }
+            ),
+            content_type='application/json',
+        )
+        self.assertEqual(update_resp.status_code, 200)
+        self.assertEqual(update_resp.json()['name'], '规则CRUD测试-已更新')
+
+        delete_resp = self.client.delete(f'/api/filter-rules/{rule_id}/')
+        self.assertEqual(delete_resp.status_code, 200)
+        self.assertEqual(delete_resp.json()['message'], '规则删除成功')
+
     def test_filter_rule_list_only_returns_self(self):
         SavedFilterRule.objects.create(
             user=self.other_user,
@@ -198,6 +249,67 @@ class FilterApiViewsTest(TestCase):
         self.assertEqual(body['summary']['removed_count'], 1)
         self.assertEqual(body['summary']['retained_count'], 1)
 
+    def test_snapshot_crud_and_compare_flow_api(self):
+        self.client.force_login(self.staff_user)
+
+        baseline_create = self.client.post(
+            '/api/filter-snapshots/',
+            data=json.dumps(
+                {
+                    'snapshot_name': 'CRUD-基准',
+                    'exam_id': self.exam1.id,
+                    'rule_id': self.rule.id,
+                    'rule_config_snapshot': self.rule.rule_config,
+                    'result_snapshot': {'student_ids': [self.s1.id, self.s2.id], 'count': 2},
+                }
+            ),
+            content_type='application/json',
+        )
+        self.assertEqual(baseline_create.status_code, 201)
+        baseline_id = baseline_create.json()['id']
+
+        comparison_create = self.client.post(
+            '/api/filter-snapshots/',
+            data=json.dumps(
+                {
+                    'snapshot_name': 'CRUD-对比',
+                    'exam_id': self.exam2.id,
+                    'rule_id': self.rule.id,
+                    'rule_config_snapshot': self.rule.rule_config,
+                    'result_snapshot': {'student_ids': [self.s2.id, self.s3.id], 'count': 2},
+                }
+            ),
+            content_type='application/json',
+        )
+        self.assertEqual(comparison_create.status_code, 201)
+        comparison_id = comparison_create.json()['id']
+
+        list_resp = self.client.get('/api/filter-snapshots/')
+        self.assertEqual(list_resp.status_code, 200)
+        snapshot_names = {item['snapshot_name'] for item in list_resp.json()}
+        self.assertIn('CRUD-基准', snapshot_names)
+        self.assertIn('CRUD-对比', snapshot_names)
+
+        compare_resp = self.client.post(
+            '/api/filter-snapshots/compare/',
+            data=json.dumps(
+                {
+                    'baseline_snapshot_id': baseline_id,
+                    'comparison_snapshot_id': comparison_id,
+                }
+            ),
+            content_type='application/json',
+        )
+        self.assertEqual(compare_resp.status_code, 200)
+        compare_body = compare_resp.json()
+        self.assertEqual(compare_body['summary']['added_count'], 1)
+        self.assertEqual(compare_body['summary']['removed_count'], 1)
+        self.assertEqual(compare_body['summary']['retained_count'], 1)
+
+        delete_resp = self.client.delete(f'/api/filter-snapshots/{baseline_id}/')
+        self.assertEqual(delete_resp.status_code, 200)
+        self.assertEqual(delete_resp.json()['message'], '快照删除成功')
+
     def test_write_endpoints_forbidden_for_subject_teacher(self):
         self.client.force_login(self.teacher_user)
 
@@ -237,6 +349,42 @@ class FilterApiViewsTest(TestCase):
             content_type='application/json',
         )
         self.assertEqual(compare_resp.status_code, 403)
+
+    def test_write_update_delete_forbidden_for_subject_teacher(self):
+        teacher_rule = SavedFilterRule.objects.create(
+            user=self.teacher_user,
+            name='教师规则-禁止写',
+            rule_type='advanced',
+            rule_config={
+                'logic': 'AND',
+                'conditions': [
+                    {'subject': 'total', 'dimension': 'grade', 'operator': 'top_n', 'value': 2}
+                ],
+            },
+        )
+        teacher_snapshot = FilterResultSnapshot.objects.create(
+            user=self.teacher_user,
+            exam=self.exam1,
+            rule=teacher_rule,
+            rule_config_snapshot=teacher_rule.rule_config,
+            result_snapshot={'student_ids': [self.s1.id], 'count': 1},
+            snapshot_name='教师快照-禁止写',
+        )
+
+        self.client.force_login(self.teacher_user)
+
+        update_rule_resp = self.client.patch(
+            f'/api/filter-rules/{teacher_rule.id}/',
+            data=json.dumps({'name': '教师规则-尝试更新'}),
+            content_type='application/json',
+        )
+        self.assertEqual(update_rule_resp.status_code, 403)
+
+        delete_rule_resp = self.client.delete(f'/api/filter-rules/{teacher_rule.id}/')
+        self.assertEqual(delete_rule_resp.status_code, 403)
+
+        delete_snapshot_resp = self.client.delete(f'/api/filter-snapshots/{teacher_snapshot.id}/')
+        self.assertEqual(delete_snapshot_resp.status_code, 403)
 
     def test_object_level_scope_blocks_other_user_rule_and_snapshot(self):
         other_rule = SavedFilterRule.objects.create(

@@ -1,7 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.test import RequestFactory, TestCase
 
-from school_management.students_grades.models import Exam, SavedFilterRule
+from school_management.students_grades.models import Exam, FilterResultSnapshot, SavedFilterRule
 from school_management.students_grades.serializers import (
     FilterResultSnapshotSerializer,
     SavedFilterRuleSerializer,
@@ -112,3 +112,17 @@ class FilterSerializersTest(TestCase):
 
         self.assertFalse(serializer.is_valid())
         self.assertIn("result_snapshot", serializer.errors)
+
+    def test_snapshot_serializer_includes_exam_academic_year(self):
+        snapshot = FilterResultSnapshot.objects.create(
+            user=self.user,
+            exam=self.exam,
+            rule=self.rule,
+            rule_config_snapshot=self.rule.rule_config,
+            result_snapshot={"student_ids": [1], "count": 1},
+            snapshot_name="学年字段校验快照",
+        )
+
+        serializer = FilterResultSnapshotSerializer(snapshot)
+        self.assertEqual(serializer.data["exam_name"], "期中考试")
+        self.assertEqual(serializer.data["exam_academic_year"], "2025-2026")

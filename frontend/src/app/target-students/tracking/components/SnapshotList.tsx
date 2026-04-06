@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 export type FilterSnapshot = {
   id: number;
@@ -49,6 +49,12 @@ export default function SnapshotList({
   }, [snapshots]);
 
   const totalPages = Math.max(1, Math.ceil(sortedSnapshots.length / PAGE_SIZE));
+
+  useEffect(() => {
+    // 删除快照后若总页数减少，自动回退到有效页，避免出现空白页。
+    setPage((prev) => Math.min(prev, totalPages));
+  }, [totalPages]);
+
   const pagedSnapshots = useMemo(() => {
     const start = (page - 1) * PAGE_SIZE;
     return sortedSnapshots.slice(start, start + PAGE_SIZE);

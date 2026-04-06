@@ -93,6 +93,7 @@ class FilterComparisonServiceTest(TestCase):
         self.assertEqual(added["old_rank"], 12)
         self.assertEqual(added["new_rank"], 4)
         self.assertEqual(added["rank_change"], 8)
+        self.assertEqual(added["cohort"], "初中2026级")
 
     def test_calculate_rank_changes_handles_missing_rank(self):
         # 删除 s4 在 comparison_exam 的成绩，制造缺失排名场景
