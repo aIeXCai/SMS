@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import FilterBuilder, { FilterCondition, FilterLogic } from "./components/FilterBuilder";
 import RuleSelector from "./components/RuleSelector";
+import UnifiedModal from "../components/UnifiedModal";
 import { useAuth } from "@/contexts/AuthContext";
 
 type Option = { value: string; label: string };
@@ -62,6 +63,37 @@ function isValidCondition(condition: unknown): condition is FilterCondition {
   return typeof item.value === "number" && Number.isInteger(item.value) && item.value > 0;
 }
 
+function formatExamLabel(label: string, gradeLevel: string): string {
+  const raw = String(label || "").trim();
+  if (!raw) return raw;
+
+  let next = raw;
+
+  if (gradeLevel) {
+    const escaped = gradeLevel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    next = next.replace(new RegExp(escaped, "g"), " ");
+  }
+
+  // 兜底移除任意位置的届别文本（如：初中2024级 / 高中2026级）
+  next = next.replace(/(?:初中|高中)\s*\d{4}\s*级/g, " ");
+
+  // 去掉因文本替换导致的空括号残留
+  next = next
+    .replace(/\(\s*\)/g, " ")
+    .replace(/（\s*）/g, " ")
+    .replace(/\[\s*\]/g, " ")
+    .replace(/【\s*】/g, " ");
+
+  // 清理多余分隔符和空白，保证展示简洁
+  next = next
+    .replace(/[\s\-_/|｜·,，:：]{2,}/g, " ")
+    .replace(/^[\s\-_/|｜·,，:：]+/, "")
+    .replace(/[\s\-_/|｜·,，:：]+$/, "")
+    .trim();
+
+  return next || raw;
+}
+
 export default function AdvancedTargetStudentsPage() {
   const { token } = useAuth();
   const router = useRouter();
@@ -71,12 +103,25 @@ export default function AdvancedTargetStudentsPage() {
   const [examId, setExamId] = useState("");
   const [gradeOptions, setGradeOptions] = useState<Option[]>([]);
   const [examOptions, setExamOptions] = useState<Option[]>([]);
+  const [gradeDropdownOpen, setGradeDropdownOpen] = useState(false);
+  const [examDropdownOpen, setExamDropdownOpen] = useState(false);
   const [savedRules, setSavedRules] = useState<SavedRule[]>([]);
   const [selectedRuleId, setSelectedRuleId] = useState("");
   const [loadingRules, setLoadingRules] = useState(false);
   const [builderPresetKey, setBuilderPresetKey] = useState(0);
   const [builderPresetLogic, setBuilderPresetLogic] = useState<FilterLogic>("AND");
   const [builderPresetConditions, setBuilderPresetConditions] = useState<FilterCondition[]>([]);
+  const [modalState, setModalState] = useState<{
+    open: boolean;
+    title: string;
+    message: string;
+    variant: "info" | "warning" | "error" | "success";
+  }>({
+    open: false,
+    title: "提示",
+    message: "",
+    variant: "info",
+  });
 
   const effectiveToken = useMemo(() => {
     if (token) return token;
@@ -132,6 +177,19 @@ export default function AdvancedTargetStudentsPage() {
   }, [effectiveToken, gradeLevel, authHeader]);
 
   useEffect(() => {
+    const onClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest(".custom-dropdown")) {
+        setGradeDropdownOpen(false);
+        setExamDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, []);
+
+  useEffect(() => {
     if (!effectiveToken) return;
 
     const fetchRules = async () => {
@@ -159,15 +217,28 @@ export default function AdvancedTargetStudentsPage() {
     setExamId("");
   };
 
+  const openModal = (
+    message: string,
+    title = "操作提示",
+    variant: "info" | "warning" | "error" | "success" = "warning"
+  ) => {
+    setModalState({
+      open: true,
+      title,
+      message,
+      variant,
+    });
+  };
+
   const handleLoadSelectedRule = () => {
     if (!selectedRuleId) {
-      window.alert("请先选择规则");
+      openModal("请先选择规则", "加载规则", "warning");
       return;
     }
 
     const selected = savedRules.find((item) => String(item.id) === selectedRuleId);
     if (!selected) {
-      window.alert("未找到对应规则");
+      openModal("未找到对应规则", "加载规则", "error");
       return;
     }
 
@@ -183,7 +254,7 @@ export default function AdvancedTargetStudentsPage() {
       }));
 
     if (nextConditions.length === 0) {
-      window.alert("该规则没有可用条件，无法加载");
+      openModal("该规则没有可用条件，无法加载", "加载规则", "warning");
       return;
     }
 
@@ -232,36 +303,79 @@ export default function AdvancedTargetStudentsPage() {
                 <div className="row g-3">
                   <div className="col-md-4">
                     <label className="form-label">选择年级</label>
-                    <select
-                      className="form-select"
-                      value={gradeLevel}
-                      onChange={(e) => handleGradeChange(e.target.value)}
-                    >
-                      <option value="">请先选择年级</option>
-                      {gradeOptions.map((item) => (
-                        <option key={item.value} value={item.value}>
-                          {item.label}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="custom-dropdown">
+                      <button
+                        type="button"
+                        className={`custom-dropdown-toggle ${gradeDropdownOpen ? "active" : ""}`}
+                        onClick={() => setGradeDropdownOpen((open) => !open)}
+                      >
+                        <span>
+                          {gradeOptions.find((item) => item.value === gradeLevel)?.label || "请先选择年级"}
+                        </span>
+                        <i className="fas fa-chevron-down custom-dropdown-arrow"></i>
+                      </button>
+                      <div className={`custom-dropdown-menu ${gradeDropdownOpen ? "show" : ""}`}>
+                        {gradeOptions.length === 0 ? (
+                          <div className="custom-dropdown-empty">暂无可选年级</div>
+                        ) : (
+                          gradeOptions.map((item) => (
+                            <button
+                              key={item.value}
+                              type="button"
+                              className="custom-dropdown-item"
+                              onClick={() => {
+                                handleGradeChange(item.value);
+                                setGradeDropdownOpen(false);
+                              }}
+                            >
+                              {item.label}
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    </div>
                   </div>
                   <div className="col-md-4">
                     <label className="form-label">选择考试</label>
-                    <select
-                      className="form-select"
-                      value={examId}
-                      disabled={!gradeLevel}
-                      onChange={(e) => setExamId(e.target.value)}
-                    >
-                      <option value="">
-                        {gradeLevel ? "请选择考试" : "请先选择年级"}
-                      </option>
-                      {examOptions.map((item) => (
-                        <option key={item.value} value={item.value}>
-                          {item.label}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="custom-dropdown">
+                      <button
+                        type="button"
+                        className={`custom-dropdown-toggle ${examDropdownOpen ? "active" : ""}`}
+                        onClick={() => {
+                          if (!gradeLevel) return;
+                          setExamDropdownOpen((open) => !open);
+                        }}
+                        disabled={!gradeLevel}
+                      >
+                        <span>
+                          {(() => {
+                            const selected = examOptions.find((item) => item.value === examId);
+                            if (!selected) return gradeLevel ? "请选择考试" : "请先选择年级";
+                            return formatExamLabel(selected.label, gradeLevel);
+                          })()}
+                        </span>
+                        <i className="fas fa-chevron-down custom-dropdown-arrow"></i>
+                      </button>
+                      <div className={`custom-dropdown-menu ${examDropdownOpen ? "show" : ""}`}>
+                        {examOptions.length === 0 ? (
+                          <div className="custom-dropdown-empty">{gradeLevel ? "该年级暂无考试" : "请先选择年级"}</div>
+                        ) : (
+                          examOptions.map((item) => (
+                            <button
+                              key={item.value}
+                              type="button"
+                              className="custom-dropdown-item"
+                              onClick={() => {
+                                setExamId(item.value);
+                                setExamDropdownOpen(false);
+                              }}
+                            >
+                              {formatExamLabel(item.label, gradeLevel)}
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    </div>
                   </div>
                   <div className="col-md-4">
                     <label className="form-label">逻辑关系</label>
@@ -283,11 +397,11 @@ export default function AdvancedTargetStudentsPage() {
                       canStart={Boolean(gradeLevel && examId)}
                       onStartFilter={(payload) => {
                         if (!gradeLevel) {
-                          window.alert("请先选择年级");
+                          openModal("请先选择年级", "开始筛选", "warning");
                           return;
                         }
                         if (!examId) {
-                          window.alert("请选择考试后再开始筛选");
+                          openModal("请选择考试后再开始筛选", "开始筛选", "warning");
                           return;
                         }
 
@@ -425,119 +539,22 @@ export default function AdvancedTargetStudentsPage() {
         </div>
       </div>
 
+      <UnifiedModal
+        open={modalState.open}
+        variant={modalState.variant}
+        title={modalState.title}
+        message={modalState.message}
+        onConfirm={() => setModalState((prev) => ({ ...prev, open: false }))}
+        onClose={() => setModalState((prev) => ({ ...prev, open: false }))}
+      />
+
       <style jsx global>{`
-        .page-header {
-          background: rgb(1, 135, 108);
-          color: white;
-          padding: 2rem 0;
-          margin-bottom: 2rem;
-          border-radius: 10px;
-        }
-        .filter-card {
-          border: none;
-          border-radius: 15px;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-          overflow: visible !important;
-        }
-        .filter-card .card-header {
-          background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-          border-bottom: 1px solid #dee2e6;
-          border-radius: 15px 15px 0 0;
-          padding: 1rem 1.5rem;
-        }
-        .tips-alert {
-          background: linear-gradient(135deg, #e8f5e8 0%, #c8e6c9 100%);
-          border-radius: 12px;
-        }
         .filter-action-btn {
           height: 38px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
           white-space: nowrap;
-        }
-        .intro-card {
-          background: #fff;
-          border: none;
-          border-radius: 16px;
-          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-          overflow: hidden;
-        }
-        .intro-card-header {
-          background: linear-gradient(135deg, #2e7d32 0%, #43a047 100%);
-          color: white;
-          padding: 1.25rem 1.5rem;
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-        }
-        .intro-icon-wrapper {
-          width: 40px;
-          height: 40px;
-          border-radius: 10px;
-          background: rgba(255, 255, 255, 0.2);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .intro-card-body {
-          padding: 1.5rem;
-        }
-        .feature-item {
-          display: flex;
-          align-items: flex-start;
-          gap: 1rem;
-          margin-bottom: 1rem;
-        }
-        .feature-item:last-child {
-          margin-bottom: 0;
-        }
-        .feature-icon {
-          width: 36px;
-          height: 36px;
-          border-radius: 10px;
-          background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-          color: #2e7d32;
-          font-weight: 700;
-        }
-        .feature-content h6 {
-          font-size: 0.95rem;
-          font-weight: 600;
-          margin-bottom: 0.25rem;
-        }
-        .feature-content p {
-          font-size: 0.85rem;
-          color: #6c757d;
-          margin: 0;
-        }
-        .indicator-item {
-          margin-bottom: 1rem;
-        }
-        .indicator-item:last-child {
-          margin-bottom: 0;
-        }
-        .indicator-tag {
-          display: inline-block;
-          background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
-          color: #1565c0;
-          font-size: 0.8rem;
-          font-weight: 600;
-          padding: 0.25rem 0.75rem;
-          border-radius: 6px;
-          margin-bottom: 0.5rem;
-        }
-        .indicator-tag.warning {
-          background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
-          color: #e65100;
-        }
-        .indicator-item p {
-          font-size: 0.85rem;
-          color: #495057;
-          margin: 0;
         }
       `}</style>
     </div>

@@ -586,59 +586,6 @@ export default function AdvancedTargetStudentsResultPage() {
             <div className="modal-backdrop fade show"></div>
           </>
         )}
-
-      <style jsx global>{`
-        .page-header {
-          background: rgb(1, 135, 108);
-          color: white;
-          padding: 2rem 0;
-          margin-bottom: 2rem;
-          border-radius: 10px;
-        }
-        .filter-card {
-          border: none;
-          border-radius: 15px;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-          overflow: visible !important;
-        }
-        .filter-card .card-header {
-          background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-          border-bottom: 1px solid #dee2e6;
-          border-radius: 15px 15px 0 0;
-          padding: 1rem 1.5rem;
-        }
-        .result-table {
-          border-collapse: separate;
-          border-spacing: 0;
-          border-radius: 8px;
-          overflow: hidden;
-        }
-        .result-table thead th {
-          background: linear-gradient(135deg, #2e7d32 0%, #43a047 100%);
-          color: white;
-          font-weight: 600;
-          border: none;
-          padding: 12px 16px;
-          vertical-align: middle;
-        }
-        .result-table tbody tr {
-          transition: all 0.2s ease;
-        }
-        .result-table tbody tr:hover {
-          background-color: #f5f9f5;
-          transform: scale(1.01);
-        }
-        .result-table tbody td {
-          border-color: #e8f5e9;
-          padding: 12px 16px;
-          vertical-align: middle;
-        }
-        .result-table .badge {
-          font-weight: 500;
-          padding: 6px 10px;
-          border-radius: 6px;
-        }
-      `}</style>
     </div>
   );
 }

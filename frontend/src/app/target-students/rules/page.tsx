@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import RuleList from "./components/RuleList";
 import RuleEditor from "./components/RuleEditor";
+import UnifiedModal from "../components/UnifiedModal";
 
 type SavedRule = {
   id: number;
@@ -58,6 +59,25 @@ export default function TargetStudentRulesPage() {
   const [deletingRuleId, setDeletingRuleId] = useState<number | null>(null);
   const [savingRule, setSavingRule] = useState(false);
   const [editorState, setEditorState] = useState<EditorState>(null);
+  const [modalState, setModalState] = useState<{
+    open: boolean;
+    variant: "success" | "error" | "warning" | "info";
+    title: string;
+    message: string;
+    showCancel: boolean;
+    confirmText: string;
+    cancelText: string;
+    onConfirmAction: (() => void) | null;
+  }>({
+    open: false,
+    variant: "info",
+    title: "提示",
+    message: "",
+    showCancel: false,
+    confirmText: "确定",
+    cancelText: "取消",
+    onConfirmAction: null,
+  });
 
   const effectiveToken = useMemo(() => {
     if (token) return token;
@@ -106,6 +126,36 @@ export default function TargetStudentRulesPage() {
     fetchRules();
   }, [effectiveToken, authHeader]);
 
+  const showInfoModal = (
+    message: string,
+    title = "操作提示",
+    variant: "success" | "error" | "warning" | "info" = "info"
+  ) => {
+    setModalState({
+      open: true,
+      variant,
+      title,
+      message,
+      showCancel: false,
+      confirmText: "确定",
+      cancelText: "取消",
+      onConfirmAction: null,
+    });
+  };
+
+  const showConfirmModal = (message: string, onConfirm: () => void, title = "请确认") => {
+    setModalState({
+      open: true,
+      variant: "warning",
+      title,
+      message,
+      showCancel: true,
+      confirmText: "确认",
+      cancelText: "取消",
+      onConfirmAction: onConfirm,
+    });
+  };
+
   const handleEditRule = (ruleId: number) => {
     const target = rules.find((item) => item.id === ruleId);
     if (!target) return;
@@ -115,7 +165,7 @@ export default function TargetStudentRulesPage() {
 
     const rawConditions = target.rule_config?.conditions || [];
     if (rawConditions.length === 0) {
-      window.alert("该规则缺少条件，无法编辑");
+      showInfoModal("该规则缺少条件，无法编辑", "规则编辑", "warning");
       return;
     }
 
@@ -134,32 +184,31 @@ export default function TargetStudentRulesPage() {
     const target = rules.find((item) => item.id === ruleId);
     if (!target) return;
 
-    if (!window.confirm(`确认删除规则「${target.name}」吗？`)) {
-      return;
-    }
+    showConfirmModal(`确认删除规则「${target.name}」吗？`, async () => {
+      setDeletingRuleId(ruleId);
+      try {
+        const res = await fetch(`${FILTER_RULE_API}${ruleId}/`, {
+          method: "DELETE",
+          headers: { ...authHeader },
+        });
 
-    setDeletingRuleId(ruleId);
-    try {
-      const res = await fetch(`${FILTER_RULE_API}${ruleId}/`, {
-        method: "DELETE",
-        headers: { ...authHeader },
-      });
+        if (!res.ok) {
+          showInfoModal("删除失败，请稍后重试", "规则删除", "error");
+          return;
+        }
 
-      if (!res.ok) {
-        window.alert("删除失败，请稍后重试");
-        return;
+        await fetchRules();
+        if (editorState?.mode === "edit" && editorState.rule.id === ruleId) {
+          setEditorState(null);
+        }
+        showInfoModal("规则删除成功", "规则删除", "success");
+      } catch (err) {
+        console.error("Failed to delete rule:", err);
+        showInfoModal("删除失败，请检查网络后重试", "规则删除", "error");
+      } finally {
+        setDeletingRuleId(null);
       }
-
-      await fetchRules();
-      if (editorState?.mode === "edit" && editorState.rule.id === ruleId) {
-        setEditorState(null);
-      }
-    } catch (err) {
-      console.error("Failed to delete rule:", err);
-      window.alert("删除失败，请检查网络后重试");
-    } finally {
-      setDeletingRuleId(null);
-    }
+    }, "确认删除规则");
   };
 
   const handleSubmitRule = async (payload: {
@@ -198,16 +247,16 @@ export default function TargetStudentRulesPage() {
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        window.alert(data?.detail || data?.message || "保存失败，请检查输入后重试");
+        showInfoModal(data?.detail || data?.message || "保存失败，请检查输入后重试", "规则保存", "error");
         return;
       }
 
       await fetchRules();
       setEditorState(null);
-      window.alert(isEdit ? "规则更新成功" : "规则创建成功，已与高级筛选规则联动");
+      showInfoModal(isEdit ? "规则更新成功" : "规则创建成功，已与高级筛选规则联动", "规则保存", "success");
     } catch (err) {
       console.error("Failed to save rule:", err);
-      window.alert("保存失败，请检查网络后重试");
+      showInfoModal("保存失败，请检查网络后重试", "规则保存", "error");
     } finally {
       setSavingRule(false);
     }
@@ -406,140 +455,23 @@ export default function TargetStudentRulesPage() {
         </div>
       </div>
 
-      <style jsx global>{`
-        .page-header {
-          background: rgb(1, 135, 108);
-          color: white;
-          padding: 2rem 0;
-          margin-bottom: 2rem;
-          border-radius: 10px;
-        }
-        .filter-card {
-          border: none;
-          border-radius: 15px;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-          overflow: visible !important;
-        }
-        .filter-card .card-header {
-          background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-          border-bottom: 1px solid #dee2e6;
-          border-radius: 15px 15px 0 0;
-          padding: 1rem 1.5rem;
-        }
-        .tips-alert {
-          background: linear-gradient(135deg, #e8f5e8 0%, #c8e6c9 100%);
-          border-radius: 12px;
-        }
-        .intro-card {
-          background: #fff;
-          border: none;
-          border-radius: 16px;
-          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-          overflow: hidden;
-        }
-        .intro-card-header {
-          background: linear-gradient(135deg, #2e7d32 0%, #43a047 100%);
-          color: white;
-          padding: 1.25rem 1.5rem;
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-        }
-        .intro-icon-wrapper {
-          width: 40px;
-          height: 40px;
-          border-radius: 10px;
-          background: rgba(255, 255, 255, 0.2);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .intro-card-body {
-          padding: 1.5rem;
-        }
-        .feature-item {
-          display: flex;
-          align-items: flex-start;
-          gap: 1rem;
-          margin-bottom: 1rem;
-        }
-        .feature-item:last-child {
-          margin-bottom: 0;
-        }
-        .feature-icon {
-          width: 36px;
-          height: 36px;
-          border-radius: 10px;
-          background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-          color: #2e7d32;
-          font-weight: 700;
-        }
-        .feature-content h6 {
-          font-size: 0.95rem;
-          font-weight: 600;
-          margin-bottom: 0.25rem;
-        }
-        .feature-content p {
-          font-size: 0.85rem;
-          color: #6c757d;
-          margin: 0;
-        }
-        .indicator-item {
-          margin-bottom: 1rem;
-        }
-        .indicator-item:last-child {
-          margin-bottom: 0;
-        }
-        .indicator-tag {
-          display: inline-block;
-          background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
-          color: #1565c0;
-          font-size: 0.8rem;
-          font-weight: 600;
-          padding: 0.25rem 0.75rem;
-          border-radius: 6px;
-          margin-bottom: 0.5rem;
-        }
-        .indicator-tag.warning {
-          background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
-          color: #e65100;
-        }
-        .indicator-item p {
-          font-size: 0.85rem;
-          color: #495057;
-          margin: 0;
-        }
-        .rule-table {
-          border-collapse: separate;
-          border-spacing: 0;
-          border-radius: 8px;
-          overflow: hidden;
-        }
-        .rule-table thead th {
-          background: linear-gradient(135deg, #2e7d32 0%, #43a047 100%);
-          color: white;
-          font-weight: 600;
-          border: none;
-          padding: 12px 16px;
-          vertical-align: middle;
-        }
-        .rule-table tbody tr {
-          transition: all 0.2s ease;
-        }
-        .rule-table tbody tr:hover {
-          background-color: #f5f9f5;
-          transform: scale(1.005);
-        }
-        .rule-table tbody td {
-          border-color: #e8f5e9;
-          padding: 12px 16px;
-          vertical-align: middle;
-        }
-      `}</style>
+      <UnifiedModal
+        open={modalState.open}
+        variant={modalState.variant}
+        title={modalState.title}
+        message={modalState.message}
+        showCancel={modalState.showCancel}
+        confirmText={modalState.confirmText}
+        cancelText={modalState.cancelText}
+        onConfirm={() => {
+          const action = modalState.onConfirmAction;
+          setModalState((prev) => ({ ...prev, open: false, onConfirmAction: null }));
+          if (action) {
+            action();
+          }
+        }}
+        onClose={() => setModalState((prev) => ({ ...prev, open: false, onConfirmAction: null }))}
+      />
     </div>
   );
 }

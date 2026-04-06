@@ -115,6 +115,33 @@ if [ ! -z "$CONDA_DEFAULT_ENV" ]; then
     echo "  Conda 环境: $CONDA_DEFAULT_ENV"
 fi
 
+# 选择数据库类型（1=MySQL, 2=SQLite）
+echo ""
+echo -e "${BLUE}🗄️  请选择启动数据库:${NC}"
+echo "  1) MySQL"
+echo "  2) 本地 SQLite"
+
+while true; do
+    read -r -p "请输入选项 [1/2]: " DB_CHOICE
+    case "$DB_CHOICE" in
+        1)
+            export DJANGO_SETTINGS_MODULE="school_management.settings"
+            DB_LABEL="MySQL"
+            break
+            ;;
+        2)
+            export DJANGO_SETTINGS_MODULE="school_management.settings_sqlite_local"
+            DB_LABEL="SQLite"
+            break
+            ;;
+        *)
+            echo -e "${YELLOW}⚠️  输入无效，请输入 1 或 2${NC}"
+            ;;
+    esac
+done
+
+echo -e "${GREEN}✅ 已选择数据库: ${DB_LABEL}${NC}"
+
 # 检查前端环境
 echo -e "${BLUE}📦 检查前端环境...${NC}"
 if [ -d "frontend" ]; then
@@ -164,13 +191,13 @@ python -c "import django_rq; print('Django-RQ 已安装')" || {
 
 # 应用数据库迁移
 echo -e "${BLUE}🗃️  应用数据库迁移...${NC}"
-python manage.py migrate --verbosity=1
+python manage.py migrate --settings="$DJANGO_SETTINGS_MODULE" --verbosity=1
 
 # 清理失败的任务
 echo -e "${BLUE}🧹 清理失败的异步任务...${NC}"
 python -c "
 import os, django
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'school_management.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', os.environ.get('DJANGO_SETTINGS_MODULE', 'school_management.settings'))
 django.setup()
 import django_rq
 queue = django_rq.get_queue('default')

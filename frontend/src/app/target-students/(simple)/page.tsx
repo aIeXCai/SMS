@@ -541,25 +541,6 @@ export default function TargetStudentsPage() {
       </div>
 
       <style jsx global>{`
-        .page-header {
-          background: rgb(1, 135, 108);
-          color: white;
-          padding: 2rem 0;
-          margin-bottom: 2rem;
-          border-radius: 10px;
-        }
-        .filter-card {
-          border: none;
-          border-radius: 15px;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-          overflow: visible !important;
-        }
-        .filter-card .card-header {
-          background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-          border-bottom: 1px solid #dee2e6;
-          border-radius: 15px 15px 0 0;
-          padding: 1rem 1.5rem;
-        }
         .filter-card .card-body {
           overflow: visible !important;
         }
@@ -687,10 +668,6 @@ export default function TargetStudentsPage() {
             width: 100%;
             min-width: 0;
           }
-        }
-        .tips-alert {
-          background: linear-gradient(135deg, #e8f5e8 0%, #c8e6c9 100%);
-          border-radius: 12px;
         }
         .analysis-card {
           border: none;

@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+
 type SavedRule = {
   id: number;
   name: string;
@@ -18,22 +20,55 @@ export default function RuleSelector({
   onLoad,
   loading,
 }: RuleSelectorProps) {
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+
+  useEffect(() => {
+    const onClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest(".rule-selector-dropdown")) {
+        setDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, []);
+
+  const selectedRuleName = rules.find((rule) => String(rule.id) === selectedRuleId)?.name;
+
   return (
     <div>
       <label className="form-label">加载规则</label>
-      <select
-        className="form-select mb-2"
-        value={selectedRuleId}
-        onChange={(e) => onSelect(e.target.value)}
-        disabled={loading}
-      >
-        <option value="">请选择已保存规则</option>
-        {rules.map((rule) => (
-          <option key={rule.id} value={String(rule.id)}>
-            {rule.name}
-          </option>
-        ))}
-      </select>
+      <div className="custom-dropdown rule-selector-dropdown mb-2">
+        <button
+          type="button"
+          className={`custom-dropdown-toggle ${dropdownOpen ? "active" : ""}`}
+          onClick={() => !loading && setDropdownOpen((open) => !open)}
+          disabled={loading}
+        >
+          <span>{selectedRuleName || "请选择已保存规则"}</span>
+          <i className="fas fa-chevron-down custom-dropdown-arrow"></i>
+        </button>
+        <div className={`custom-dropdown-menu ${dropdownOpen ? "show" : ""}`}>
+          {rules.length === 0 ? (
+            <div className="custom-dropdown-empty">暂无可加载规则</div>
+          ) : (
+            rules.map((rule) => (
+              <button
+                key={rule.id}
+                type="button"
+                className="custom-dropdown-item"
+                onClick={() => {
+                  onSelect(String(rule.id));
+                  setDropdownOpen(false);
+                }}
+              >
+                {rule.name}
+              </button>
+            ))
+          )}
+        </div>
+      </div>
 
       <button
         type="button"

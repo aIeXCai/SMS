@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import * as XLSX from "xlsx";
+import UnifiedModal from "../../components/UnifiedModal";
 
 type SnapshotMeta = {
   id: number;
@@ -60,8 +61,7 @@ const buildExportRows = (rows: StudentChangeItem[]) =>
 
 const exportSingleTable = (title: string, rows: StudentChangeItem[]) => {
   if (!rows.length) {
-    window.alert(`${title}暂无可导出数据`);
-    return;
+    return false;
   }
 
   const worksheet = XLSX.utils.json_to_sheet(buildExportRows(rows));
@@ -71,6 +71,7 @@ const exportSingleTable = (title: string, rows: StudentChangeItem[]) => {
   const now = new Date();
   const datePart = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
   XLSX.writeFile(workbook, `${title}_${datePart}.xlsx`);
+  return true;
 };
 
 const exportAllTables = (result: SnapshotComparisonResult) => {
@@ -124,6 +125,7 @@ function ChangeTable({
   rows: StudentChangeItem[];
 }) {
   const [rankSortDirection, setRankSortDirection] = useState<"asc" | "desc">("desc");
+  const [modalOpen, setModalOpen] = useState(false);
 
   const sortedRows = useMemo(() => {
     const next = [...rows];
@@ -165,7 +167,12 @@ function ChangeTable({
           <button
             type="button"
             className="btn btn-success btn-sm"
-            onClick={() => exportSingleTable(title, rows)}
+            onClick={() => {
+              const ok = exportSingleTable(title, rows);
+              if (!ok) {
+                setModalOpen(true);
+              }
+            }}
           >
             <i className="fas fa-file-excel me-1"></i>导出 Excel
           </button>
@@ -212,6 +219,15 @@ function ChangeTable({
           </div>
         )}
       </div>
+
+      <UnifiedModal
+        open={modalOpen}
+        variant="info"
+        title="导出提示"
+        message={`${title}暂无可导出数据`}
+        onConfirm={() => setModalOpen(false)}
+        onClose={() => setModalOpen(false)}
+      />
     </div>
   );
 }

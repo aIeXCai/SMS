@@ -22,6 +22,11 @@ type BuilderCondition = {
   valueB: string;
 };
 
+type SelectOption = {
+  value: string;
+  label: string;
+};
+
 type FilterBuilderProps = {
   onChange?: (payload: { logic: FilterLogic; conditions: FilterCondition[] }) => void;
   onStartFilter?: (payload: { logic: FilterLogic; conditions: FilterCondition[] }) => void;
@@ -42,6 +47,17 @@ const SUBJECT_OPTIONS = [
   { value: "history", label: "历史" },
   { value: "geography", label: "地理" },
   { value: "politics", label: "政治" },
+];
+
+const DIMENSION_OPTIONS: SelectOption[] = [
+  { value: "grade", label: "年级排名" },
+  { value: "class", label: "班级排名" },
+];
+
+const OPERATOR_OPTIONS: SelectOption[] = [
+  { value: "top_n", label: "前 N 名" },
+  { value: "bottom_n", label: "后 N 名" },
+  { value: "range", label: "区间 N-M" },
 ];
 
 function buildDefaultCondition(): BuilderCondition {
@@ -132,6 +148,7 @@ export default function FilterBuilder({
 }: FilterBuilderProps) {
   const [logic, setLogic] = useState<FilterLogic>("AND");
   const [conditions, setConditions] = useState<BuilderCondition[]>([buildDefaultCondition()]);
+  const [openDropdownKey, setOpenDropdownKey] = useState<string | null>(null);
 
   const normalized = useMemo(() => normalizeConditions(conditions), [conditions]);
 
@@ -154,6 +171,18 @@ export default function FilterBuilder({
     setConditions(presetConditions.map(toBuilderCondition));
   }, [presetKey, presetLogic, presetConditions]);
 
+  useEffect(() => {
+    const onClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest(".builder-dropdown")) {
+        setOpenDropdownKey(null);
+      }
+    };
+
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, []);
+
   const updateCondition = (id: string, patch: Partial<BuilderCondition>) => {
     setConditions((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)));
   };
@@ -167,6 +196,45 @@ export default function FilterBuilder({
 
   const addCondition = () => {
     setConditions((prev) => [...prev, buildDefaultCondition()]);
+  };
+
+  const renderDropdown = (params: {
+    id: string;
+    value: string;
+    options: SelectOption[];
+    onSelect: (value: string) => void;
+  }) => {
+    const { id, value, options, onSelect } = params;
+    const isOpen = openDropdownKey === id;
+    const selectedLabel = options.find((item) => item.value === value)?.label || "请选择";
+
+    return (
+      <div className="custom-dropdown builder-dropdown">
+        <button
+          type="button"
+          className={`custom-dropdown-toggle form-select-sm ${isOpen ? "active" : ""}`}
+          onClick={() => setOpenDropdownKey((prev) => (prev === id ? null : id))}
+        >
+          <span>{selectedLabel}</span>
+          <i className="fas fa-chevron-down custom-dropdown-arrow"></i>
+        </button>
+        <div className={`custom-dropdown-menu ${isOpen ? "show" : ""}`}>
+          {options.map((item) => (
+            <button
+              key={item.value}
+              type="button"
+              className="custom-dropdown-item"
+              onClick={() => {
+                onSelect(item.value);
+                setOpenDropdownKey(null);
+              }}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -195,42 +263,34 @@ export default function FilterBuilder({
             <div className="row g-2">
               <div className="col-md-3">
                 <label className="form-label small mb-1">科目</label>
-                <select
-                  className="form-select form-select-sm"
-                  value={condition.subject}
-                  onChange={(e) => updateCondition(condition.id, { subject: e.target.value })}
-                >
-                  {SUBJECT_OPTIONS.map((item) => (
-                    <option key={item.value} value={item.value}>
-                      {item.label}
-                    </option>
-                  ))}
-                </select>
+                {renderDropdown({
+                  id: `${condition.id}-subject`,
+                  value: condition.subject,
+                  options: SUBJECT_OPTIONS,
+                  onSelect: (nextValue) => updateCondition(condition.id, { subject: nextValue }),
+                })}
               </div>
 
               <div className="col-md-3">
                 <label className="form-label small mb-1">维度</label>
-                <select
-                  className="form-select form-select-sm"
-                  value={condition.dimension}
-                  onChange={(e) => updateCondition(condition.id, { dimension: e.target.value as "grade" | "class" })}
-                >
-                  <option value="grade">年级排名</option>
-                  <option value="class">班级排名</option>
-                </select>
+                {renderDropdown({
+                  id: `${condition.id}-dimension`,
+                  value: condition.dimension,
+                  options: DIMENSION_OPTIONS,
+                  onSelect: (nextValue) =>
+                    updateCondition(condition.id, { dimension: nextValue as "grade" | "class" }),
+                })}
               </div>
 
               <div className="col-md-3">
                 <label className="form-label small mb-1">条件</label>
-                <select
-                  className="form-select form-select-sm"
-                  value={condition.operator}
-                  onChange={(e) => updateCondition(condition.id, { operator: e.target.value as FilterOperator })}
-                >
-                  <option value="top_n">前 N 名</option>
-                  <option value="bottom_n">后 N 名</option>
-                  <option value="range">区间 N-M</option>
-                </select>
+                {renderDropdown({
+                  id: `${condition.id}-operator`,
+                  value: condition.operator,
+                  options: OPERATOR_OPTIONS,
+                  onSelect: (nextValue) =>
+                    updateCondition(condition.id, { operator: nextValue as FilterOperator }),
+                })}
               </div>
 
               <div className="col-md-3">

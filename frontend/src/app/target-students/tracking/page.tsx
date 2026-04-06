@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import SnapshotList, { FilterSnapshot } from "./components/SnapshotList";
 import ComparisonResult, { SnapshotComparisonResult } from "./components/ComparisonResult";
+import UnifiedModal from "../components/UnifiedModal";
 
 const backendBaseUrl =
   typeof window !== "undefined"
@@ -48,6 +49,25 @@ export default function TargetStudentTrackingPage() {
   const [comparisonLoading, setComparisonLoading] = useState(false);
   const [comparisonError, setComparisonError] = useState<string | null>(null);
   const [comparisonResult, setComparisonResult] = useState<SnapshotComparisonResult | null>(null);
+  const [modalState, setModalState] = useState<{
+    open: boolean;
+    variant: "success" | "error" | "warning" | "info";
+    title: string;
+    message: string;
+    showCancel: boolean;
+    confirmText: string;
+    cancelText: string;
+    onConfirmAction: (() => void) | null;
+  }>({
+    open: false,
+    variant: "info",
+    title: "提示",
+    message: "",
+    showCancel: false,
+    confirmText: "确定",
+    cancelText: "取消",
+    onConfirmAction: null,
+  });
 
   const effectiveToken = useMemo(() => {
     if (token) return token;
@@ -127,6 +147,36 @@ export default function TargetStudentTrackingPage() {
     setComparisonResult(null);
   };
 
+  const showInfoModal = (
+    message: string,
+    title = "操作提示",
+    variant: "success" | "error" | "warning" | "info" = "info"
+  ) => {
+    setModalState({
+      open: true,
+      variant,
+      title,
+      message,
+      showCancel: false,
+      confirmText: "确定",
+      cancelText: "取消",
+      onConfirmAction: null,
+    });
+  };
+
+  const showConfirmModal = (message: string, onConfirm: () => void, title = "请确认") => {
+    setModalState({
+      open: true,
+      variant: "warning",
+      title,
+      message,
+      showCancel: true,
+      confirmText: "确认",
+      cancelText: "取消",
+      onConfirmAction: onConfirm,
+    });
+  };
+
   const handleCompareSnapshots = async () => {
     if (!baselineSnapshotId || !comparisonSnapshotId) {
       setComparisonError("请先选择基准快照和对比快照");
@@ -178,33 +228,32 @@ export default function TargetStudentTrackingPage() {
     const target = snapshots.find((item) => item.id === snapshotId);
     if (!target) return;
 
-    if (!window.confirm(`确认删除快照「${target.snapshot_name}」吗？`)) {
-      return;
-    }
+    showConfirmModal(`确认删除快照「${target.snapshot_name}」吗？`, async () => {
+      try {
+        setDeletingSnapshotId(snapshotId);
+        const res = await fetch(`${FILTER_SNAPSHOT_API}${snapshotId}/`, {
+          method: "DELETE",
+          headers: { ...authHeader },
+        });
 
-    try {
-      setDeletingSnapshotId(snapshotId);
-      const res = await fetch(`${FILTER_SNAPSHOT_API}${snapshotId}/`, {
-        method: "DELETE",
-        headers: { ...authHeader },
-      });
+        if (!res.ok) {
+          showInfoModal("删除快照失败，请稍后重试", "快照删除", "error");
+          return;
+        }
 
-      if (!res.ok) {
-        window.alert("删除快照失败，请稍后重试");
-        return;
+        setSnapshots((prev) => prev.filter((item) => item.id !== snapshotId));
+        setBaselineSnapshotId((prev) => (prev === snapshotId ? null : prev));
+        setComparisonSnapshotId((prev) => (prev === snapshotId ? null : prev));
+        setComparisonResult(null);
+        setComparisonError(null);
+        showInfoModal("快照删除成功", "快照删除", "success");
+      } catch (error) {
+        console.error("Failed to delete snapshot:", error);
+        showInfoModal("删除快照失败，请检查网络后重试", "快照删除", "error");
+      } finally {
+        setDeletingSnapshotId(null);
       }
-
-      setSnapshots((prev) => prev.filter((item) => item.id !== snapshotId));
-      setBaselineSnapshotId((prev) => (prev === snapshotId ? null : prev));
-      setComparisonSnapshotId((prev) => (prev === snapshotId ? null : prev));
-      setComparisonResult(null);
-      setComparisonError(null);
-    } catch (error) {
-      console.error("Failed to delete snapshot:", error);
-      window.alert("删除快照失败，请检查网络后重试");
-    } finally {
-      setDeletingSnapshotId(null);
-    }
+    }, "确认删除快照");
   };
 
   if (loading) return <div className="p-4">加载中...</div>;
@@ -439,85 +488,25 @@ export default function TargetStudentTrackingPage() {
         </div>
       </div>
 
+      <UnifiedModal
+        open={modalState.open}
+        variant={modalState.variant}
+        title={modalState.title}
+        message={modalState.message}
+        showCancel={modalState.showCancel}
+        confirmText={modalState.confirmText}
+        cancelText={modalState.cancelText}
+        onConfirm={() => {
+          const action = modalState.onConfirmAction;
+          setModalState((prev) => ({ ...prev, open: false, onConfirmAction: null }));
+          if (action) {
+            action();
+          }
+        }}
+        onClose={() => setModalState((prev) => ({ ...prev, open: false, onConfirmAction: null }))}
+      />
+
       <style jsx global>{`
-        .page-header {
-          background: rgb(1, 135, 108);
-          color: white;
-          padding: 2rem 0;
-          margin-bottom: 2rem;
-          border-radius: 10px;
-        }
-        .filter-card {
-          border: none;
-          border-radius: 15px;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-          overflow: visible !important;
-        }
-        .filter-card .card-header {
-          background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-          border-bottom: 1px solid #dee2e6;
-          border-radius: 15px 15px 0 0;
-          padding: 1rem 1.5rem;
-        }
-        .snapshot-table thead th {
-          background: linear-gradient(135deg, #2e7d32 0%, #43a047 100%);
-          color: white;
-          font-weight: 600;
-          border: none;
-          padding: 12px 16px;
-          vertical-align: middle;
-          white-space: nowrap;
-        }
-        .snapshot-table {
-          border-collapse: separate;
-          border-spacing: 0;
-          border-radius: 8px;
-          overflow: hidden;
-        }
-        .snapshot-table tbody tr {
-          transition: all 0.2s ease;
-        }
-        .snapshot-table tbody tr:hover {
-          background-color: #f5f9f5;
-          transform: scale(1.005);
-        }
-        .snapshot-table tbody td {
-          border-color: #e8f5e9;
-          padding: 12px 16px;
-          vertical-align: middle;
-        }
-        .result-table {
-          border-collapse: separate;
-          border-spacing: 0;
-          border-radius: 8px;
-          overflow: hidden;
-        }
-        .result-table thead th {
-          background: linear-gradient(135deg, #2e7d32 0%, #43a047 100%);
-          color: white;
-          font-weight: 600;
-          border: none;
-          padding: 12px 16px;
-          vertical-align: middle;
-          white-space: nowrap;
-        }
-        .result-table tbody tr {
-          transition: all 0.2s ease;
-        }
-        .result-table tbody tr:hover {
-          background-color: #f5f9f5;
-          transform: scale(1.01);
-        }
-        .result-table tbody td {
-          border-color: #e8f5e9;
-          padding: 12px 16px;
-          vertical-align: middle;
-        }
-        .result-table .badge {
-          font-weight: 500;
-          padding: 6px 10px;
-          border-radius: 6px;
-        }
         .comparison-meta {
           border: 1px solid #e8f5e9;
           border-radius: 10px;
@@ -529,93 +518,6 @@ export default function TargetStudentTrackingPage() {
           border-radius: 10px;
           background: #f8f9fa;
           padding: 0.75rem;
-        }
-        .tips-alert {
-          background: linear-gradient(135deg, #e8f5e8 0%, #c8e6c9 100%);
-          border-radius: 12px;
-        }
-        .intro-card {
-          background: #fff;
-          border: none;
-          border-radius: 16px;
-          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-          overflow: hidden;
-        }
-        .intro-card-header {
-          background: linear-gradient(135deg, #2e7d32 0%, #43a047 100%);
-          color: white;
-          padding: 1.25rem 1.5rem;
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-        }
-        .intro-icon-wrapper {
-          width: 40px;
-          height: 40px;
-          border-radius: 10px;
-          background: rgba(255, 255, 255, 0.2);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .intro-card-body {
-          padding: 1.5rem;
-        }
-        .feature-item {
-          display: flex;
-          align-items: flex-start;
-          gap: 1rem;
-          margin-bottom: 1rem;
-        }
-        .feature-item:last-child {
-          margin-bottom: 0;
-        }
-        .feature-icon {
-          width: 36px;
-          height: 36px;
-          border-radius: 10px;
-          background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-          color: #2e7d32;
-          font-weight: 700;
-        }
-        .feature-content h6 {
-          font-size: 0.95rem;
-          font-weight: 600;
-          margin-bottom: 0.25rem;
-        }
-        .feature-content p {
-          font-size: 0.85rem;
-          color: #6c757d;
-          margin: 0;
-        }
-        .indicator-item {
-          margin-bottom: 1rem;
-        }
-        .indicator-item:last-child {
-          margin-bottom: 0;
-        }
-        .indicator-tag {
-          display: inline-block;
-          background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
-          color: #1565c0;
-          font-size: 0.8rem;
-          font-weight: 600;
-          padding: 0.25rem 0.75rem;
-          border-radius: 6px;
-          margin-bottom: 0.5rem;
-        }
-        .indicator-tag.warning {
-          background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
-          color: #e65100;
-        }
-        .indicator-item p {
-          font-size: 0.85rem;
-          color: #495057;
-          margin: 0;
         }
       `}</style>
     </div>

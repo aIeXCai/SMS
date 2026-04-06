@@ -79,7 +79,7 @@ export default function RuleList({
     <>
       <div className="table-responsive">
         <table className="table table-hover table-bordered align-middle rule-table mb-0">
-          <thead className="table-light">
+          <thead>
             <tr>
               <th className="text-center" style={{ width: "70px" }}>序号</th>
               <th className="text-center">规则名称</th>
