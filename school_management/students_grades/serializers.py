@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models.student import Student
 from .models.student import Class
-from .models.exam import Exam, ExamSubject
+from .models.exam import Exam, ExamSubject, SUBJECT_CHOICES as EXAM_SUBJECT_CHOICES
 from .models.score import Score
 from .models.filter import SavedFilterRule, FilterResultSnapshot
 from .services.advanced_filter import AdvancedFilterService
@@ -100,12 +100,18 @@ class ExamSubjectWriteSerializer(serializers.Serializer):
     max_score = serializers.IntegerField(min_value=1)
 
 class ExamSerializer(serializers.ModelSerializer):
-    exam_subjects = ExamSubjectSerializer(many=True, read_only=True)
+    exam_subjects = serializers.SerializerMethodField(read_only=True)
     subjects = ExamSubjectWriteSerializer(many=True, write_only=True, required=False)
 
     class Meta:
         model = Exam
         fields = ['id', 'name', 'academic_year', 'date', 'grade_level', 'description', 'exam_subjects', 'subjects']
+
+    def get_exam_subjects(self, obj):
+        order_map = {code: index for index, (code, _) in enumerate(EXAM_SUBJECT_CHOICES)}
+        exam_subjects = list(obj.exam_subjects.all())
+        exam_subjects.sort(key=lambda item: (order_map.get(item.subject_code, 10_000), item.subject_code))
+        return ExamSubjectSerializer(exam_subjects, many=True).data
 
     def create(self, validated_data):
         subjects_data = validated_data.pop('subjects', [])

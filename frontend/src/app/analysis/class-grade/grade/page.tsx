@@ -244,7 +244,15 @@ function ClassAnalysisGradeContent() {
         maintainAspectRatio: false,
         plugins: {
           legend: { display: false },
-          datalabels: { display: false },
+          datalabels: {
+            display: true,
+            anchor: "end",
+            align: "top",
+            offset: 4,
+            color: "#374151",
+            font: { size: 12, weight: 600 },
+            formatter: (value) => Number(value).toFixed(1),
+          },
           tooltip: {
             callbacks: {
               label: (context) => `平均分: ${Number(context.parsed.y).toFixed(1)}分`,
@@ -399,7 +407,15 @@ function ClassAnalysisGradeContent() {
         maintainAspectRatio: false,
         plugins: {
           legend: { display: false },
-          datalabels: { display: false },
+          datalabels: {
+            display: true,
+            anchor: "end",
+            align: "top",
+            offset: 4,
+            color: "#374151",
+            font: { size: 12, weight: 600 },
+            formatter: (value) => `${Math.round(Number(value))}`,
+          },
           tooltip: {
             callbacks: {
               title: (context) => `分数区间: ${context[0].label}分`,
@@ -534,7 +550,17 @@ function ClassAnalysisGradeContent() {
             reverse: true,
             labels: { padding: 15, usePointStyle: true, font: { size: 12 } },
           },
-          datalabels: { display: false },
+          datalabels: {
+            display: true,
+            anchor: "center",
+            align: "center",
+            color: "#ffffff",
+            font: { size: 11, weight: 700 },
+            formatter: (value) => {
+              const count = Number(value);
+              return count > 0 ? `${count}` : "";
+            },
+          },
           tooltip: {
             callbacks: {
               label: (context) => `${context.dataset.label}: ${context.parsed.y}人`,

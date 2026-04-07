@@ -187,8 +187,14 @@ def analyze_multiple_classes(selected_classes, exam):
         student__current_class__in=selected_classes,
     ).select_related("student", "student__current_class")
 
-    exam_subjects = ExamSubject.objects.filter(exam=exam)
-    subjects = [item.subject_code for item in exam_subjects]
+    exam_subjects = list(ExamSubject.objects.filter(exam=exam))
+    exam_subject_map = {item.subject_code: item for item in exam_subjects}
+    subject_name_map = dict(SUBJECT_CHOICES)
+
+    # 按 SUBJECT_CHOICES 固定顺序输出，避免多班级图表与表格科目顺序漂移
+    subjects = [code for code, _ in SUBJECT_CHOICES if code in exam_subject_map]
+    # 兜底追加未在 SUBJECT_CHOICES 中定义但实际存在于考试中的科目
+    subjects.extend(sorted(code for code in exam_subject_map.keys() if code not in subjects))
 
     class_statistics = []
     class_subject_averages = {}
@@ -282,18 +288,10 @@ def analyze_multiple_classes(selected_classes, exam):
         "score_distributions": score_distributions,
     }
 
-    subject_names = []
-    for subject_code in subjects:
-        exam_subject = exam_subjects.filter(subject_code=subject_code).first()
-        if exam_subject:
-            subject_names.append(exam_subject.subject_name)
-        else:
-            for code, name in SUBJECT_CHOICES:
-                if code == subject_code:
-                    subject_names.append(name)
-                    break
-            else:
-                subject_names.append(subject_code)
+    subject_names = [
+        exam_subject_map[subject_code].subject_name or subject_name_map.get(subject_code, subject_code)
+        for subject_code in subjects
+    ]
 
     return {
         "class_statistics": class_statistics,
@@ -321,14 +319,22 @@ def analyze_grade(exam, grade_level):
         student__current_class__cohort=grade_level,
     ).select_related("student", "student__current_class")
 
-    exam_subjects = ExamSubject.objects.filter(exam=exam)
+    exam_subjects = list(ExamSubject.objects.filter(exam=exam))
+    exam_subject_map = {item.subject_code: item for item in exam_subjects}
+    subject_name_map = dict(SUBJECT_CHOICES)
+
+    # 按 SUBJECT_CHOICES 的固定顺序输出科目，避免数据库返回顺序导致前后端图表/表格列顺序漂移
+    ordered_subject_codes = [code for code, _ in SUBJECT_CHOICES if code in exam_subject_map]
+    # 兜底保留未在 SUBJECT_CHOICES 中定义的科目，保证历史/扩展科目不丢失
+    ordered_subject_codes.extend(sorted(code for code in exam_subject_map.keys() if code not in ordered_subject_codes))
+
     subjects = [
         {
-            "code": item.subject_code,
-            "name": dict(SUBJECT_CHOICES).get(item.subject_code, item.subject_code),
-            "max_score": item.max_score,
+            "code": code,
+            "name": subject_name_map.get(code, code),
+            "max_score": exam_subject_map[code].max_score,
         }
-        for item in exam_subjects
+        for code in ordered_subject_codes
     ]
 
     total_students = all_scores.values("student").distinct().count()
