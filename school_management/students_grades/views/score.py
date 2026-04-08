@@ -4,7 +4,6 @@ from collections import defaultdict
 from decimal import Decimal, InvalidOperation
 
 import openpyxl
-from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from django.core.paginator import Paginator
 from django.db import models, transaction
 from django.http import HttpResponse
@@ -29,6 +28,7 @@ from ..models.student import (
 from ..serializers import ScoreSerializer
 from ..services import execute_target_student_rule
 from ..services.analysis_service import analyze_single_class, analyze_multiple_classes, analyze_grade
+from ..services.student_analysis_export import StudentAnalysisExportService
 from ..tasks import update_all_rankings_async
 
 class ScoreViewSet(viewsets.ModelViewSet):
@@ -315,6 +315,57 @@ class ScoreViewSet(viewsets.ModelViewSet):
 
         return workbook
 
+    def _build_student_analysis_export_payload(self, request):
+        """组装个人分析导出 payload，复用 student_analysis_data 同口径数据。"""
+        analysis_response = self.student_analysis_data(request)
+        if analysis_response.status_code >= 500:
+            return None, Response({'success': False, 'error': '服务异常，请稍后重试'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        if analysis_response.status_code >= 400:
+            response_data = getattr(analysis_response, 'data', None) or {}
+            if (
+                analysis_response.status_code == status.HTTP_404_NOT_FOUND
+                and response_data.get('error') == '未找到指定的考试'
+            ):
+                return None, Response({'success': False, 'error': '该学生暂无可导出分析数据'}, status=status.HTTP_400_BAD_REQUEST)
+            return None, analysis_response
+
+        response_data = getattr(analysis_response, 'data', None) or {}
+        if not response_data.get('success'):
+            return None, Response({'success': False, 'error': response_data.get('error', '导出数据准备失败')}, status=status.HTTP_400_BAD_REQUEST)
+
+        analysis_data = response_data.get('data') or {}
+        try:
+            payload = StudentAnalysisExportService.build_payload(analysis_data, SCORE_SUBJECT_CHOICES)
+        except ValueError as exc:
+            return None, Response({'success': False, 'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return payload, None
+
+    @action(detail=False, methods=['get'], url_path='student-analysis-report-export')
+    def student_analysis_report_export(self, request):
+        """导出个人成绩分析报告（Excel）。"""
+        payload, error_response = self._build_student_analysis_export_payload(request)
+        if error_response is not None:
+            return error_response
+
+        try:
+            workbook = openpyxl.Workbook()
+            StudentAnalysisExportService.build_overview_sheet(workbook, payload)
+            StudentAnalysisExportService.build_total_trend_sheet(workbook, payload)
+            StudentAnalysisExportService.build_subject_detail_sheet(workbook, payload)
+            StudentAnalysisExportService.build_subject_trend_sheet(workbook, payload)
+
+            student_info = payload.get('student_info') or {}
+            timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M')
+            filename = StudentAnalysisExportService.build_filename(student_info, timestamp)
+
+            response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            workbook.save(response)
+            return response
+        except Exception:
+            return Response({'success': False, 'error': '服务异常，请稍后重试'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
     @action(detail=False, methods=['get'], url_path='options')
     def options(self, request):
         grade_level_filter = request.query_params.get('grade_level')
@@ -417,6 +468,7 @@ class ScoreViewSet(viewsets.ModelViewSet):
                     'id': student.id,
                     'student_id': student.student_id,
                     'name': student.name,
+                    'cohort': student.cohort,
                     'grade_level': student.grade_level,
                     'class_name': student.current_class.class_name if student.current_class else '未分班',
                 },

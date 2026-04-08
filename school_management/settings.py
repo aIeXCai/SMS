@@ -236,6 +236,11 @@ CORS_ALLOW_HEADERS = [
     'x-requested-with',
 ]
 
+# 允许前端读取附件下载文件名相关响应头
+CORS_EXPOSE_HEADERS = [
+    'Content-Disposition',
+]
+
 # Redis和RQ配置（异步任务处理）
 RQ_QUEUES = {
     'default': {

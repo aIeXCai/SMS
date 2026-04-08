@@ -32,6 +32,7 @@ urlpatterns = [
     path('scores/options', ScoreViewSet.as_view({'get': 'options'})),
     path('scores/student-search', ScoreViewSet.as_view({'get': 'student_search'})),
     path('scores/student-analysis-data', ScoreViewSet.as_view({'get': 'student_analysis_data'})),
+    path('scores/student-analysis-report-export', ScoreViewSet.as_view({'get': 'student_analysis_report_export'})),
     path('scores/class-analysis-single', ScoreViewSet.as_view({'get': 'class_analysis_single'})),
     path('scores/class-analysis-multi', ScoreViewSet.as_view({'get': 'class_analysis_multi'})),
     path('scores/class-analysis-grade', ScoreViewSet.as_view({'get': 'class_analysis_grade'})),

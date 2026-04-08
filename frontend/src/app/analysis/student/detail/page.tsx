@@ -72,6 +72,8 @@ function StudentAnalysisDetailContent() {
   const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasNoData, setHasNoData] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportNotice, setExportNotice] = useState<{ type: "success" | "danger"; text: string } | null>(null);
 
   const [trendExamOpen, setTrendExamOpen] = useState(false);
   const [trendSubjectOpen, setTrendSubjectOpen] = useState(false);
@@ -465,6 +467,80 @@ function StudentAnalysisDetailContent() {
     });
   };
 
+  const parseFileNameFromDisposition = (disposition: string | null, fallback: string) => {
+    if (!disposition) return fallback;
+
+    const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+    if (utf8Match?.[1]) {
+      try {
+        return decodeURIComponent(utf8Match[1]).replace(/^"|"$/g, "");
+      } catch {
+        return utf8Match[1].replace(/^"|"$/g, "");
+      }
+    }
+
+    const normalMatch = disposition.match(/filename=([^;]+)/i);
+    if (normalMatch?.[1]) {
+      return normalMatch[1].trim().replace(/^"|"$/g, "");
+    }
+
+    return fallback;
+  };
+
+  const handleExportReport = async () => {
+    if (!studentId || isExporting) return;
+
+    setIsExporting(true);
+    setExportNotice(null);
+
+    try {
+      const response = await fetch(
+        `${backendBaseUrl}/api/scores/student-analysis-report-export?student_id=${encodeURIComponent(studentId)}`,
+        { headers: { ...authHeader } },
+      );
+
+      if (!response.ok) {
+        let errorMessage = "导出失败，请稍后重试。";
+        try {
+          const errorPayload = await response.json();
+          if (errorPayload?.error) {
+            errorMessage = errorPayload.error;
+          }
+        } catch {
+          if (response.status === 404) errorMessage = "学生不存在，无法导出。";
+          if (response.status === 400) errorMessage = "该学生暂无可导出的分析数据。";
+        }
+        throw new Error(errorMessage);
+      }
+
+      const blob = await response.blob();
+      if (!blob || blob.size === 0) {
+        throw new Error("导出文件为空，请稍后重试。");
+      }
+
+      const disposition = response.headers.get("Content-Disposition") || response.headers.get("content-disposition");
+      const info = analysisData?.student_info;
+      const fallbackName = `${info?.grade_level || "未知届别"}${info?.class_name || "未知班级"}${info?.name || "未知学生"}个人成绩分析报告.xlsx`;
+      const fileName = parseFileNameFromDisposition(disposition, fallbackName);
+
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(blobUrl);
+
+      setExportNotice({ type: "success", text: "导出成功，文件已开始下载。" });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "导出失败，请稍后重试。";
+      setExportNotice({ type: "danger", text: message });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   if (loading) return <div className="p-4">加载中...</div>;
 
   return (
@@ -484,11 +560,29 @@ function StudentAnalysisDetailContent() {
                 </nav>
               </div>
               <div className="col-auto">
-                <Link href="/analysis/student" className="btn btn-return"><i className="fas fa-arrow-left me-2"></i>返回选择</Link>
+                <div className="d-flex gap-2">
+                  <button
+                    type="button"
+                    className="btn btn-export"
+                    onClick={handleExportReport}
+                    disabled={isExporting || isLoading || hasNoData || !studentId}
+                  >
+                    <i className={`fas ${isExporting ? "fa-spinner fa-spin" : "fa-file-excel"} me-2`}></i>
+                    {isExporting ? "导出中..." : "导出个人报告"}
+                  </button>
+                  <Link href="/analysis/student" className="btn btn-return"><i className="fas fa-arrow-left me-2"></i>返回选择</Link>
+                </div>
               </div>
             </div>
           </div>
         </div>
+
+        {exportNotice && (
+          <div className={`alert alert-${exportNotice.type} mb-3`} role="alert">
+            <i className={`fas ${exportNotice.type === "success" ? "fa-check-circle" : "fa-exclamation-circle"} me-2`}></i>
+            {exportNotice.text}
+          </div>
+        )}
 
         {analysisData && (
           <div className="analysis-info-card alert alert-modern">
@@ -722,6 +816,25 @@ function StudentAnalysisDetailContent() {
           transform: translateY(-2px);
           color: white;
           box-shadow: 0 12px 35px rgba(1, 135, 108, 0.3);
+        }
+        .btn-export {
+          background: #00897b;
+          border: none;
+          border-radius: 25px;
+          padding: 0.75rem 1.5rem;
+          color: white;
+          font-weight: 600;
+          transition: all 0.3s ease;
+          box-shadow: 0 8px 25px rgba(0, 137, 123, 0.25);
+        }
+        .btn-export:hover:not(:disabled) {
+          transform: translateY(-2px);
+          color: white;
+          box-shadow: 0 12px 35px rgba(0, 137, 123, 0.35);
+        }
+        .btn-export:disabled {
+          opacity: 0.7;
+          cursor: not-allowed;
         }
         .analysis-info-card {
           background: linear-gradient(135deg, rgba(1,135,108,0.1) 0%, rgba(1,135,108,0.15) 100%);
