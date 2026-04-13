@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
@@ -80,6 +80,7 @@ const EMPTY_FILTERS: Filters = {
 
 const backendBaseUrl = typeof window !== "undefined" ? `http://${window.location.hostname}:8000` : "http://localhost:8000";
 const SCORES_API_BASE = `${backendBaseUrl}/api/scores`;
+const CLASSES_API_BASE = `${backendBaseUrl}/api/classes`;
 
 export default function ScoresPage() {
   const { user, token, loading } = useAuth();
@@ -87,6 +88,7 @@ export default function ScoresPage() {
   const canScoreWrite = canWriteScores(user);
 
   const [options, setOptions] = useState<ScoreOptions | null>(null);
+  const [gradeClasses, setGradeClasses] = useState<Option[]>([]);
   const [rows, setRows] = useState<ScoreRow[]>([]);
   const [allSubjects, setAllSubjects] = useState<string[]>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -99,6 +101,9 @@ export default function ScoresPage() {
   const [isSelectingAll, setIsSelectingAll] = useState(false);
 
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
+  const [examDropdownOpen, setExamDropdownOpen] = useState(false);
+  const [gradeDropdownOpen, setGradeDropdownOpen] = useState(false);
+  const [classDropdownOpen, setClassDropdownOpen] = useState(false);
   const [appliedFilters, setAppliedFilters] = useState<Filters>(EMPTY_FILTERS);
 
   const [selected, setSelected] = useState<Record<string, boolean>>({});
@@ -164,9 +169,10 @@ export default function ScoresPage() {
     }
   }, [loading, effectiveToken, router]);
 
-  const fetchOptions = async () => {
+  const fetchOptions = useCallback(async (gradeLevel?: string) => {
     try {
-      const res = await fetch(`${SCORES_API_BASE}/options/`, { headers: { ...authHeader } });
+      const url = gradeLevel ? `${SCORES_API_BASE}/options/?grade_level=${encodeURIComponent(gradeLevel)}` : `${SCORES_API_BASE}/options/`;
+      const res = await fetch(url, { headers: { ...authHeader } });
       if (!res.ok) return;
       const data: ScoreOptions = await res.json();
       setOptions(data);
@@ -175,6 +181,27 @@ export default function ScoresPage() {
       }
     } catch (e) {
       console.error("获取成绩筛选选项失败", e);
+    }
+  }, [effectiveToken]);
+
+  const fetchGradeClasses = async (gradeValue: string) => {
+    try {
+      const res = await fetch(`${CLASSES_API_BASE}/?cohort=${encodeURIComponent(gradeValue)}&page_size=200`, { headers: { ...authHeader } });
+      if (!res.ok) return;
+      const data = await res.json();
+      const classes: Option[] = (data.results || data).map((c: { id: number; class_name: string }) => ({
+        value: c.class_name,
+        label: c.class_name,
+      }));
+      const sorted = classes.sort((a, b) => {
+        const aNum = Number((a.label.match(/\d+/) || ["999"])[0]);
+        const bNum = Number((b.label.match(/\d+/) || ["999"])[0]);
+        if (aNum !== bNum) return aNum - bNum;
+        return a.label.localeCompare(b.label, "zh-CN");
+      });
+      setGradeClasses(sorted);
+    } catch (e) {
+      console.error("获取班级列表失败", e);
     }
   };
 
@@ -246,10 +273,36 @@ export default function ScoresPage() {
     fetchOptions();
   }, [effectiveToken, authHeader]);
 
+  // 选年级后过滤考试和班级选项（级联下拉）
+  const handleGradeSelect = (gradeValue: string) => {
+    setFilters((p) => ({ ...p, grade_filter: gradeValue, exam_filter: "", class_filter: "" }));
+    setGradeDropdownOpen(false);
+    fetchOptions(gradeValue || undefined);
+    if (gradeValue) {
+      fetchGradeClasses(gradeValue);
+    } else {
+      setGradeClasses([]);
+    }
+  };
+
   useEffect(() => {
     if (!effectiveToken) return;
     fetchRows();
   }, [effectiveToken, authHeader, currentPage, pageSize, appliedFilters]);
+
+  // 点击外部关闭下拉菜单
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest(".app-custom-dropdown")) {
+        setExamDropdownOpen(false);
+        setGradeDropdownOpen(false);
+        setClassDropdownOpen(false);
+      }
+    };
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
+  }, []);
 
   const handleFilter = () => {
     setSelected({});
@@ -487,89 +540,88 @@ export default function ScoresPage() {
       </div>
 
       <div className="container-fluid">
-        <div className="card filter-card">
+        <div className="card app-filter-card">
           <div className="card-header">
             <h5 className="mb-0"><i className="fas fa-filter me-2"></i>筛选成绩</h5>
           </div>
           <div className="card-body">
-            <div className="row g-3">
+            <div className="row g-3 align-items-end">
               <div className="col-md-2">
-                <label className="form-label">学号</label>
+                <label className="form-label small fw-bold" style={{ color: '#5a6b63' }}>年级</label>
+                <div className="app-custom-dropdown">
+                  <button type="button" className={`app-custom-dropdown-toggle ${gradeDropdownOpen ? "active" : ""}`} onClick={() => setGradeDropdownOpen(v => !v)}>
+                    <span>{filters.grade_filter ? options?.grade_levels.find(o => o.value === filters.grade_filter)?.label || filters.grade_filter : "全部年级"}</span>
+                    <i className="fas fa-chevron-down app-custom-dropdown-arrow"></i>
+                  </button>
+                  <div className={`app-custom-dropdown-menu ${gradeDropdownOpen ? "show" : ""}`}>
+                    <button type="button" className="app-custom-dropdown-item" onClick={() => handleGradeSelect("")}>全部年级</button>
+                    {options?.grade_levels.map((x) => (
+                      <button key={x.value} type="button" className="app-custom-dropdown-item" onClick={() => handleGradeSelect(x.value)}>{x.label}</button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="col-md-4">
+                <label className="form-label small fw-bold" style={{ color: '#5a6b63' }}>考试</label>
+                <div className="app-custom-dropdown">
+                  <button type="button" className={`app-custom-dropdown-toggle ${examDropdownOpen ? "active" : ""}`} onClick={() => setExamDropdownOpen(v => !v)} disabled={!filters.grade_filter}>
+                    <span>
+                      {!filters.grade_filter ? "请先选择年级" : filters.exam_filter ? options?.exams.find(o => o.value === filters.exam_filter)?.label || filters.exam_filter : "全部考试"}
+                    </span>
+                    <i className="fas fa-chevron-down app-custom-dropdown-arrow"></i>
+                  </button>
+                  <div className={`app-custom-dropdown-menu ${examDropdownOpen ? "show" : ""}`}>
+                    <button type="button" className="app-custom-dropdown-item" onClick={() => { setFilters(p => ({ ...p, exam_filter: "" })); setExamDropdownOpen(false); }}>全部考试</button>
+                    {options?.exams.map((x) => (
+                      <button key={x.value} type="button" className="app-custom-dropdown-item" onClick={() => { setFilters(p => ({ ...p, exam_filter: x.value })); setExamDropdownOpen(false); }}>{x.label}</button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="col-md-2">
+                <label className="form-label small fw-bold" style={{ color: '#5a6b63' }}>班级</label>
+                <div className="app-custom-dropdown">
+                  <button type="button" className={`app-custom-dropdown-toggle ${classDropdownOpen ? "active" : ""}`} onClick={() => setClassDropdownOpen(v => !v)} disabled={!filters.grade_filter}>
+                    <span>
+                      {!filters.grade_filter ? "请先选择年级" : filters.class_filter ? gradeClasses.find(o => o.value === filters.class_filter)?.label || filters.class_filter : "全部班级"}
+                    </span>
+                    <i className="fas fa-chevron-down app-custom-dropdown-arrow"></i>
+                  </button>
+                  <div className={`app-custom-dropdown-menu ${classDropdownOpen ? "show" : ""}`}>
+                    <button type="button" className="app-custom-dropdown-item" onClick={() => { setFilters(p => ({ ...p, class_filter: "" })); setClassDropdownOpen(false); }}>全部班级</button>
+                    {gradeClasses.map((x) => (
+                      <button key={x.value} type="button" className="app-custom-dropdown-item" onClick={() => { setFilters(p => ({ ...p, class_filter: x.value })); setClassDropdownOpen(false); }}>{x.label}</button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="col-md-2">
+                <label className="form-label small fw-bold" style={{ color: '#5a6b63' }}>学号</label>
                 <input
                   type="text"
                   className="form-control"
                   value={filters.student_id_filter}
                   onChange={(e) => setFilters((p) => ({ ...p, student_id_filter: e.target.value }))}
+                  placeholder="输入学号"
                 />
               </div>
               <div className="col-md-2">
-                <label className="form-label">学生姓名</label>
+                <label className="form-label small fw-bold" style={{ color: '#5a6b63' }}>学生姓名</label>
                 <input
                   type="text"
                   className="form-control"
                   value={filters.student_name_filter}
                   onChange={(e) => setFilters((p) => ({ ...p, student_name_filter: e.target.value }))}
+                  placeholder="输入姓名"
                 />
-              </div>
-              <div className="col-md-2">
-                <label className="form-label">考试</label>
-                <select
-                  className="form-select"
-                  value={filters.exam_filter}
-                  onChange={(e) => setFilters((p) => ({ ...p, exam_filter: e.target.value }))}
-                >
-                  <option value="">--- 所有考试 ---</option>
-                  {options?.exams.map((x) => (
-                    <option key={x.value} value={x.value}>{x.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="col-md-2">
-                <label className="form-label">年级</label>
-                <select
-                  className="form-select"
-                  value={filters.grade_filter}
-                  onChange={(e) => setFilters((p) => ({ ...p, grade_filter: e.target.value }))}
-                >
-                  <option value="">--- 所有年级 ---</option>
-                  {options?.grade_levels.map((x) => (
-                    <option key={x.value} value={x.value}>{x.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="col-md-2">
-                <label className="form-label">班级</label>
-                <select
-                  className="form-select"
-                  value={filters.class_filter}
-                  onChange={(e) => setFilters((p) => ({ ...p, class_filter: e.target.value }))}
-                >
-                  <option value="">--- 所有班级 ---</option>
-                  {options?.class_name_choices.map((x) => (
-                    <option key={x.value} value={x.value}>{x.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="col-md-2">
-                <label className="form-label">科目</label>
-                <select
-                  className="form-select"
-                  value={filters.subject_filter}
-                  onChange={(e) => setFilters((p) => ({ ...p, subject_filter: e.target.value }))}
-                >
-                  <option value="">--- 所有科目 ---</option>
-                  {options?.subjects.map((x) => (
-                    <option key={x.value} value={x.value}>{x.label}</option>
-                  ))}
-                </select>
               </div>
             </div>
             <div className="row mt-3">
               <div className="col-12">
-                <button type="button" className="btn btn-primary me-2" onClick={handleFilter}>
+                <button type="button" className="app-btn-primary" onClick={handleFilter} style={{ marginRight: '8px' }}>
                   <i className="fas fa-search"></i> 筛选
                 </button>
-                <button type="button" className="btn btn-secondary" onClick={handleReset}>
+                <button type="button" className="app-btn-outline" onClick={handleReset}>
                   <i className="fas fa-undo"></i> 重置筛选
                 </button>
               </div>
@@ -577,8 +629,8 @@ export default function ScoresPage() {
           </div>
         </div>
 
-        <div className="card filter-card">
-          <div className="card-header">
+        <div className="card" style={{ border: 'none', borderRadius: '15px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', marginBottom: '1.5rem', overflow: 'hidden' }}>
+          <div className="card-header" style={{ background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)', borderBottom: '1px solid #dee2e6', borderRadius: '15px 15px 0 0', padding: '1rem 1.5rem' }}>
             <h5 className="mb-0"><i className="fas fa-tasks me-2"></i>批量操作</h5>
           </div>
           <div className="card-body">
@@ -625,9 +677,9 @@ export default function ScoresPage() {
             <div className="spinner-border text-primary" role="status"></div>
           </div>
         ) : rows.length > 0 ? (
-          <div className="table-container">
-            <div className="table-responsive">
-              <table className="table table-striped table-hover mb-0">
+          <div className="app-table-wrapper">
+            <div className="app-table-scroll">
+              <table className="app-table">
                 <thead>
                   <tr>
                     <th style={{ width: "50px" }}>
@@ -952,51 +1004,6 @@ export default function ScoresPage() {
         .page-header h1 {
           margin: 0;
           font-weight: 600;
-        }
-
-        .filter-card {
-          border: none;
-          border-radius: 15px;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-          margin-bottom: 2rem;
-        }
-
-        .filter-card .card-header {
-          background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-          border-bottom: 1px solid #dee2e6;
-          border-radius: 15px 15px 0 0;
-          padding: 1rem 1.5rem;
-        }
-
-        .table-container {
-          background: white;
-          border-radius: 15px;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-          overflow: hidden;
-        }
-
-        .table {
-          font-size: 0.85rem;
-        }
-
-        .table th {
-          background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-          border: none;
-          font-weight: 600;
-          color: #495057;
-          padding: 10px 6px;
-          font-size: 0.8rem;
-          white-space: nowrap;
-          text-align: center;
-        }
-
-        .table td {
-          padding: 8px 6px;
-          vertical-align: middle;
-          border-color: #f1f3f4;
-          font-size: 0.8rem;
-          white-space: nowrap;
-          text-align: center;
         }
 
         .badge {

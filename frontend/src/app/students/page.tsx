@@ -652,14 +652,14 @@ export default function StudentsPage() {
         )}
 
         {/* 学生列表区域 */}
-        <div className="table-container">
+        <div className="app-table-wrapper">
           {isLoading ? (
             <div className="text-center py-5">
               <div className="spinner-border text-primary" role="status"></div>
             </div>
           ) : students.length ? (
-            <div className="table-responsive">
-              <table className="table table-hover mb-0">
+            <div className="app-table-scroll">
+              <table className="app-table">
                 <thead>
                   <tr>
                     <th style={{ width: 50 }}>
@@ -721,19 +721,19 @@ export default function StudentsPage() {
                           )}
                         </td>
                         <td>
-                          <span className="fw-bold text-primary">{student.student_id}</span>
+                          <span className="fw-bold" style={{ color: '#1e2a25', fontSize: '0.9rem' }}>{student.student_id}</span>
                         </td>
                         <td>
-                          <span className="fw-medium">{student.name}</span>
+                          <span className="fw-medium" style={{ color: '#1e2a25', fontSize: '0.9rem' }}>{student.name}</span>
                         </td>
                         <td>
                           {student.gender === "男" ? (
-                            <span className="badge bg-primary">
+                            <span className="badge rounded-pill px-3 py-2" style={{ background: '#dbeafe', color: '#1d4ed8', border: '1px solid #bfdbfe', fontSize: '0.88rem' }}>
                               <i className="fas fa-mars me-1"></i>
                               {student.gender}
                             </span>
                           ) : (
-                            <span className="badge bg-pink">
+                            <span className="badge rounded-pill px-3 py-2" style={{ background: '#fce7f3', color: '#be185d', border: '1px solid #f9a8d4', fontSize: '0.88rem' }}>
                               <i className="fas fa-venus me-1"></i>
                               {student.gender || "-"}
                             </span>
@@ -741,41 +741,43 @@ export default function StudentsPage() {
                         </td>
                         <td>
                           {student.current_class ? (
-                            <span className="badge bg-secondary">{student.current_class.cohort}</span>
+                            <span className="badge rounded-pill px-3 py-2" style={{ background: '#e8f7f4', color: '#01876c', border: '1px solid #b8ddd5', fontSize: '0.88rem' }}>{student.current_class.cohort}</span>
                           ) : (
-                            <span className="text-muted">-</span>
+                            <span style={{ color: '#8fa398' }}>-</span>
                           )}
                         </td>
                         <td>
                           {student.current_class ? (
-                            <span className="badge bg-warning">{student.current_class.grade_level}</span>
+                            <span className="badge rounded-pill px-3 py-2" style={{ background: '#d4e8fc', color: '#0369a1', border: '1px solid #a0c4e8', fontSize: '0.88rem' }}>{student.current_class.grade_level}</span>
                           ) : (
-                            <span className="text-muted">-</span>
+                            <span style={{ color: '#8fa398' }}>-</span>
                           )}
                         </td>
                         <td>
                           {student.current_class ? (
-                            <span className="badge bg-info">{student.current_class.class_name}</span>
+                            <span className="badge rounded-pill px-3 py-2" style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #fde68a', fontSize: '0.88rem' }}>{student.current_class.class_name}</span>
                           ) : (
-                            <span className="text-muted">未分配</span>
+                            <span style={{ color: '#8fa398' }}>未分配</span>
                           )}
                         </td>
                         <td>
                           <span className={statusClass}>{student.status}</span>
                         </td>
-                        <td style={canStudentWrite ? undefined : { minWidth: 88 }}>
+                        <td>
                           {canStudentWrite ? (
-                            <div className="btn-group" role="group">
+                            <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
                               <a
                                 href={`/students/${student.id}/edit/`}
-                                className="btn btn-outline-primary btn-action"
+                                className="btn btn-sm"
+                                style={{ background: '#b8ddd5', color: '#015a4a', border: '1px solid #8cd4c4' }}
                                 title="编辑学生信息"
                               >
                                 <i className="fas fa-edit"></i>
                               </a>
                               <button
                                 type="button"
-                                className="btn btn-outline-danger btn-action"
+                                className="btn btn-sm"
+                                style={{ background: '#fecaca', color: '#b91c1c', border: '1px solid #fca5a5' }}
                                 title="删除学生"
                                 onClick={() => handleDelete(student)}
                               >
@@ -918,34 +920,6 @@ export default function StudentsPage() {
           font-weight: 600;
         }
 
-        .table-container {
-          background: white;
-          border-radius: 15px;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-          overflow: hidden;
-        }
-
-        .table th {
-          background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-          border: none;
-          font-weight: 600;
-          color: #495057;
-          padding: 1rem 0.75rem;
-          text-align: center;
-        }
-
-        .table td {
-          border: none;
-          border-bottom: 1px solid #dee2e6;
-          padding: 1rem 0.75rem;
-          vertical-align: middle;
-          text-align: center;
-        }
-
-        .table tbody tr:hover {
-          background-color: #f8f9fa;
-        }
-
         .btn-action {
           padding: 0.25rem 0.5rem;
           font-size: 0.875rem;
@@ -956,38 +930,32 @@ export default function StudentsPage() {
         .status-badge {
           padding: 0.375rem 0.75rem;
           border-radius: 20px;
-          font-size: 0.75rem;
+          font-size: 0.82rem;
           font-weight: 500;
         }
 
         .status-在读 {
-          background-color: #d4edda;
-          color: #155724;
+          background-color: #e8f7f4;
+          color: #01876c;
+          border: 1px solid #b8ddd5;
         }
 
         .status-休学 {
-          background-color: #fff3cd;
-          color: #856404;
+          background-color: #fef3c7;
+          color: #92400e;
+          border: 1px solid #fde68a;
         }
 
         .status-退学 {
-          background-color: #f8d7da;
-          color: #721c24;
+          background-color: #fee2e2;
+          color: #dc2626;
+          border: 1px solid #fecaca;
         }
 
         .status-毕业 {
-          background-color: #d1ecf1;
-          color: #0c5460;
-        }
-
-        /* 性别标签样式 */
-        .bg-pink {
-          background-color: #e91e63 !important;
-          color: white !important;
-        }
-
-        .bg-pink:hover {
-          background-color: #c2185b !important;
+          background-color: #e8f4fc;
+          color: #0369a1;
+          border: 1px solid #b8d4f0;
         }
 
         .quick-actions {

@@ -40,6 +40,8 @@ export default function ExamsList() {
   // Filters
   const [academicYear, setAcademicYear] = useState("");
   const [gradeLevel, setGradeLevel] = useState("");
+  const [academicYearDropdownOpen, setAcademicYearDropdownOpen] = useState(false);
+  const [gradeLevelDropdownOpen, setGradeLevelDropdownOpen] = useState(false);
   
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -114,6 +116,19 @@ export default function ExamsList() {
     if (!token) return;
     fetchExams(currentPage);
   }, [token, authHeader, currentPage, academicYear, gradeLevel]);
+
+  // 点击外部关闭下拉菜单
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest(".app-custom-dropdown")) {
+        setAcademicYearDropdownOpen(false);
+        setGradeLevelDropdownOpen(false);
+      }
+    };
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
+  }, []);
 
   const handleFilter = () => {
     if (currentPage === 1) {
@@ -196,48 +211,66 @@ export default function ExamsList() {
       </div>
 
       {/* 筛选模块 */}
-      <div className="card filter-card mb-4 border-0 shadow-sm" style={{ borderRadius: '15px' }}>
+      <div className="card app-filter-card border-0">
         <div className="card-header">
           <h5 className="mb-0">
             <i className="fas fa-filter me-2"></i>筛选条件
           </h5>
         </div>
         <div className="card-body p-4">
-          <div className="row g-3">
+          <div className="row g-3 align-items-end">
             <div className="col-md-3">
-              <label htmlFor="academicYearFilter" className="form-label text-muted small fw-bold">学年</label>
-              <select 
-                className="form-select border-0 bg-light" 
-                id="academicYearFilter"
-                value={academicYear}
-                onChange={e => setAcademicYear(e.target.value)}
-              >
-                <option value="">全部学年</option>
-                {options?.academic_years.map(oy => (
-                  <option key={oy.value} value={oy.value}>{oy.label}</option>
-                ))}
-              </select>
+              <label className="form-label small fw-bold" style={{ color: '#5a6b63' }}>学年</label>
+              <div className="app-custom-dropdown">
+                <button
+                  type="button"
+                  className={`app-custom-dropdown-toggle ${academicYearDropdownOpen ? "active" : ""}`}
+                  onClick={() => setAcademicYearDropdownOpen(v => !v)}
+                >
+                  <span>{academicYear ? options?.academic_years.find(o => o.value === academicYear)?.label || academicYear : "全部学年"}</span>
+                  <i className="fas fa-chevron-down app-custom-dropdown-arrow"></i>
+                </button>
+                <div className={`app-custom-dropdown-menu ${academicYearDropdownOpen ? "show" : ""}`}>
+                  <button type="button" className="app-custom-dropdown-item" onClick={() => { setAcademicYear(""); setAcademicYearDropdownOpen(false); }}>
+                    全部学年
+                  </button>
+                  {options?.academic_years.map(oy => (
+                    <button key={oy.value} type="button" className="app-custom-dropdown-item" onClick={() => { setAcademicYear(oy.value); setAcademicYearDropdownOpen(false); }}>
+                      {oy.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
             <div className="col-md-3">
-              <label htmlFor="gradeFilter" className="form-label text-muted small fw-bold">年级</label>
-              <select 
-                className="form-select border-0 bg-light" 
-                id="gradeFilter"
-                value={gradeLevel}
-                onChange={e => setGradeLevel(e.target.value)}
-              >
-                <option value="">全部年级</option>
-                {options?.grade_levels.map(og => (
-                  <option key={og.value} value={og.value}>{og.label}</option>
-                ))}
-              </select>
+              <label className="form-label small fw-bold" style={{ color: '#5a6b63' }}>年级</label>
+              <div className="app-custom-dropdown">
+                <button
+                  type="button"
+                  className={`app-custom-dropdown-toggle ${gradeLevelDropdownOpen ? "active" : ""}`}
+                  onClick={() => setGradeLevelDropdownOpen(v => !v)}
+                >
+                  <span>{gradeLevel ? options?.grade_levels.find(o => o.value === gradeLevel)?.label || gradeLevel : "全部年级"}</span>
+                  <i className="fas fa-chevron-down app-custom-dropdown-arrow"></i>
+                </button>
+                <div className={`app-custom-dropdown-menu ${gradeLevelDropdownOpen ? "show" : ""}`}>
+                  <button type="button" className="app-custom-dropdown-item" onClick={() => { setGradeLevel(""); setGradeLevelDropdownOpen(false); }}>
+                    全部年级
+                  </button>
+                  {options?.grade_levels.map(og => (
+                    <button key={og.value} type="button" className="app-custom-dropdown-item" onClick={() => { setGradeLevel(og.value); setGradeLevelDropdownOpen(false); }}>
+                      {og.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
-            <div className="col-md-3 d-flex align-items-end">
-              <button type="button" className="btn btn-primary me-2 px-4 shadow-sm" onClick={handleFilter}>
-                <i className="fas fa-search me-2"></i>筛选
+            <div className="col-md-3 d-flex align-items-end gap-2">
+              <button type="button" className="app-btn-primary" onClick={handleFilter}>
+                <i className="fas fa-search me-1"></i>筛选
               </button>
-              <button type="button" className="btn btn-outline-secondary px-4 bg-white" onClick={resetFilters}>
-                <i className="fas fa-undo me-2"></i>重置
+              <button type="button" className="app-btn-outline" onClick={resetFilters}>
+                <i className="fas fa-undo me-1"></i>重置
               </button>
             </div>
           </div>
@@ -252,58 +285,61 @@ export default function ExamsList() {
             </h5>
         </div>
         
-        <div className="card-body p-0">
-          {isLoading ? (
-            <div className="text-center p-5 text-muted">
-              <div className="spinner-border text-primary" role="status">
-                <span className="visually-hidden">加载中...</span>
-              </div>
+        {isLoading ? (
+          <div className="text-center p-5 text-muted">
+            <div className="spinner-border text-primary" role="status">
+              <span className="visually-hidden">加载中...</span>
             </div>
-          ) : exams.length > 0 ? (
-            <div className="table-responsive">
-              <table className="table table-hover align-middle mb-0">
-                  <thead className="table-light">
+          </div>
+        ) : exams.length > 0 ? (
+          <div className="app-table-wrapper">
+            <div className="app-table-scroll">
+              <table className="app-table">
+                  <thead>
                       <tr>
-                          <th className="text-center py-3 text-muted"><i className="fas fa-calendar-alt me-2"></i>学年</th>
-                          <th className="text-center py-3 text-muted"><i className="fas fa-tag me-2"></i>考试名称</th>
-                          <th className="text-center py-3 text-muted"><i className="fas fa-users me-2"></i>适用年级</th>
-                          <th className="text-center py-3 text-muted"><i className="fas fa-clock me-2"></i>考试日期</th>
-                          <th className="text-center py-3 text-muted"><i className="fas fa-info-circle me-2"></i>考试描述</th>
-                          <th className="text-center py-3 text-muted"><i className="fas fa-cogs me-2"></i>操作</th>
+                          <th><i className="fas fa-calendar-alt me-1"></i>学年</th>
+                          <th><i className="fas fa-tag me-1"></i>考试名称</th>
+                          <th><i className="fas fa-users me-1"></i>适用年级</th>
+                          <th><i className="fas fa-clock me-1"></i>考试日期</th>
+                          <th><i className="fas fa-info-circle me-1"></i>考试描述</th>
+                          <th><i className="fas fa-cogs me-1"></i>操作</th>
                       </tr>
                   </thead>
                   <tbody>
                       {exams.map(exam => (
-                        <tr key={exam.id} style={{ cursor: 'pointer' }} className="transition-all">
-                            <td className="text-center">
-                                <span className="badge bg-info bg-opacity-10 text-info border border-info rounded-pill px-3 py-2">{exam.academic_year}</span>
+                        <tr key={exam.id} style={{ cursor: 'pointer' }}>
+                            <td>
+                                <span className="badge rounded-pill px-3 py-2" style={{ background: '#c8eee8', color: '#01876c', border: '1px solid #8cd4c4', fontSize: '0.9rem' }}>{exam.academic_year}</span>
                             </td>
-                            <td className="text-center">
-                                <div className="fw-bold text-dark">{exam.name}</div>
+                            <td>
+                                <span className="fw-bold" style={{ color: '#1e2a25' }}>{exam.name}</span>
                             </td>
-                            <td className="text-center">
-                                <span className="badge bg-success bg-opacity-10 text-success border border-success rounded-pill px-3 py-2">
+                            <td>
+                                <span className="badge rounded-pill px-3 py-2" style={{ background: '#d4e8fc', color: '#0369a1', border: '1px solid #a0c4e8', fontSize: '0.9rem' }}>
                                   {options?.grade_levels.find(g => g.value === exam.grade_level)?.label || exam.grade_level}
                                 </span>
                             </td>
-                            <td className="text-center text-secondary">
-                                <i className="fas fa-calendar text-muted me-2"></i>
-                                {exam.date ? exam.date.replace(/^(\d{4})-(\d{2})-(\d{2})$/, '$1年$2月$3日') : ''}
+                            <td>
+                                <span style={{ color: '#1e2a25' }}>
+                                    <i className="fas fa-calendar me-1" style={{ color: '#5a6b63' }}></i>
+                                    {exam.date ? exam.date.replace(/^(\d{4})-(\d{2})-(\d{2})$/, '$1年$2月$3日') : ''}
+                                </span>
                             </td>
-                            <td className="text-center">
-                                <div className="text-muted small" style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: '0 auto' }}>
+                            <td>
+                                <span style={{ maxWidth: '200px', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: '0 auto', color: '#1e2a25', fontSize: '0.85rem' }}>
                                     {exam.description || "暂无描述"}
-                                </div>
+                                </span>
                             </td>
-                            <td className="text-center">
+                            <td>
                                 {canExamWrite ? (
-                                  <div className="btn-group shadow-sm" role="group">
-                                      <Link href={`/exams/${exam.id}/edit`} className="btn btn-light btn-sm text-primary border" title="编辑考试">
+                                  <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                                      <Link href={`/exams/${exam.id}/edit`} className="btn btn-sm" style={{ background: '#b8ddd5', color: '#015a4a', border: '1px solid #8cd4c4' }} title="编辑考试">
                                           <i className="fas fa-edit"></i>
                                       </Link>
-                                      <button 
-                                        type="button" 
-                                        className="btn btn-light btn-sm text-danger border" 
+                                      <button
+                                        type="button"
+                                        className="btn btn-sm"
+                                        style={{ background: '#fecaca', color: '#b91c1c', border: '1px solid #fca5a5' }}
                                         title="删除考试"
                                         onClick={() => setDeleteData({ id: exam.id, name: exam.name })}
                                       >
@@ -318,28 +354,28 @@ export default function ExamsList() {
                       ))}
                   </tbody>
               </table>
-              <div className="p-3 border-top d-flex justify-content-between align-items-center bg-light">
-                <span className="text-muted small">共 {totalCount} 条记录</span>
-                <div>
-                  <button className="btn btn-sm btn-outline-secondary me-2 bg-white" disabled={currentPage === 1} onClick={() => setCurrentPage(c => c - 1)}>上一页</button>
-                  <span className="mx-2 text-muted small">第 {currentPage} 页</span>
-                  <button className="btn btn-sm btn-outline-secondary bg-white" disabled={currentPage * pageSize >= totalCount} onClick={() => setCurrentPage(c => c + 1)}>下一页</button>
-                </div>
+            </div>
+            <div style={{ padding: '14px 16px', borderTop: '1px solid #e2e8e5', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fafcfb', borderRadius: '0 0 15px 15px' }}>
+              <span style={{ color: '#8fa398', fontSize: '0.82rem' }}>共 {totalCount} 条记录</span>
+              <div>
+                <button className="btn btn-sm" style={{ background: '#fff', color: '#5a6b63', border: '1px solid #e2e8e5', marginRight: '8px' }} disabled={currentPage === 1} onClick={() => setCurrentPage(c => c - 1)}>上一页</button>
+                <span style={{ color: '#5a6b63', fontSize: '0.82rem', marginRight: '8px' }}>第 {currentPage} 页</span>
+                <button className="btn btn-sm" style={{ background: '#fff', color: '#5a6b63', border: '1px solid #e2e8e5' }} disabled={currentPage * pageSize >= totalCount} onClick={() => setCurrentPage(c => c + 1)}>下一页</button>
               </div>
             </div>
-          ) : (
-            <div className="text-center py-5 text-muted">
-                <i className="fas fa-clipboard-list mb-3 opacity-25" style={{ fontSize: '4rem' }}></i>
-                <h5 className="fw-bold mb-2">暂无考试记录</h5>
-                <p className="small mb-4">还没有创建任何考试，点击上方按钮开始创建第一个考试吧！</p>
-                {canExamWrite && (
-                  <Link href="/exams/create" className="btn btn-primary px-4 rounded-pill shadow-sm">
-                      <i className="fas fa-plus me-2"></i>创建第一个考试
-                  </Link>
-                )}
-            </div>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div className="text-center py-5 text-muted">
+              <i className="fas fa-clipboard-list mb-3 opacity-25" style={{ fontSize: '4rem' }}></i>
+              <h5 className="fw-bold mb-2">暂无考试记录</h5>
+              <p className="small mb-4">还没有创建任何考试，点击上方按钮开始创建第一个考试吧！</p>
+              {canExamWrite && (
+                <Link href="/exams/create" className="btn btn-primary px-4 rounded-pill shadow-sm">
+                    <i className="fas fa-plus me-2"></i>创建第一个考试
+                </Link>
+              )}
+          </div>
+        )}
       </div>
 
       {/* 删除确认模态框 */}
@@ -413,20 +449,6 @@ export default function ExamsList() {
           justify-content: center;
           font-size: 1.5rem;
           color: white;
-        }
-
-        .filter-card {
-          border: none;
-          border-radius: 15px;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-          margin-bottom: 2rem;
-        }
-
-        .filter-card .card-header {
-          background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-          border-bottom: 1px solid #dee2e6;
-          border-radius: 15px 15px 0 0;
-          padding: 1rem 1.5rem;
         }
 
         @media (max-width: 768px) {

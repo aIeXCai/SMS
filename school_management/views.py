@@ -24,7 +24,7 @@ def dashboard_stats_api(request):
         date__month=now.month
     ).count()
     
-    score_count = Score.objects.count()
+    score_count = Score.objects.values('student', 'exam').distinct().count()
     
     data = {
         'student_count': student_count,

@@ -213,7 +213,7 @@ class ScoreViewSet(viewsets.ModelViewSet):
             'exams': [
                 {
                     'value': str(exam.pk),
-                    'label': f"{exam.academic_year} {exam.name} ({exam.get_grade_level_display()})"
+                    'label': f"{exam.academic_year} {exam.name}"
                 }
                 for exam in exams
             ],

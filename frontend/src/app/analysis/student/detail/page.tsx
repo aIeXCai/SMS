@@ -185,7 +185,7 @@ function StudentAnalysisDetailContent() {
     return "2024-2025";
   };
 
-  const getExamDisplayText = (exam: ExamData) => `${getSchoolYearText(exam)}${exam.name}（${exam.grade_level || "高一"}）`;
+  const getExamDisplayText = (exam: ExamData) => `${getSchoolYearText(exam)}${exam.name}`;
 
   const trendExams = useMemo(() => {
     if (!analysisData?.exams) return [];

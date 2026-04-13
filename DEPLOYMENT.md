@@ -83,7 +83,67 @@ choco install redis-64
 2. 下载最新的 `.msi` 安装包
 3. 双击安装包运行
 
-**启动 Redis（每次启动系统前）：**
+**方法三：Docker 方式（适用于 Windows Server 2022，推荐生产环境使用）**
+
+Windows Server 2022 支持 Docker，这是生产环境最推荐的方案。
+
+**步骤 1：安装 Docker Desktop 或启用容器功能**
+
+如果您还没有安装 Docker，请参考：
+- [Windows Server 容器官方文档](https://learn.microsoft.com/zh-us/virtualization/windowscontainers/quick-start/quick-start-windows-server)
+
+**步骤 2：启动 Redis 容器**
+
+打开管理员权限的 PowerShell 或命令提示符，执行：
+
+```powershell
+docker run -d -p 6379:6379 --name redis-server redis:latest
+```
+
+参数说明：
+| 参数 | 说明 |
+|------|------|
+| `-d` | 后台运行 |
+| `-p 6379:6379` | 端口映射（主机:容器） |
+| `--name redis-server` | 容器名称 |
+| `redis:latest` | 使用最新版本 Redis 镜像 |
+
+**步骤 3：验证 Redis 是否运行**
+
+```powershell
+docker ps
+```
+
+看到 `redis-server` 在运行中即为成功。
+
+**步骤 4：测试连接**
+
+```powershell
+redis-cli ping
+```
+
+如果返回 `PONG`，说明 Redis 正常工作。
+
+**常用 Docker Redis 命令：**
+
+| 操作 | 命令 |
+|------|------|
+| 启动 | `docker start redis-server` |
+| 停止 | `docker stop redis-server` |
+| 重启 | `docker restart redis-server` |
+| 查看日志 | `docker logs redis-server` |
+| 删除容器 | `docker rm -f redis-server` |
+| 开机自启 | `docker update --restart unless-stopped redis-server` |
+
+**设置开机自启（推荐）：**
+
+```powershell
+docker update --restart unless-stopped redis-server
+```
+
+这样服务器重启后 Redis 会自动启动。
+
+**启动 Redis（手动安装方式）：**
 在命令提示符中输入：
 ```
 redis-server

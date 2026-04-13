@@ -97,6 +97,11 @@ export default function ScoresQueryPage() {
   const [subjectSort, setSubjectSort] = useState("");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [subjectMenuOpen, setSubjectMenuOpen] = useState(false);
+  const [academicYearDropdownOpen, setAcademicYearDropdownOpen] = useState(false);
+  const [gradeDropdownOpen, setGradeDropdownOpen] = useState(false);
+  const [examDropdownOpen, setExamDropdownOpen] = useState(false);
+  const [classDropdownOpen, setClassDropdownOpen] = useState(false);
+  const [sortByDropdownOpen, setSortByDropdownOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [messages, setMessages] = useState<Array<{ id: number; type: "success" | "danger" | "info"; text: string }>>([]);
 
@@ -131,7 +136,12 @@ export default function ScoresQueryPage() {
   useEffect(() => {
     const onClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
-      if (!target.closest(".subject-dropdown")) {
+      if (!target.closest(".app-custom-dropdown") && !target.closest(".subject-dropdown")) {
+        setAcademicYearDropdownOpen(false);
+        setGradeDropdownOpen(false);
+        setExamDropdownOpen(false);
+        setClassDropdownOpen(false);
+        setSortByDropdownOpen(false);
         setSubjectMenuOpen(false);
       }
     };
@@ -354,109 +364,133 @@ export default function ScoresQueryPage() {
           </div>
         )}
 
-        <div className="card filter-card mb-4">
+        <div className="card app-filter-card">
           <div className="card-header"><h5 className="mb-0"><i className="fas fa-filter me-2"></i>快速筛选与操作</h5></div>
           <div className="card-body">
-            <div className="row g-3">
+            <div className="row g-3 align-items-end">
               <div className="col-md-2">
-                <label className="form-label">学年</label>
-                <select className="form-select" value={filters.academic_year_filter} onChange={(e) => setFilters((p) => ({ ...p, academic_year_filter: e.target.value }))}>
-                  <option value="">--- 所有学年 ---</option>
-                  {options?.academic_years.map((x) => <option key={x.value} value={x.value}>{x.label}</option>)}
-                </select>
+                <label className="form-label small fw-bold" style={{ color: '#5a6b63' }}>学年</label>
+                <div className="app-custom-dropdown">
+                  <button type="button" className={`app-custom-dropdown-toggle ${academicYearDropdownOpen ? "active" : ""}`} onClick={() => setAcademicYearDropdownOpen(v => !v)}>
+                    <span>{filters.academic_year_filter ? options?.academic_years.find(o => o.value === filters.academic_year_filter)?.label || filters.academic_year_filter : "--- 所有学年 ---"}</span>
+                    <i className="fas fa-chevron-down app-custom-dropdown-arrow"></i>
+                  </button>
+                  <div className={`app-custom-dropdown-menu ${academicYearDropdownOpen ? "show" : ""}`}>
+                    <button type="button" className="app-custom-dropdown-item" onClick={() => { setFilters(p => ({ ...p, academic_year_filter: "" })); setAcademicYearDropdownOpen(false); }}>--- 所有学年 ---</button>
+                    {options?.academic_years.map((x) => (
+                      <button key={x.value} type="button" className="app-custom-dropdown-item" onClick={() => { setFilters(p => ({ ...p, academic_year_filter: x.value })); setAcademicYearDropdownOpen(false); }}>{x.label}</button>
+                    ))}
+                  </div>
+                </div>
               </div>
               <div className="col-md-2">
-                <label className="form-label">年级</label>
-                <select className="form-select" value={filters.grade_filter} onChange={(e) => setFilters((p) => ({ ...p, grade_filter: e.target.value }))}>
-                  <option value="">--- 所有年级 ---</option>
-                  {options?.grade_levels.map((x) => <option key={x.value} value={x.value}>{x.label}</option>)}
-                </select>
+                <label className="form-label small fw-bold" style={{ color: '#5a6b63' }}>年级</label>
+                <div className="app-custom-dropdown">
+                  <button type="button" className={`app-custom-dropdown-toggle ${gradeDropdownOpen ? "active" : ""}`} onClick={() => setGradeDropdownOpen(v => !v)}>
+                    <span>{filters.grade_filter ? options?.grade_levels.find(o => o.value === filters.grade_filter)?.label || filters.grade_filter : "--- 所有年级 ---"}</span>
+                    <i className="fas fa-chevron-down app-custom-dropdown-arrow"></i>
+                  </button>
+                  <div className={`app-custom-dropdown-menu ${gradeDropdownOpen ? "show" : ""}`}>
+                    <button type="button" className="app-custom-dropdown-item" onClick={() => { setFilters(p => ({ ...p, grade_filter: "" })); setGradeDropdownOpen(false); }}>--- 所有年级 ---</button>
+                    {options?.grade_levels.map((x) => (
+                      <button key={x.value} type="button" className="app-custom-dropdown-item" onClick={() => { setFilters(p => ({ ...p, grade_filter: x.value })); setGradeDropdownOpen(false); }}>{x.label}</button>
+                    ))}
+                  </div>
+                </div>
               </div>
               <div className="col-md-2">
-                <label className="form-label">开始日期</label>
+                <label className="form-label small fw-bold" style={{ color: '#5a6b63' }}>开始日期</label>
                 <input type="date" className="form-control" value={filters.date_from_filter} onChange={(e) => setFilters((p) => ({ ...p, date_from_filter: e.target.value }))} />
               </div>
               <div className="col-md-2">
-                <label className="form-label">结束日期</label>
+                <label className="form-label small fw-bold" style={{ color: '#5a6b63' }}>结束日期</label>
                 <input type="date" className="form-control" value={filters.date_to_filter} onChange={(e) => setFilters((p) => ({ ...p, date_to_filter: e.target.value }))} />
               </div>
               <div className="col-md-2">
-                <label className="form-label">考试</label>
-                <select className="form-select" value={filters.exam_filter} onChange={(e) => setFilters((p) => ({ ...p, exam_filter: e.target.value }))}>
-                  <option value="">--- 所有考试 ---</option>
-                  {options?.exams.map((x) => <option key={x.value} value={x.value}>{x.label}</option>)}
-                </select>
+                <label className="form-label small fw-bold" style={{ color: '#5a6b63' }}>考试</label>
+                <div className="app-custom-dropdown">
+                  <button type="button" className={`app-custom-dropdown-toggle ${examDropdownOpen ? "active" : ""}`} onClick={() => setExamDropdownOpen(v => !v)}>
+                    <span>{filters.exam_filter ? options?.exams.find(o => o.value === filters.exam_filter)?.label || filters.exam_filter : "--- 所有考试 ---"}</span>
+                    <i className="fas fa-chevron-down app-custom-dropdown-arrow"></i>
+                  </button>
+                  <div className={`app-custom-dropdown-menu ${examDropdownOpen ? "show" : ""}`}>
+                    <button type="button" className="app-custom-dropdown-item" onClick={() => { setFilters(p => ({ ...p, exam_filter: "" })); setExamDropdownOpen(false); }}>--- 所有考试 ---</button>
+                    {options?.exams.map((x) => (
+                      <button key={x.value} type="button" className="app-custom-dropdown-item" onClick={() => { setFilters(p => ({ ...p, exam_filter: x.value })); setExamDropdownOpen(false); }}>{x.label}</button>
+                    ))}
+                  </div>
+                </div>
               </div>
               <div className="col-md-2">
-                <label className="form-label">排序方式</label>
-                <select
-                  className="form-select"
-                  value={filters.sort_by}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    setFilters((p) => ({ ...p, sort_by: value }));
-                    if (value) {
-                      setSubjectSort("");
-                      setSortOrder("desc");
-                    }
-                  }}
-                >
-                  {(options?.sort_by_options || [{ value: "", label: "--- 默认排序 ---" }]).map((x) => (
-                    <option key={x.value || "default"} value={x.value}>{x.label}</option>
-                  ))}
-                </select>
+                <label className="form-label small fw-bold" style={{ color: '#5a6b63' }}>排序方式</label>
+                <div className="app-custom-dropdown">
+                  <button type="button" className={`app-custom-dropdown-toggle ${sortByDropdownOpen ? "active" : ""}`} onClick={() => setSortByDropdownOpen(v => !v)}>
+                    <span>{filters.sort_by ? options?.sort_by_options.find(o => o.value === filters.sort_by)?.label || filters.sort_by : "--- 默认排序 ---"}</span>
+                    <i className="fas fa-chevron-down app-custom-dropdown-arrow"></i>
+                  </button>
+                  <div className={`app-custom-dropdown-menu ${sortByDropdownOpen ? "show" : ""}`}>
+                    <button type="button" className="app-custom-dropdown-item" onClick={() => { setFilters(p => ({ ...p, sort_by: "" })); setSubjectSort(""); setSortOrder("desc"); setSortByDropdownOpen(false); }}>--- 默认排序 ---</button>
+                    {(options?.sort_by_options || []).filter(x => x.value).map((x) => (
+                      <button key={x.value} type="button" className="app-custom-dropdown-item" onClick={() => { setFilters(p => ({ ...p, sort_by: x.value })); setSubjectSort(""); setSortOrder("desc"); setSortByDropdownOpen(false); }}>{x.label}</button>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div className="row g-3 mt-2">
+            <div className="row g-3 mt-2 align-items-end">
               <div className="col-md-2">
-                <label className="form-label">班级</label>
-                <select className="form-select" value={filters.class_filter} onChange={(e) => setFilters((p) => ({ ...p, class_filter: e.target.value }))}>
-                  <option value="">--- 所有班级 ---</option>
-                  {options?.class_name_choices.map((x) => <option key={x.value} value={x.value}>{x.label}</option>)}
-                </select>
+                <label className="form-label small fw-bold" style={{ color: '#5a6b63' }}>班级</label>
+                <div className="app-custom-dropdown">
+                  <button type="button" className={`app-custom-dropdown-toggle ${classDropdownOpen ? "active" : ""}`} onClick={() => setClassDropdownOpen(v => !v)}>
+                    <span>{filters.class_filter ? options?.class_name_choices.find(o => o.value === filters.class_filter)?.label || filters.class_filter : "--- 所有班级 ---"}</span>
+                    <i className="fas fa-chevron-down app-custom-dropdown-arrow"></i>
+                  </button>
+                  <div className={`app-custom-dropdown-menu ${classDropdownOpen ? "show" : ""}`}>
+                    <button type="button" className="app-custom-dropdown-item" onClick={() => { setFilters(p => ({ ...p, class_filter: "" })); setClassDropdownOpen(false); }}>--- 所有班级 ---</button>
+                    {options?.class_name_choices.map((x) => (
+                      <button key={x.value} type="button" className="app-custom-dropdown-item" onClick={() => { setFilters(p => ({ ...p, class_filter: x.value })); setClassDropdownOpen(false); }}>{x.label}</button>
+                    ))}
+                  </div>
+                </div>
               </div>
               <div className="col-md-2">
-                <label className="form-label">姓名</label>
+                <label className="form-label small fw-bold" style={{ color: '#5a6b63' }}>姓名</label>
                 <input className="form-control" value={filters.student_name_filter} onChange={(e) => setFilters((p) => ({ ...p, student_name_filter: e.target.value }))} placeholder="支持模糊搜索" />
               </div>
               <div className="col-md-4">
-                <label className="form-label">科目</label>
-                <div className="subject-dropdown">
-                  <button type="button" className={`subject-dropdown-toggle ${subjectMenuOpen ? "active" : ""}`} onClick={() => setSubjectMenuOpen((v) => !v)}>
+                <label className="form-label small fw-bold" style={{ color: '#5a6b63' }}>科目</label>
+                <div className={`app-custom-dropdown ${subjectMenuOpen ? "show" : ""}`}>
+                  <button type="button" className={`app-custom-dropdown-toggle ${subjectMenuOpen ? "active" : ""}`} onClick={() => setSubjectMenuOpen((v) => !v)}>
                     <span>{selectedSubjectText}</span>
-                    <i className={`fas fa-chevron-${subjectMenuOpen ? "up" : "down"}`}></i>
+                    <i className="fas fa-chevron-down app-custom-dropdown-arrow"></i>
                   </button>
-                  {subjectMenuOpen && (
-                    <div className="subject-dropdown-menu">
-                      <div className="subject-dropdown-header">
-                        <label className="form-check mb-0">
-                          <input type="checkbox" className="form-check-input" checked={allSubjectsSelected} onChange={toggleAllSubjects} />
-                          <span className="form-check-label">全选/取消全选</span>
-                        </label>
-                      </div>
-                      <div className="subject-dropdown-items">
-                        {(options?.subjects || []).map((subject) => (
-                          <label key={subject.value} className="form-check subject-dropdown-item">
-                            <input
-                              type="checkbox"
-                              className="form-check-input"
-                              checked={filters.subject_filters.includes(subject.value)}
-                              onChange={() => toggleSubject(subject.value)}
-                            />
-                            <span className="form-check-label">{subject.label}</span>
-                          </label>
-                        ))}
-                      </div>
+                  <div className={`app-custom-dropdown-menu ${subjectMenuOpen ? "show" : ""}`} style={{ padding: '0.5rem 0.75rem' }}>
+                    <div style={{ padding: '0.25rem 0.125rem', borderBottom: '1px solid #f1f3f4', marginBottom: '0.5rem' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.88rem' }}>
+                        <input type="checkbox" className="form-check-input" checked={allSubjectsSelected} onChange={toggleAllSubjects} />
+                        <span>全选/取消全选</span>
+                      </label>
                     </div>
-                  )}
+                    {(options?.subjects || []).map((subject) => (
+                      <label key={subject.value} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', padding: '0.25rem 0.125rem', fontSize: '0.88rem' }}>
+                        <input
+                          type="checkbox"
+                          className="form-check-input"
+                          checked={filters.subject_filters.includes(subject.value)}
+                          onChange={() => toggleSubject(subject.value)}
+                        />
+                        <span>{subject.label}</span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
               </div>
               <div className="col-md-2 d-flex align-items-end">
-                <button type="button" className="btn btn-primary w-100" onClick={handleQuery}><i className="fas fa-search me-1"></i>查询</button>
+                <button type="button" className="app-btn-primary w-100" onClick={handleQuery}><i className="fas fa-search me-1"></i>查询</button>
               </div>
               <div className="col-md-2 d-flex align-items-end">
-                <button type="button" className="btn btn-secondary w-100" onClick={handleReset}><i className="fas fa-undo me-1"></i>重置条件</button>
+                <button type="button" className="app-btn-outline w-100" onClick={handleReset}><i className="fas fa-undo me-1"></i>重置条件</button>
               </div>
             </div>
           </div>
@@ -479,23 +513,22 @@ export default function ScoresQueryPage() {
                   </p>
                 </div>
                 <div className="col-auto">
-                  <button type="button" className="btn btn-success" onClick={handleExport}>
+                  <button type="button" className="app-btn-primary" onClick={handleExport}>
                     <i className="fas fa-file-excel me-1"></i>导出Excel
                   </button>
                 </div>
               </div>
             </div>
 
-            <div className="table-container-wrapper">
-              <div className="table-responsive query-table-scroll">
-                <table className="table table-hover frozen-table">
+            <div className="app-table-wrapper">
+              <div className="app-table-scroll query-table-scroll">
+                <table className="app-table frozen-table">
                   <thead>
                     <tr>
                       <th className="frozen-col col-name">姓名</th>
                       <th className="frozen-col col-grade">年级</th>
                       <th className="frozen-col col-class">班级</th>
                       <th className="frozen-col col-exam">考试</th>
-                      <th className="frozen-border"></th>
                       {allSubjects.map((subject) => (
                         <th key={subject} className="score-cell sort-header">
                           {subject} {renderSortBtn(subject, "desc")}
@@ -514,7 +547,6 @@ export default function ScoresQueryPage() {
                         <td className="frozen-col col-exam" title={`${row.exam.academic_year} ${row.exam.name}`}>
                           <span className="exam-text">{`${row.exam.academic_year} ${row.exam.name}`}</span>
                         </td>
-                        <td className="frozen-border"></td>
                         {allSubjects.map((s) => (
                           <td key={`${row.record_key}_${s}`} className="score-cell">
                             {row.scores[s] !== undefined ? row.scores[s] : <span className="text-muted">-</span>}
@@ -556,7 +588,7 @@ export default function ScoresQueryPage() {
             <i className="fas fa-search"></i>
             <h4 className="mt-3">暂无查询结果</h4>
             <p className="text-muted">请设置查询条件后点击查询按钮，或者调整查询条件重新搜索</p>
-            <button type="button" className="btn btn-primary mt-3" onClick={handleQuery}>
+            <button type="button" className="app-btn-primary mt-3" onClick={handleQuery}>
               <i className="fas fa-search me-2"></i>开始查询
             </button>
           </div>
@@ -564,7 +596,7 @@ export default function ScoresQueryPage() {
 
         <button
           type="button"
-          className="btn btn-primary position-fixed bottom-0 end-0 m-4"
+          className="app-btn-primary position-fixed bottom-0 end-0 m-4"
           style={{ zIndex: 1000 }}
           onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
         >
@@ -580,24 +612,6 @@ export default function ScoresQueryPage() {
           margin-bottom: 2rem;
           border-radius: 10px;
         }
-        .filter-card {
-          border: none;
-          border-radius: 15px;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-          margin-bottom: 2rem;
-        }
-        .filter-card .card-header {
-          background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-          border-bottom: 1px solid #dee2e6;
-          border-radius: 15px 15px 0 0;
-          padding: 1rem 1.5rem;
-        }
-        .table-container {
-          background: white;
-          border-radius: 15px;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-          overflow: hidden;
-        }
         .stats-summary {
           background: white;
           border-radius: 12px;
@@ -612,37 +626,28 @@ export default function ScoresQueryPage() {
           display: flex;
           align-items: center;
           justify-content: center;
-          background: #e3f2fd;
-          color: #1565c0;
-        }
-        .table-container-wrapper {
-          background: linear-gradient(180deg, #f8fffd 0%, #ffffff 35%);
-          border-radius: 12px;
-          border: 1px solid rgba(1, 135, 108, 0.12);
-          box-shadow: 0 6px 16px rgba(1, 135, 108, 0.08);
-          overflow: hidden;
-          position: relative;
+          background: #e8f7f4;
+          color: #01876c;
         }
         .query-table-scroll {
           scroll-behavior: smooth;
           overscroll-behavior-x: contain;
-          background: transparent;
         }
-        .frozen-table tbody tr:nth-child(odd) {
-          background-color: #f3f3f3;
+        .frozen-table tbody tr:nth-child(odd) td {
+          background-color: #f8fafa;
         }
-        .frozen-table tbody tr:nth-child(even) {
-          background-color: #eeeeee;
+        .frozen-table tbody tr:nth-child(even) td {
+          background-color: #ffffff;
         }
-        .frozen-table tbody tr:hover {
-          background-color: #e8e8e8;
+        .frozen-table tbody tr:hover td {
+          background-color: #e8f7f4 !important;
           transition: background-color 0.2s ease;
         }
         .frozen-table thead th {
-          background: #c2c2c2;
-          color: #000;
-          font-weight: 700;
-          border-bottom: 1px solid #7a7a7a;
+          background: linear-gradient(135deg, #01876c 0%, #02a888 100%) !important;
+          color: #ffffff;
+          font-weight: 600;
+          border-bottom: 1px solid #017a63;
         }
         .sort-header {
           white-space: nowrap;
@@ -650,25 +655,33 @@ export default function ScoresQueryPage() {
         .sort-btn {
           border: none;
           background: transparent;
-          color: #6c757d;
-          font-size: 0.85rem;
+          color: rgba(255,255,255,0.65);
+          font-size: 0.82rem;
           margin-left: 0.25rem;
           padding: 0;
         }
         .sort-btn.active {
-          color: #0d6efd;
+          color: #ffffff;
           font-weight: 700;
         }
         .frozen-col {
           position: sticky;
           left: 0;
-          background: #eeeeee;
+          background: inherit;
           z-index: 2;
-          box-shadow: none;
         }
         .frozen-table thead .frozen-col {
-          background: #c2c2c2;
+          background: linear-gradient(135deg, #01876c 0%, #02a888 100%) !important;
           z-index: 3;
+        }
+        .frozen-table tbody .frozen-col {
+          background-color: #f8fafa;
+        }
+        .frozen-table tbody tr:nth-child(even) .frozen-col {
+          background-color: #ffffff;
+        }
+        .frozen-table tbody tr:hover .frozen-col {
+          background-color: #e8f7f4 !important;
         }
         .frozen-table .col-name {
           min-width: 96px;
@@ -694,15 +707,6 @@ export default function ScoresQueryPage() {
           max-width: 220px;
           left: 240px;
         }
-        .frozen-border {
-          position: sticky;
-          left: 460px;
-          z-index: 1;
-          width: 1px;
-          min-width: 1px;
-          background: transparent;
-          pointer-events: none;
-        }
         .frozen-table td.col-exam,
         .frozen-table th.col-exam {
           overflow: hidden;
@@ -716,21 +720,24 @@ export default function ScoresQueryPage() {
         }
         .score-cell {
           text-align: center;
+          font-size: 0.88rem;
+          color: #1e2a25;
         }
         .frozen-table tbody td.total-score {
           font-weight: 700;
-          color: #856404;
-          background-color: #fff3cd !important;
+          color: #92400e;
+          background-color: #fef3c7 !important;
         }
         .frozen-table tbody td.rank-cell {
           font-weight: 600;
-          background-color: #d1ecf1 !important;
+          color: #0369a1;
+          background-color: #d4e8fc !important;
         }
         .frozen-table tbody tr:hover td.total-score {
-          background-color: #ffe8a1 !important;
+          background-color: #fde68a !important;
         }
         .frozen-table tbody tr:hover td.rank-cell {
-          background-color: #bfe7f0 !important;
+          background-color: #b8d4f0 !important;
         }
         .empty-state {
           text-align: center;
@@ -743,44 +750,11 @@ export default function ScoresQueryPage() {
           font-size: 2.25rem;
           color: #adb5bd;
         }
-        .table th,
-        .table td {
-          text-align: center;
-          white-space: nowrap;
-          color: #000;
-        }
         .frozen-table tbody td {
           font-weight: 400;
         }
         .subject-dropdown {
           position: relative;
-        }
-        .subject-dropdown-toggle {
-          width: 100%;
-          border: 1px solid #ced4da;
-          background: #fff;
-          padding: 0.375rem 0.75rem;
-          border-radius: 0.375rem;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-        }
-        .subject-dropdown-menu {
-          position: absolute;
-          z-index: 20;
-          width: 100%;
-          max-height: 280px;
-          overflow: auto;
-          border: 1px solid #dee2e6;
-          border-radius: 0.5rem;
-          background: #fff;
-          box-shadow: 0 8px 16px rgba(0,0,0,0.12);
-          margin-top: 0.25rem;
-        }
-        .subject-dropdown-header {
-          padding: 0.5rem 0.75rem;
-          border-bottom: 1px solid #f1f3f4;
-          background: #f8f9fa;
         }
         .subject-dropdown-items {
           padding: 0.5rem 0.75rem;
