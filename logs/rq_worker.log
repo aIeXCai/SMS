@@ -1,6 +1,0 @@
-17:29:10 Worker e3c9537d873f4428b9ea2c207d4dee2b: started with PID 35305, version 2.5.0
-17:29:10 Worker e3c9537d873f4428b9ea2c207d4dee2b: subscribing to channel rq:pubsub:e3c9537d873f4428b9ea2c207d4dee2b
-17:29:10 *** Listening on default...
-17:29:11 Worker e3c9537d873f4428b9ea2c207d4dee2b: cleaning registries for queue: default
-17:42:41 Worker e3c9537d873f4428b9ea2c207d4dee2b: cleaning registries for queue: default
-17:56:11 Worker e3c9537d873f4428b9ea2c207d4dee2b: cleaning registries for queue: default
