@@ -14,6 +14,7 @@ type CalendarEvent = {
   start: string;
   end?: string;
   allDay?: boolean;
+  is_all_day?: boolean;
   color?: string;
   extendedProps?: {
     type: string;
@@ -22,6 +23,8 @@ type CalendarEvent = {
     description: string;
     visibility: string;
     creator_name: string;
+    is_all_day?: boolean;
+    end?: string;
   };
 };
 
@@ -67,9 +70,9 @@ export function CalendarWidget({ user }: CalendarWidgetProps) {
       const res = await fetch(url);
       if (!res.ok) return;
       const data = await res.json();
-      // Force all events to display as all-day in month view (no time shown)
-      const allDayEvents = (data.events || []).map((e: CalendarEvent) => ({ ...e, allDay: true }));
-      setEvents(allDayEvents);
+      // Preserve is_all_day from API so week view can correctly place timed events
+      const normalizedEvents = (data.events || []).map((e: CalendarEvent) => ({ ...e, allDay: e.is_all_day ?? true }));
+      setEvents(normalizedEvents);
     } catch (e) {
       console.error("获取日历事件失败", e);
     } finally {
@@ -83,7 +86,20 @@ export function CalendarWidget({ user }: CalendarWidgetProps) {
 
   const handleEventClick = useCallback((info: EventClickArg) => {
     const event = info.event.toPlainObject() as CalendarEvent;
-    setEditingEvent(event);
+    // For month view events, toPlainObject() loses end/allDay info.
+    // Use extendedProps (from API) as source of truth.
+    const rawAllDay = info.event.extendedProps?.is_all_day ?? info.event.allDay ?? false;
+    const rawEnd = info.event.extendedProps?.end ?? (info.event.end ? info.event.end.toISOString().replace('T', 'T').slice(0, 16) : '');
+    const ev: CalendarEvent = {
+      ...event,
+      is_all_day: rawAllDay,
+      end: rawEnd,
+    };
+    console.log('[CalendarWidget] 点击事件:', JSON.stringify({
+      id: ev.id, title: ev.title, start: ev.start, end: ev.end,
+      is_all_day: ev.is_all_day, allDay: info.event.allDay, extProps: info.event.extendedProps,
+    }, null, 2));
+    setEditingEvent(ev);
     setModalOpen(true);
   }, []);
 
@@ -142,11 +158,54 @@ export function CalendarWidget({ user }: CalendarWidgetProps) {
           dateClick={handleDateClick}
           height={580}
           eventDisplay="block"
+          displayEventTime={false}
           eventTimeFormat={{
             hour: "2-digit",
             minute: "2-digit",
             meridiem: false,
             hour12: false,
+          }}
+          eventDidMount={(info) => {
+            const el = info.el;
+            const event = info.event;
+            const ext = event.extendedProps;
+            const isAllDay = ext.is_all_day ?? event.allDay;
+            const fmtTime = (d: Date | null) => d ? new Date(d).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }) : '';
+            const timeStr = isAllDay ? '全天' : (event.start ? fmtTime(event.start) + (event.end ? ` - ${fmtTime(event.end)}` : '') : '');
+            const type = ext.type || '';
+            const typeLabel = type === 'exam' ? '考试' : type === 'meeting' ? '会议' : type === 'activity' ? '活动' : type === 'reminder' ? '提醒' : type;
+            const grade = ext.grade || '';
+            const visibility = ext.visibility || '';
+            const visLabel = visibility === 'personal' ? '个人' : visibility === 'grade' ? '年级' : visibility === 'school' ? '全校' : visibility;
+            const desc = ext.description || '';
+            const lines = [`<strong>${event.title}</strong>`];
+            if (timeStr) lines.push(`时间: ${timeStr}`);
+            if (typeLabel) lines.push(`类型: ${typeLabel}`);
+            if (grade) lines.push(`年级: ${grade}`);
+            if (visLabel) lines.push(`可见性: ${visLabel}`);
+            if (desc) lines.push(`备注: ${desc}`);
+            const tipHtml = lines.join('<br>');
+
+            let tooltipEl: HTMLDivElement | null = null;
+            el.addEventListener('mouseenter', () => {
+              tooltipEl = document.createElement('div');
+              tooltipEl.className = 'cal-tooltip';
+              tooltipEl.innerHTML = tipHtml;
+              tooltipEl.style.cssText = 'position:fixed;z-index:9999;background:#333;color:#fff;border-radius:8px;padding:10px 14px;font-size:13px;line-height:1.6;pointer-events:none;max-width:240px;box-shadow:0 4px 12px rgba(0,0,0,0.3);';
+              document.body.appendChild(tooltipEl);
+            });
+            el.addEventListener('mousemove', (e: MouseEvent) => {
+              if (tooltipEl) {
+                tooltipEl.style.left = `${e.clientX + 14}px`;
+                tooltipEl.style.top = `${e.clientY - 10}px`;
+              }
+            });
+            el.addEventListener('mouseleave', () => {
+              if (tooltipEl) {
+                tooltipEl.remove();
+                tooltipEl = null;
+              }
+            });
           }}
         />
       )}
@@ -193,7 +252,7 @@ export function CalendarWidget({ user }: CalendarWidgetProps) {
                   title: editingEvent.title,
                   start: editingEvent.start,
                   end: editingEvent.end || "",
-                  is_all_day: editingEvent.allDay ?? false,
+                  is_all_day: editingEvent.is_all_day ?? false,
                   event_type: editingEvent.extendedProps?.type || "other",
                   description: editingEvent.extendedProps?.description || "",
                   grade: editingEvent.extendedProps?.grade || "",

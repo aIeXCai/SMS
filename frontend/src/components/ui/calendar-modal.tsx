@@ -114,6 +114,7 @@ export function CalendarModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [mounted, setMounted] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -191,6 +192,7 @@ export function CalendarModal({
       ...formData,
       end: formData.is_all_day ? null : formData.end || null,
     };
+    console.log('[CalendarModal] 保存时 payload:', JSON.stringify(payload, null, 2));
 
     const url = isEdit
       ? `${backendBaseUrl}/api/calendar-events/${initialData?.id}/`
@@ -223,10 +225,14 @@ export function CalendarModal({
     }
   };
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!isEdit || !initialData?.id) return;
-    if (!confirm("确定要删除这个日程吗？")) return;
+    setShowDeleteConfirm(true);
+  };
 
+  const handleConfirmDelete = async () => {
+    if (!initialData?.id) return;
+    setShowDeleteConfirm(false);
     setIsSubmitting(true);
     setErrorMsg("");
 
@@ -535,6 +541,54 @@ export function CalendarModal({
           </div>
         </div>
       </div>
+
+      {/* 自定义删除确认对话框 */}
+      {showDeleteConfirm && (
+        <div
+          className="d-flex align-items-center justify-content-center"
+          style={{
+            position: 'absolute', inset: 0,
+            background: 'rgba(0,0,0,0.5)',
+            zIndex: 1060,
+          }}
+        >
+          <div
+            className="bg-white shadow-lg p-4 mx-3"
+            style={{ maxWidth: 380, width: '100%', textAlign: 'center', borderRadius: '1rem' }}
+          >
+            <div
+              className="mb-3 mx-auto d-flex align-items-center justify-content-center rounded-circle"
+              style={{ width: 56, height: 56, background: '#fee2e2' }}
+            >
+              <i className="fas fa-exclamation-triangle fa-lg" style={{ color: '#ef4444' }}></i>
+            </div>
+            <h5 className="mb-2" style={{ fontWeight: 600 }}>确定要删除这个日程吗？</h5>
+            <p className="text-muted small mb-4">删除后无法恢复</p>
+            <div className="d-flex gap-3 justify-content-center">
+              <button
+                type="button"
+                className="btn btn-light rounded-pill px-4"
+                onClick={() => setShowDeleteConfirm(false)}
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger rounded-pill px-4"
+                onClick={handleConfirmDelete}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <span className="spinner-border spinner-border-sm me-1"></span>
+                ) : (
+                  <i className="fas fa-trash me-1"></i>
+                )}
+                删除
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 

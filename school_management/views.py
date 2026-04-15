@@ -78,6 +78,8 @@ def dashboard_events_api(request):
                 'description': event.description,
                 'visibility': event.visibility,
                 'creator_name': creator_name,
+                'is_all_day': event.is_all_day,
+                'end': event.end.isoformat() if event.end else None,
             }
         })
 
@@ -107,6 +109,8 @@ def dashboard_events_api(request):
                 'description': event.description,
                 'visibility': event.visibility,
                 'creator_name': creator_name,
+                'is_all_day': event.is_all_day,
+                'end': event.end.isoformat() if event.end else None,
             }
         })
 
@@ -138,6 +142,8 @@ def dashboard_events_api(request):
                 'description': event.description,
                 'visibility': event.visibility,
                 'creator_name': creator_name,
+                'is_all_day': event.is_all_day,
+                'end': event.end.isoformat() if event.end else None,
             }
         })
 
