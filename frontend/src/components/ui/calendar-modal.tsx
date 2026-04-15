@@ -120,12 +120,36 @@ export function CalendarModal({
     return () => setMounted(false);
   }, []);
 
-  // Reset form when modal opens or data changes
+  // Reset form when modal opens or initialData content changes (not just reference)
   useEffect(() => {
-    setFormData(getInitialFormData());
+    // Only reset if initialData actually has meaningful changes
+    if (!isOpen) return;
+    if (initialData) {
+      setFormData({
+        title: initialData.title || "",
+        start: initialData.start ? formatDateForInput(initialData.start) : "",
+        end: initialData.end ? formatDateForInput(initialData.end) : "",
+        is_all_day: initialData.is_all_day || false,
+        event_type: initialData.event_type || "reminder",
+        description: initialData.description || "",
+        grade: initialData.grade || userManagedGrade || "",
+        visibility: initialData.visibility || "personal",
+      });
+    } else {
+      setFormData({
+        title: "",
+        start: initialDate ? `${initialDate}T09:00` : "",
+        end: initialDate ? `${initialDate}T10:00` : "",
+        is_all_day: false,
+        event_type: "reminder",
+        description: "",
+        grade: userManagedGrade || "",
+        visibility: "personal",
+      });
+    }
     setErrorMsg("");
     setIsSubmitting(false);
-  }, [isOpen, initialData, initialDate]);
+  }, [isOpen]);
 
   // Role-based visibility restrictions
   useEffect(() => {
@@ -169,8 +193,8 @@ export function CalendarModal({
     };
 
     const url = isEdit
-      ? `${backendBaseUrl}/api/students_grades/calendar-events/${initialData?.id}/`
-      : `${backendBaseUrl}/api/students_grades/calendar-events/`;
+      ? `${backendBaseUrl}/api/calendar-events/${initialData?.id}/`
+      : `${backendBaseUrl}/api/calendar-events/`;
 
     try {
       const res = await fetch(url, {
@@ -208,7 +232,7 @@ export function CalendarModal({
 
     try {
       const res = await fetch(
-        `${backendBaseUrl}/api/students_grades/calendar-events/${initialData.id}/`,
+        `${backendBaseUrl}/api/calendar-events/${initialData.id}/`,
         {
           method: "DELETE",
           headers: {

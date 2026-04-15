@@ -423,6 +423,23 @@
   text-align: center;
 }
 
+.app-table tbody tr:nth-child(odd) td {
+  background-color: #f8fafa !important;
+}
+
+.app-table tbody tr:nth-child(even) td {
+  background-color: #ffffff !important;
+}
+
+.app-table tbody tr:hover > td {
+  background-color: #e8f7f4 !important;
+  transition: background-color 0.2s ease;
+}
+
+.app-table tbody tr:hover > td:first-child {
+  background-color: #e8f7f4 !important;
+}
+
 .app-table-scroll {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;

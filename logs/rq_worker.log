@@ -1,5 +1,6 @@
-20:11:02 Worker 10505e06575b4d17a262815eb35d18c2: started with PID 14722, version 2.5.0
-20:11:02 Worker 10505e06575b4d17a262815eb35d18c2: subscribing to channel rq:pubsub:10505e06575b4d17a262815eb35d18c2
-20:11:02 *** Listening on default...
-20:11:02 Worker 10505e06575b4d17a262815eb35d18c2: cleaning registries for queue: default
-20:24:33 Worker 10505e06575b4d17a262815eb35d18c2: cleaning registries for queue: default
+17:29:10 Worker e3c9537d873f4428b9ea2c207d4dee2b: started with PID 35305, version 2.5.0
+17:29:10 Worker e3c9537d873f4428b9ea2c207d4dee2b: subscribing to channel rq:pubsub:e3c9537d873f4428b9ea2c207d4dee2b
+17:29:10 *** Listening on default...
+17:29:11 Worker e3c9537d873f4428b9ea2c207d4dee2b: cleaning registries for queue: default
+17:42:41 Worker e3c9537d873f4428b9ea2c207d4dee2b: cleaning registries for queue: default
+17:56:11 Worker e3c9537d873f4428b9ea2c207d4dee2b: cleaning registries for queue: default

@@ -204,7 +204,7 @@ export function CalendarWidget({ user }: CalendarWidgetProps) {
           initialDate={selectedDate}
           userRole={user?.role || "subject_teacher"}
           userManagedGrade={user?.managed_grade || ""}
-          backendBaseUrl={`${window.location.hostname}:8000`}
+          backendBaseUrl={`http://${window.location.hostname}:8000`}
           authToken={localStorage.getItem("accessToken") || ""}
         />
       )}

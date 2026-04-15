@@ -81,55 +81,64 @@ def dashboard_events_api(request):
             }
         })
 
-    # 个人日程（仅 creator 本人）
-    if not (hasattr(user, 'role') and user.role == 'admin'):
+    # 个人日程（本人可见，admin 也可见所有个人日程）
+    is_admin = hasattr(user, 'role') and user.role == 'admin'
+    if is_admin:
+        # admin 可见所有个人日程
+        personal_events = CalendarEvent.objects.filter(visibility='personal').order_by('start')[:50]
+    else:
+        # 普通用户仅可见本人的个人日程
         personal_events = CalendarEvent.objects.filter(visibility='personal', creator=user).order_by('start')[:50]
-        for event in personal_events:
-            creator_name = ''
-            if event.creator:
-                full_name = event.creator.get_full_name()
-                creator_name = full_name if full_name else (event.creator.username if event.creator else '')
-            events.append({
-                'id': str(event.id),
-                'title': event.title,
-                'start': event.start.isoformat(),
-                'end': event.end.isoformat() if event.end else None,
-                'is_all_day': event.is_all_day,
-                'color': get_event_color(event.event_type),
-                'extendedProps': {
-                    'type': event.event_type,
-                    'grade': event.grade,
-                    'description': event.description,
-                    'visibility': event.visibility,
-                    'creator_name': creator_name,
-                }
-            })
+    for event in personal_events:
+        creator_name = ''
+        if event.creator:
+            full_name = event.creator.get_full_name()
+            creator_name = full_name if full_name else (event.creator.username if event.creator else '')
+        events.append({
+            'id': str(event.id),
+            'title': event.title,
+            'start': event.start.isoformat(),
+            'end': event.end.isoformat() if event.end else None,
+            'is_all_day': event.is_all_day,
+            'color': get_event_color(event.event_type),
+            'extendedProps': {
+                'type': event.event_type,
+                'grade': event.grade,
+                'description': event.description,
+                'visibility': event.visibility,
+                'creator_name': creator_name,
+            }
+        })
 
-        # 年级日程（级长可见本年级）
-        if hasattr(user, 'role') and user.role == 'grade_manager' and user.managed_grade:
-            grade_events = CalendarEvent.objects.filter(
-                visibility='grade', 
-                grade=user.managed_grade
-            ).order_by('start')[:50]
-            for event in grade_events:
-                creator_name = ''
-                if event.creator:
-                    full_name = event.creator.get_full_name()
-                    creator_name = full_name if full_name else (event.creator.username if event.creator else '')
-                events.append({
-                    'id': str(event.id),
-                    'title': event.title,
-                    'start': event.start.isoformat(),
-                    'end': event.end.isoformat() if event.end else None,
-                    'is_all_day': event.is_all_day,
-                    'color': get_event_color(event.event_type),
-                    'extendedProps': {
-                        'type': event.event_type,
-                        'grade': event.grade,
-                        'description': event.description,
-                        'visibility': event.visibility,
-                        'creator_name': creator_name,
-                    }
-                })
+    # 年级日程（级长可见本年级，admin 可见所有年级日程）
+    if is_admin:
+        grade_events = CalendarEvent.objects.filter(visibility='grade').order_by('start')[:50]
+    elif hasattr(user, 'role') and user.role == 'grade_manager' and user.managed_grade:
+        grade_events = CalendarEvent.objects.filter(
+            visibility='grade', 
+            grade=user.managed_grade
+        ).order_by('start')[:50]
+    else:
+        grade_events = []
+    for event in grade_events:
+        creator_name = ''
+        if event.creator:
+            full_name = event.creator.get_full_name()
+            creator_name = full_name if full_name else (event.creator.username if event.creator else '')
+        events.append({
+            'id': str(event.id),
+            'title': event.title,
+            'start': event.start.isoformat(),
+            'end': event.end.isoformat() if event.end else None,
+            'is_all_day': event.is_all_day,
+            'color': get_event_color(event.event_type),
+            'extendedProps': {
+                'type': event.event_type,
+                'grade': event.grade,
+                'description': event.description,
+                'visibility': event.visibility,
+                'creator_name': creator_name,
+            }
+        })
 
     return JsonResponse({'events': events})

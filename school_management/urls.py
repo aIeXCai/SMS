@@ -33,6 +33,7 @@ urlpatterns = [
 
     # API only: 后端不再承接页面入口
     path('api/dashboard/stats/', views.dashboard_stats_api, name='dashboard_stats_api'),
+    path('api/dashboard/events/', views.dashboard_events_api, name='dashboard_events_api'),
     
     # 认证 - 支持有无斜杠两种格式
     path('api/token', TokenObtainPairView.as_view(), name='token_obtain_pair_no_slash'),
