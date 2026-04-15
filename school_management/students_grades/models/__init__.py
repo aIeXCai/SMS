@@ -5,6 +5,7 @@ from .exam import (
 )
 from .score import Score
 from .filter import SavedFilterRule, FilterResultSnapshot
+from .calendar import CalendarEvent
 
 __all__ = [
     # 学生相关
@@ -15,5 +16,7 @@ __all__ = [
     # 成绩相关
     'Score',
     # 筛选相关
-    'SavedFilterRule', 'FilterResultSnapshot'
+    'SavedFilterRule', 'FilterResultSnapshot',
+    # 日历相关
+    'CalendarEvent'
 ]

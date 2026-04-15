@@ -12,6 +12,7 @@ from .api_views import (
     FilterSnapshotDetailView,
     compare_snapshots,
 )
+from .views import CalendarEventViewSet
 
 # API 路由配置
 router = DefaultRouter(trailing_slash='/?')
@@ -19,6 +20,7 @@ router.register(r'students', StudentViewSet)
 router.register(r'classes', ClassViewSet)
 router.register(r'exams', ExamViewSet)
 router.register(r'scores', ScoreViewSet)
+router.register(r'calendar-events', CalendarEventViewSet)
 
 urlpatterns = [
     path('students/advanced-filter/', advanced_filter),

@@ -165,6 +165,33 @@ class Exam(models.Model):
         grade_level = self.get_grade_level_from_cohort()
         return SUBJECT_DEFAULT_MAX_SCORES.get(grade_level, {})
 
+    def save(self, *args, **kwargs):
+        is_new = self.pk is None
+        super().save(*args, **kwargs)
+
+        # 新建 Exam 时自动创建全校 CalendarEvent
+        if is_new:
+            from ..models.calendar import CalendarEvent
+            creator = None
+            # 尝试获取创建者字段
+            if hasattr(self, 'created_by'):
+                creator = self.created_by
+            elif hasattr(self, 'creator'):
+                creator = self.creator
+
+            CalendarEvent.objects.create(
+                title=self.name,
+                start=self.date,
+                end=None,
+                is_all_day=True,
+                event_type='exam',
+                description=self.description or '',
+                grade=self.grade_level or '',
+                visibility='school',
+                creator=creator,
+            )
+
+
 class ExamSubject(models.Model):
     """
     考试科目模型，用于记录每个考试包含的科目及其满分配置

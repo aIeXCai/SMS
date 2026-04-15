@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
+import { CalendarWidget } from "@/components/ui/calendar-widget";
 
 /* ─── Animated counter hook ─── */
 function useAnimatedCounter(target: number, duration: number = 1500) {
@@ -92,11 +93,6 @@ const QUICK_ACTIONS = [
   },
 ];
 
-const SYSTEM_STATUS = [
-  { label: "服务运行正常", ok: true },
-  { label: "数据库连接正常", ok: true },
-  { label: "异步任务队列运行中", ok: true },
-];
 
 const STAT_CONFIG = [
   { key: "student_count" as const, label: "学生总数", icon: (
@@ -233,29 +229,26 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="db-head-right">
-            <div className="db-user-card">
-              <div className="db-user-card-avatar">
-                <i className="fas fa-user" />
-                <div className="db-user-card-online" />
+            <div className="db-head-info-col">
+              <div className="db-head-info-item">
+                <span className="db-head-info-label">账号</span>
+                <span className="db-head-info-value">{user.username}</span>
               </div>
-              <div className="db-user-card-info">
-                <span className="db-user-card-name">{displayName}</span>
-                <span className="db-user-card-role">{roleName}</span>
+              <div className="db-head-info-item">
+                <span className="db-head-info-label">管理范围</span>
+                <span className="db-head-info-value">{user.managed_grade || "全校"}</span>
               </div>
-            </div>
-            <div className="db-clock-card">
-              <div className="db-clock-top">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                <span className="db-clock-label">当前时间</span>
+              <div className="db-head-info-item">
+                <span className="db-head-info-label">当前时间</span>
+                <span className="db-head-info-value">{timeText}</span>
               </div>
-              <span className="db-clock-time">{timeText}</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* ── Stats row ── */}
-      <div className="db-stats-row">
+      <div className="db-stats-row grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" style={{ marginBottom: "24px" }}>
         {STAT_CONFIG.map((s, i) => (
           <StatCard key={s.key} icon={s.icon} label={s.label} accent={s.accent} bg={s.bg} value={stats[s.key]} delay={60 + i * 80} />
         ))}
@@ -303,52 +296,13 @@ export default function DashboardPage() {
 
         {/* ── Right ── */}
         <div className="db-col-side">
-
-          {/* Profile */}
-          <div className="db-card db-card-profile" style={{ animationDelay: "490ms" }}>
-            <div className="db-profile">
-              <div className="db-profile-avatar">
-                <i className="fas fa-user" />
-              </div>
-              <div className="db-profile-info">
-                <span className="db-profile-name">{displayName}</span>
-                <span className="db-profile-role">{roleName}</span>
-              </div>
-              <div className="db-profile-online" />
-            </div>
-            <div className="db-profile-fields">
-              <div className="db-field-row">
-                <span className="db-field-label">账号</span>
-                <span className="db-field-value">{user.username}</span>
-              </div>
-              <div className="db-field-row">
-                <span className="db-field-label">管理范围</span>
-                <span className="db-field-value">{user.managed_grade || "全校"}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* System status */}
-          <div className="db-card" style={{ animationDelay: "580ms" }}>
+          {/* Calendar */}
+          <div className="db-card" style={{ animationDelay: "490ms" }}>
             <div className="db-card-head">
-              <div className="db-accent-bar amber" />
-              <h2 className="db-card-title">系统状态</h2>
-              <div className="db-status-pill">
-                <span className="db-pill-dot" />
-                全部正常
-              </div>
+              <div className="db-accent-bar green" />
+              <h2 className="db-card-title">日程安排</h2>
             </div>
-            <div className="db-status-list">
-              {SYSTEM_STATUS.map((item, i) => (
-                <div key={item.label} className="db-status-row" style={{ animationDelay: `${630 + i * 70}ms` }}>
-                  <div className="db-status-check">
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                  </div>
-                  <span className="db-status-label">{item.label}</span>
-                  <span className="db-status-badge">在线</span>
-                </div>
-              ))}
-            </div>
+            <CalendarWidget user={user} />
           </div>
         </div>
       </div>
@@ -464,63 +418,37 @@ export default function DashboardPage() {
           backdrop-filter: blur(4px);
         }
         .db-head-right { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
-        .db-user-card {
+        .db-head-info-col {
           display: flex;
-          align-items: center;
-          gap: 12px;
+          flex-direction: column;
+          gap: 6px;
           background: rgba(255,255,255,0.12);
           border: 1px solid rgba(255,255,255,0.2);
           border-radius: 14px;
-          padding: 10px 18px;
+          padding: 14px 20px;
           backdrop-filter: blur(8px);
         }
-        .db-user-card-avatar {
-          position: relative;
-          width: 42px; height: 42px;
-          border-radius: 11px;
-          background: rgba(255,255,255,0.2);
-          border: 1px solid rgba(255,255,255,0.3);
-          display: flex; align-items: center; justify-content: center;
-          color: #fff;
-          font-size: 1rem;
-          flex-shrink: 0;
-        }
-        .db-user-card-online {
-          position: absolute;
-          bottom: -2px; right: -2px;
-          width: 10px; height: 10px;
-          border-radius: 50%;
-          background: #4ade80;
-          border: 2px solid #01876c;
-        }
-        .db-user-card-info { display: flex; flex-direction: column; gap: 2px; }
-        .db-user-card-name { font-family: var(--db-font); font-size: 1.1rem; font-weight: 700; color: #fff; }
-        .db-user-card-role { font-size: 0.82rem; color: rgba(255,255,255,0.7); }
-        .db-clock-card {
-          background: rgba(255,255,255,0.12);
-          border: 1px solid rgba(255,255,255,0.2);
-          border-radius: 14px;
-          padding: 9px 18px;
-          backdrop-filter: blur(8px);
-          text-align: center;
-        }
-        .db-clock-top {
+        .db-head-info-item {
           display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 5px;
+          flex-direction: column;
+          gap: 2px;
+        }
+        .db-head-info-label {
+          font-size: 0.68rem;
           color: rgba(255,255,255,0.6);
-          margin-bottom: 3px;
+          text-transform: uppercase;
+          letter-spacing: 0.1em;
+          font-weight: 500;
         }
-        .db-clock-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; }
-        .db-clock-time {
-          display: block;
-          font-family: var(--db-font);
-          font-size: 1.4rem;
+        .db-head-info-value {
+          font-size: 1rem;
           font-weight: 700;
-          color: #fff;
-          letter-spacing: 0.05em;
-          line-height: 1;
+          color: #ffffff;
+          white-space: nowrap;
+          letter-spacing: 0.01em;
+        }
+          background: rgba(255,255,255,0.2);
+          flex-shrink: 0;
         }
 
         /* ── Stats ── */
@@ -571,7 +499,7 @@ export default function DashboardPage() {
         /* ── Content grid ── */
         .db-content {
           display: grid;
-          grid-template-columns: 1fr 340px;
+          grid-template-columns: 1fr 1fr;
           gap: 22px;
         }
         @media (max-width: 1024px) { .db-content { grid-template-columns: 1fr; } }
@@ -601,6 +529,7 @@ export default function DashboardPage() {
         .db-accent-bar.teal  { background: linear-gradient(180deg, #01876c, #02a888); }
         .db-accent-bar.blue  { background: linear-gradient(180deg, #0369a1, #0284c7); }
         .db-accent-bar.amber { background: linear-gradient(180deg, #b45309, #d97706); }
+        .db-accent-bar.green { background: linear-gradient(180deg, #01876c, #02a888); }
         .db-card-title { font-family: var(--db-font); font-size: 1.1rem; font-weight: 700; color: var(--db-text); margin: 0; }
 
         /* ── Status pill ── */
