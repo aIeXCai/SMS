@@ -28,6 +28,7 @@ class CalendarEvent(models.Model):
     is_all_day = models.BooleanField('全天事件', default=False)
     event_type = models.CharField('类型', max_length=20, choices=EVENT_TYPE_CHOICES, default='other')
     description = models.TextField('描述', blank=True, default='')
+    location = models.CharField('地点', max_length=200, blank=True, default='')
     grade = models.CharField('年级', max_length=50, blank=True, default='')
     visibility = models.CharField('可见性', max_length=20, choices=VISIBILITY_CHOICES, default='personal')
     creator = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='calendar_events', verbose_name='创建者', null=True, blank=True)

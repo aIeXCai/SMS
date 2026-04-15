@@ -62,9 +62,11 @@ def dashboard_events_api(request):
     school_events = CalendarEvent.objects.filter(visibility='school').order_by('start')[:50]
     for event in school_events:
         creator_name = ''
+        creator_username = ''
         if event.creator:
             full_name = event.creator.get_full_name()
             creator_name = full_name if full_name else (event.creator.username if event.creator else '')
+            creator_username = event.creator.username
         events.append({
             'id': str(event.id),
             'title': event.title,
@@ -76,8 +78,10 @@ def dashboard_events_api(request):
                 'type': event.event_type,
                 'grade': event.grade,
                 'description': event.description,
+                'location': event.location,
                 'visibility': event.visibility,
                 'creator_name': creator_name,
+                'creator_username': creator_username,
                 'is_all_day': event.is_all_day,
                 'end': event.end.isoformat() if event.end else None,
             }
@@ -93,9 +97,11 @@ def dashboard_events_api(request):
         personal_events = CalendarEvent.objects.filter(visibility='personal', creator=user).order_by('start')[:50]
     for event in personal_events:
         creator_name = ''
+        creator_username = ''
         if event.creator:
             full_name = event.creator.get_full_name()
             creator_name = full_name if full_name else (event.creator.username if event.creator else '')
+            creator_username = event.creator.username
         events.append({
             'id': str(event.id),
             'title': event.title,
@@ -107,28 +113,38 @@ def dashboard_events_api(request):
                 'type': event.event_type,
                 'grade': event.grade,
                 'description': event.description,
+                'location': event.location,
                 'visibility': event.visibility,
                 'creator_name': creator_name,
+                'creator_username': creator_username,
                 'is_all_day': event.is_all_day,
                 'end': event.end.isoformat() if event.end else None,
             }
         })
 
-    # 年级日程（级长可见本年级，admin 可见所有年级日程）
+    # 年级日程（级长/科任老师可见本年级，admin 可见所有年级日程）
     if is_admin:
         grade_events = CalendarEvent.objects.filter(visibility='grade').order_by('start')[:50]
     elif hasattr(user, 'role') and user.role == 'grade_manager' and user.managed_grade:
         grade_events = CalendarEvent.objects.filter(
-            visibility='grade', 
+            visibility='grade',
+            grade=user.managed_grade
+        ).order_by('start')[:50]
+    elif hasattr(user, 'managed_grade') and user.managed_grade:
+        # 科任老师也可见本年级的年级日程
+        grade_events = CalendarEvent.objects.filter(
+            visibility='grade',
             grade=user.managed_grade
         ).order_by('start')[:50]
     else:
         grade_events = []
     for event in grade_events:
         creator_name = ''
+        creator_username = ''
         if event.creator:
             full_name = event.creator.get_full_name()
             creator_name = full_name if full_name else (event.creator.username if event.creator else '')
+            creator_username = event.creator.username
         events.append({
             'id': str(event.id),
             'title': event.title,
@@ -140,8 +156,10 @@ def dashboard_events_api(request):
                 'type': event.event_type,
                 'grade': event.grade,
                 'description': event.description,
+                'location': event.location,
                 'visibility': event.visibility,
                 'creator_name': creator_name,
+                'creator_username': creator_username,
                 'is_all_day': event.is_all_day,
                 'end': event.end.isoformat() if event.end else None,
             }

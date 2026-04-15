@@ -10,8 +10,10 @@ interface CalendarEventFormData {
   is_all_day: boolean;
   event_type: string;
   description: string;
+  location: string;
   grade: string;
   visibility: string;
+  creatorUsername: string;
 }
 
 interface CalendarModalProps {
@@ -27,14 +29,17 @@ interface CalendarModalProps {
     is_all_day: boolean;
     event_type: string;
     description: string;
+    location?: string;
     grade: string;
     visibility: string;
+    creatorUsername: string;
   };
   initialDate?: string;
   userRole: string;
   userManagedGrade?: string;
   backendBaseUrl: string;
   authToken: string;
+  username: string;
   onDelete?: (id: string) => void;
 }
 
@@ -81,6 +86,7 @@ export function CalendarModal({
   userManagedGrade,
   backendBaseUrl,
   authToken,
+  username,
   onDelete,
 }: CalendarModalProps) {
   const isEdit = mode === "edit";
@@ -94,8 +100,10 @@ export function CalendarModal({
         is_all_day: initialData.is_all_day || false,
         event_type: initialData.event_type || "reminder",
         description: initialData.description || "",
+        location: initialData.location || "",
         grade: initialData.grade || userManagedGrade || "",
         visibility: initialData.visibility || "personal",
+        creatorUsername: initialData.creatorUsername || "",
       };
     }
     return {
@@ -105,8 +113,10 @@ export function CalendarModal({
       is_all_day: false,
       event_type: "reminder",
       description: "",
+      location: "",
       grade: userManagedGrade || "",
       visibility: "personal",
+      creatorUsername: "",
     };
   };
 
@@ -121,6 +131,13 @@ export function CalendarModal({
     return () => setMounted(false);
   }, []);
 
+  // 级长创建年级日程时，自动填入负责的年级
+  useEffect(() => {
+    if (userRole === "grade_manager" && formData.visibility === "grade" && userManagedGrade) {
+      setFormData(prev => ({ ...prev, grade: userManagedGrade }));
+    }
+  }, [formData.visibility, userRole, userManagedGrade]);
+
   // Reset form when modal opens or initialData content changes (not just reference)
   useEffect(() => {
     // Only reset if initialData actually has meaningful changes
@@ -133,8 +150,10 @@ export function CalendarModal({
         is_all_day: initialData.is_all_day || false,
         event_type: initialData.event_type || "reminder",
         description: initialData.description || "",
+        location: initialData.location || "",
         grade: initialData.grade || userManagedGrade || "",
         visibility: initialData.visibility || "personal",
+        creatorUsername: initialData.creatorUsername || "",
       });
     } else {
       setFormData({
@@ -144,8 +163,10 @@ export function CalendarModal({
         is_all_day: false,
         event_type: "reminder",
         description: "",
+        location: "",
         grade: userManagedGrade || "",
         visibility: "personal",
+        creatorUsername: "",
       });
     }
     setErrorMsg("");
@@ -424,6 +445,21 @@ export function CalendarModal({
                 </div>
               </div>
 
+              {/* 地点 */}
+              <div className="mb-3">
+                <label className="form-label fw-bold">地点</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="请输入地点（可选）"
+                  value={formData.location}
+                  onChange={(e) =>
+                    setFormData({ ...formData, location: e.target.value })
+                  }
+                  disabled={isSubmitting}
+                />
+              </div>
+
               {/* 可见性和年级 */}
               <div className="row mb-3">
                 <div className="col-md-6">
@@ -456,7 +492,11 @@ export function CalendarModal({
                     onChange={(e) =>
                       setFormData({ ...formData, grade: e.target.value })
                     }
-                    disabled={formData.visibility !== "grade" || isSubmitting}
+                    disabled={
+                      formData.visibility !== "grade" ||
+                      userRole === "grade_manager" ||
+                      isSubmitting
+                    }
                   >
                     <option value="">请选择年级</option>
                     {GRADE_OPTIONS.map((g) => (
@@ -525,7 +565,7 @@ export function CalendarModal({
                 >
                   取消
                 </button>
-                {isEdit && userRole === "admin" && (
+                {isEdit && (userRole === "admin" || initialData?.creatorUsername === username) && (
                   <button
                     type="button"
                     className="btn btn-danger btn-lg rounded-pill shadow-sm px-5 ms-3"

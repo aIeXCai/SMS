@@ -16,13 +16,16 @@ type CalendarEvent = {
   allDay?: boolean;
   is_all_day?: boolean;
   color?: string;
+  creatorUsername?: string;
   extendedProps?: {
     type: string;
     grade: string;
     academic_year: string;
     description: string;
+    location?: string;
     visibility: string;
     creator_name: string;
+    creator_username?: string;
     is_all_day?: boolean;
     end?: string;
   };
@@ -184,6 +187,8 @@ export function CalendarWidget({ user }: CalendarWidgetProps) {
             if (grade) lines.push(`年级: ${grade}`);
             if (visLabel) lines.push(`可见性: ${visLabel}`);
             if (desc) lines.push(`备注: ${desc}`);
+            const loc = ext.location || '';
+            if (loc) lines.push(`地点: ${loc}`);
             const tipHtml = lines.join('<br>');
 
             let tooltipEl: HTMLDivElement | null = null;
@@ -255,11 +260,14 @@ export function CalendarWidget({ user }: CalendarWidgetProps) {
                   is_all_day: editingEvent.is_all_day ?? false,
                   event_type: editingEvent.extendedProps?.type || "other",
                   description: editingEvent.extendedProps?.description || "",
+                  location: editingEvent.extendedProps?.location || "",
                   grade: editingEvent.extendedProps?.grade || "",
                   visibility: editingEvent.extendedProps?.visibility || "personal",
+                  creatorUsername: editingEvent.extendedProps?.creator_username || "",
                 }
               : undefined
           }
+          username={user?.username || ""}
           initialDate={selectedDate}
           userRole={user?.role || "subject_teacher"}
           userManagedGrade={user?.managed_grade || ""}

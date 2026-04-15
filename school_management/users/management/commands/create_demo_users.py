@@ -24,11 +24,7 @@ class Command(BaseCommand):
                 'first_name': '李',
                 'last_name': '级长',
                 'role': 'grade_manager',
-                # 新字段
-                'managed_section': 'senior',
-                'managed_cohort_year': 2026,
-                # 旧字段（兼容）
-                'managed_grade': 'grade_10',
+                'managed_grade': '高二',
             },
             {
                 'username': 'manager002',
@@ -37,9 +33,7 @@ class Command(BaseCommand):
                 'first_name': '王',
                 'last_name': '初中级长',
                 'role': 'grade_manager',
-                'managed_section': 'junior',
-                'managed_cohort_year': 2025,
-                'managed_grade': 'grade_7',
+                'managed_grade': '初一',
             },
             {
                 'username': 'staff001',
@@ -70,23 +64,14 @@ class Command(BaseCommand):
 
             user.role = user_data['role']
 
-            # 新字段
-            if 'managed_section' in user_data:
-                user.managed_section = user_data['managed_section']
-            if 'managed_cohort_year' in user_data:
-                user.managed_cohort_year = user_data['managed_cohort_year']
-            # 旧字段（兼容）
             if 'managed_grade' in user_data:
                 user.managed_grade = user_data['managed_grade']
 
             user.save()
 
-            section_display = '初中' if user.managed_section == 'junior' else ('高中' if user.managed_section == 'senior' else '-')
-            cohort_info = f'{section_display}{user.managed_cohort_year}级' if user.managed_section and user.managed_cohort_year else '-'
-
             self.stdout.write(
                 self.style.SUCCESS(
                     f'成功创建用户 {username}，角色：{user_data["role"]}'
-                    + (f'，负责：{cohort_info}' if user.role == 'grade_manager' else '')
+                    + (f'，负责年级：{user_data["managed_grade"]}' if user.role == 'grade_manager' and 'managed_grade' in user_data else '')
                 )
             )
