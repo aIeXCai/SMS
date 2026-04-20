@@ -32,6 +32,8 @@ class CalendarEvent(models.Model):
     grade = models.CharField('年级', max_length=50, blank=True, default='')
     visibility = models.CharField('可见性', max_length=20, choices=VISIBILITY_CHOICES, default='personal')
     creator = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='calendar_events', verbose_name='创建者', null=True, blank=True)
+    # 关联考试（通过 signals 自动同步）
+    exam = models.ForeignKey('students_grades.Exam', on_delete=models.CASCADE, related_name='calendar_events', verbose_name='关联考试', null=True, blank=True)
     created_at = models.DateTimeField('创建时间', auto_now_add=True)
     updated_at = models.DateTimeField('更新时间', auto_now=True)
 

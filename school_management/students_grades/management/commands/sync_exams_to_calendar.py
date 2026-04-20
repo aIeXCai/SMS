@@ -71,7 +71,7 @@ class Command(BaseCommand):
                     self.style.SUCCESS(f'[预览] 将创建: {exam.name} ({exam.date})')
                 )
             else:
-                CalendarEvent.objects.create(
+                event = CalendarEvent.objects.create(
                     title=exam.name,
                     start=exam.date,
                     end=None,
@@ -80,11 +80,30 @@ class Command(BaseCommand):
                     description=exam.description or '',
                     grade=exam.grade_level or '',
                     visibility='school',
-                    creator=None,  # 现有考试没有 creator 关联
+                    creator=exam.created_by,
+                    exam=exam,  # 新增：显式设置 FK
                 )
                 created += 1
                 self.stdout.write(
-                    self.style.SUCCESS(f'[创建] {exam.name} ({exam.date})')
+                    self.style.SUCCESS(f'[创建] {exam.name} ({exam.date}) → exam FK 已建立')
+                )
+
+        # 补充：为已存在但没有 exam FK 的事件补上 FK
+        if not dry_run:
+            events_without_exam = CalendarEvent.objects.filter(
+                event_type='exam',
+                exam__isnull=True,
+            )
+            fixed = 0
+            for event in events_without_exam:
+                matched = Exam.objects.filter(name=event.title).first()
+                if matched:
+                    event.exam = matched
+                    event.save(update_fields=['exam'])
+                    fixed += 1
+            if fixed:
+                self.stdout.write(
+                    self.style.WARNING(f'补充：修复了 {fixed} 个事件的 exam FK')
                 )
 
         if not dry_run:

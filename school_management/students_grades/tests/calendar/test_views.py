@@ -31,8 +31,13 @@ class CalendarEventViewSetTest(TestCase):
         self.client.force_authenticate(user=self.teacher)
         response = self.client.get("/api/calendar-events/")
         self.assertEqual(response.status_code, 200)
+        # 无分页时 response.data 是 list；有分页时是分页对象
+        if isinstance(response.data, list):
+            results = response.data
+        else:
+            results = response.data['results']
         # 应该只返回自己的日程
-        titles = [e['title'] for e in response.data['results'] if e['visibility'] == 'personal']
+        titles = [e['title'] for e in results if e['visibility'] == 'personal']
         self.assertIn("我的备忘", titles)
         self.assertNotIn("他人的备忘", titles)
 
@@ -47,7 +52,11 @@ class CalendarEventViewSetTest(TestCase):
         self.client.force_authenticate(user=self.teacher)
         response = self.client.get("/api/calendar-events/")
         self.assertEqual(response.status_code, 200)
-        titles = [e['title'] for e in response.data['results']]
+        if isinstance(response.data, list):
+            results = response.data
+        else:
+            results = response.data['results']
+        titles = [e['title'] for e in results]
         self.assertIn("全校大会", titles)
 
     def test_teacher_cannot_create_school_event(self):

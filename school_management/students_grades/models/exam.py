@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 from .student import COHORT_CHOICES
 
@@ -90,6 +91,15 @@ class Exam(models.Model):
         verbose_name="考试描述",
         help_text="可选：填写考试的相关说明或注意事项"
     )
+    # 创建者（通过 ExamSerializer.perform_create 自动填充）
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_exams',
+        verbose_name='创建者',
+    )
 
     class Meta:
         verbose_name = "考试"
@@ -164,32 +174,6 @@ class Exam(models.Model):
         """
         grade_level = self.get_grade_level_from_cohort()
         return SUBJECT_DEFAULT_MAX_SCORES.get(grade_level, {})
-
-    def save(self, *args, **kwargs):
-        is_new = self.pk is None
-        super().save(*args, **kwargs)
-
-        # 新建 Exam 时自动创建全校 CalendarEvent
-        if is_new:
-            from ..models.calendar import CalendarEvent
-            creator = None
-            # 尝试获取创建者字段
-            if hasattr(self, 'created_by'):
-                creator = self.created_by
-            elif hasattr(self, 'creator'):
-                creator = self.creator
-
-            CalendarEvent.objects.create(
-                title=self.name,
-                start=self.date,
-                end=None,
-                is_all_day=True,
-                event_type='exam',
-                description=self.description or '',
-                grade=self.grade_level or '',
-                visibility='school',
-                creator=creator,
-            )
 
 
 class ExamSubject(models.Model):

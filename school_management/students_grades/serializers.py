@@ -116,6 +116,9 @@ class ExamSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         subjects_data = validated_data.pop('subjects', [])
+        # 自动填入创建者（来自 DRF request user）
+        user = self.context['request'].user
+        validated_data['created_by'] = user
         exam = Exam.objects.create(**validated_data)
         for s in subjects_data:
             ExamSubject.objects.create(
@@ -299,15 +302,17 @@ class FilterResultSnapshotSerializer(serializers.ModelSerializer):
 class CalendarEventSerializer(serializers.ModelSerializer):
     """日历日程序列化器"""
     creator_name = serializers.SerializerMethodField()
+    exam_name = serializers.CharField(source='exam.name', read_only=True, default='')
 
     class Meta:
         model = CalendarEvent
         fields = [
             'id', 'title', 'start', 'end', 'is_all_day',
             'event_type', 'description', 'location', 'grade', 'visibility',
-            'creator', 'creator_name', 'created_at', 'updated_at'
+            'creator', 'creator_name', 'exam', 'exam_name',
+            'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'creator', 'creator_name', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'creator', 'creator_name', 'exam', 'exam_name', 'created_at', 'updated_at']
 
     def get_creator_name(self, obj):
         if obj.creator:
