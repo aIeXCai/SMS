@@ -67,6 +67,32 @@ class ScoreImportService:
 
             subject_codes = [subject_code for subject_code, _ in SCORE_SUBJECT_CHOICES if subject_code in headers]
 
+            if not subject_codes:
+                raise ScoreImportServiceError(
+                    'Excel 中未找到任何科目列（语文、数学、英语等）。'
+                    '请确保科目列名与模板一致，且第一行为标题行。',
+                    400,
+                )
+
+            # 必须包含的必填列
+            required_headers = ['学号', '学生姓名']
+            missing_headers = [h for h in required_headers if h not in headers]
+            if missing_headers:
+                raise ScoreImportServiceError(
+                    f'Excel 缺少必填列：{", ".join(missing_headers)}。'
+                    f'请使用标准模板填写数据。',
+                    400,
+                )
+
+            # 检查 Excel 中是否有无法识别的列（提前预警）
+            unknown_columns = [h for h in headers if h not in ['学号', '学生姓名'] and h not in dict(SCORE_SUBJECT_CHOICES)]
+            if unknown_columns:
+                raise ScoreImportServiceError(
+                    f'Excel 中包含无法识别的列名：{", ".join(unknown_columns)}。'
+                    f'请检查列名是否与模板一致，或删除多余列后重新导入。',
+                    400,
+                )
+
             student_ids = set()
             excel_rows = []
             for row_idx, row in enumerate(sheet.iter_rows(min_row=2, values_only=True), start=2):
@@ -120,11 +146,11 @@ class ScoreImportService:
                             try:
                                 score_value = Decimal(str(raw_score))
                             except (TypeError, ValueError, InvalidOperation):
-                                row_errors.append(f'{subject_code} 分数格式错误')
+                                row_errors.append(f'{subject_code} 分数 "{raw_score}" 格式错误（须为数字）')
                                 continue
 
                             if score_value < 0:
-                                row_errors.append(f'{subject_code} 分数不能为负数')
+                                row_errors.append(f'{subject_code} 分数 {score_value} 不能为负数')
                                 continue
 
                             max_score = max_score_map.get(subject_code)
