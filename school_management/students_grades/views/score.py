@@ -32,6 +32,7 @@ from ..services import (
     ScoreImportService,
     ScoreImportServiceError,
 )
+from ..services.score_access_service import ScoreAccessService
 from ..services.student_analysis_export import StudentAnalysisExportService
 from ..tasks import update_all_rankings_async
 
@@ -191,12 +192,18 @@ class ScoreViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'], url_path='options')
     def options(self, request):
         grade_level_filter = request.query_params.get('grade_level')
-        exams = Exam.objects.all()
+        scoped_scores = self._filter_scores(request)
+        scoped_students = ScoreAccessService.scope_students(
+            request.user,
+            Student.objects.select_related('current_class').all(),
+        )
+
+        exams = ScoreAccessService.scope_exams_from_scores(request.user, Exam.objects.all())
         if grade_level_filter:
             exams = exams.filter(grade_level=grade_level_filter)
         exams = exams.order_by('-academic_year', '-date', 'name')[:100]
-        academic_year_filter = request.query_params.get('academic_year')
-        all_exams_qs = Exam.objects.all()
+
+        all_exams_qs = ScoreAccessService.scope_exams_from_scores(request.user, Exam.objects.all())
         if grade_level_filter:
             all_exams_qs = all_exams_qs.filter(grade_level=grade_level_filter)
         academic_year_values = sorted(
@@ -209,6 +216,29 @@ class ScoreViewSet(viewsets.ModelViewSet):
             },
             reverse=True,
         )
+
+        grade_level_values = list(
+            scoped_students.exclude(cohort__isnull=True)
+            .exclude(cohort='')
+            .values_list('cohort', flat=True)
+            .distinct()
+        )
+        allowed_grade_levels = [
+            {'value': value, 'label': label}
+            for value, label in COHORT_CHOICES
+            if value in grade_level_values
+        ]
+
+        class_queryset = ScoreAccessService.scope_classes(request.user, Class.objects.all())
+        if grade_level_filter:
+            class_queryset = class_queryset.filter(cohort=grade_level_filter)
+        class_name_values = list(
+            class_queryset.exclude(class_name__isnull=True)
+            .exclude(class_name='')
+            .values_list('class_name', flat=True)
+            .distinct()
+        )
+
         return Response({
             'exams': [
                 {
@@ -217,8 +247,12 @@ class ScoreViewSet(viewsets.ModelViewSet):
                 }
                 for exam in exams
             ],
-            'grade_levels': [{'value': value, 'label': label} for value, label in COHORT_CHOICES],
-            'class_name_choices': [{'value': value, 'label': label} for value, label in CLASS_NAME_CHOICES],
+            'grade_levels': allowed_grade_levels,
+            'class_name_choices': [
+                {'value': value, 'label': label}
+                for value, label in CLASS_NAME_CHOICES
+                if value in class_name_values
+            ],
             'subjects': [{'value': value, 'label': label} for value, label in SCORE_SUBJECT_CHOICES],
             'academic_years': [{'value': value, 'label': value} for value in academic_year_values],
             'sort_by_options': [
@@ -239,7 +273,10 @@ class ScoreViewSet(viewsets.ModelViewSet):
         if not query:
             return Response({'results': []})
 
-        students = Student.objects.select_related('current_class').filter(
+        students = ScoreAccessService.scope_students(
+            request.user,
+            Student.objects.select_related('current_class').all(),
+        ).filter(
             models.Q(name__icontains=query)
             | models.Q(student_id__icontains=query)
             | models.Q(current_class__class_name__icontains=query)
@@ -441,13 +478,17 @@ class ScoreViewSet(viewsets.ModelViewSet):
 
         total_deleted = 0
         affected_exam_ids = set()
+        scoped_scores = ScoreAccessService.scope_scores(
+            request.user,
+            Score.objects.all(),
+        )
 
         for record in selected_records:
             try:
                 student_id, exam_id = str(record).split('_')
             except ValueError:
                 continue
-            deleted_count = Score.objects.filter(student_id=student_id, exam_id=exam_id).delete()[0]
+            deleted_count = scoped_scores.filter(student_id=student_id, exam_id=exam_id).delete()[0]
             total_deleted += deleted_count
             if deleted_count > 0:
                 affected_exam_ids.add(int(exam_id))
@@ -510,12 +551,16 @@ class ScoreViewSet(viewsets.ModelViewSet):
             return Response({'success': False, 'message': '没有选择任何记录'}, status=status.HTTP_400_BAD_REQUEST)
 
         selected_rows = []
+        scoped_scores = ScoreAccessService.scope_scores(
+            request.user,
+            Score.objects.all(),
+        )
         for record in selected_records:
             try:
                 student_id, exam_id = str(record).split('_')
             except ValueError:
                 continue
-            scores = Score.objects.filter(student_id=student_id, exam_id=exam_id).select_related(
+            scores = scoped_scores.filter(student_id=student_id, exam_id=exam_id).select_related(
                 'student', 'student__current_class', 'exam'
             )
             selected_rows.extend(self._aggregate_rows(scores))

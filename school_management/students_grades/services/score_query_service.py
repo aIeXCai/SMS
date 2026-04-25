@@ -2,6 +2,7 @@ from collections import defaultdict
 
 from ..models.score import Score, SUBJECT_CHOICES as SCORE_SUBJECT_CHOICES
 from ..models.student import GRADE_LEVEL_CHOICES
+from .score_access_service import ScoreAccessService
 
 
 class ScoreQueryService:
@@ -12,6 +13,7 @@ class ScoreQueryService:
         scores = Score.objects.select_related('student', 'student__current_class', 'exam').order_by(
             'student__student_id', 'exam__date', 'subject'
         )
+        scores = ScoreAccessService.scope_scores(request.user, scores)
 
         student_id_filter = request.query_params.get('student_id_filter')
         student_name_filter = request.query_params.get('student_name_filter')

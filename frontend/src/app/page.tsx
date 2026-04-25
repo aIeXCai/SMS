@@ -1,45 +1,55 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { CalendarWidget } from "@/components/ui/calendar-widget";
 
-/* ─── Animated counter hook ─── */
-function useAnimatedCounter(target: number, duration: number = 1500) {
-  const [count, setCount] = useState(0);
-
-  useEffect(() => {
-    if (target === 0) { setCount(0); return; }
-    let startTime: number | null = null;
-    let rafId: number;
-
-    const animate = (timestamp: number) => {
-      if (!startTime) startTime = timestamp;
-      const elapsed = timestamp - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      setCount(Math.floor(target * eased));
-      if (progress < 1) rafId = requestAnimationFrame(animate);
-    };
-
-    rafId = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(rafId);
-  }, [target, duration]);
-
-  return count;
-}
-
-/* ─── Types ─── */
 type DashboardStats = {
   student_count: number;
   class_count: number;
   exam_count: number;
   score_count: number;
+  coverage?: {
+    scope?: string;
+    label?: string;
+    grade_level?: string;
+    class_names?: string[];
+  };
 };
 
-const DEFAULT_STATS: DashboardStats = {
+type Exam = {
+  id: number;
+  name: string;
+  academic_year: string | null;
+  grade_level: string;
+  date: string;
+  description: string | null;
+};
+
+type CalendarEvent = {
+  id: string;
+  title: string;
+  start: string;
+  end: string | null;
+  color: string;
+  extendedProps?: {
+    type?: string;
+    grade?: string;
+    location?: string;
+    visibility?: string;
+  };
+};
+
+type TaskItem = {
+  title: string;
+  detail: string;
+  href: string;
+  cta: string;
+  tone: "teal" | "amber" | "blue";
+};
+
+const EMPTY_STATS: DashboardStats = {
   student_count: 0,
   class_count: 0,
   exam_count: 0,
@@ -47,665 +57,940 @@ const DEFAULT_STATS: DashboardStats = {
 };
 
 const QUICK_ACTIONS = [
-  {
-    href: "/students",
-    label: "学生管理",
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-        <circle cx="9" cy="7" r="4"/>
-        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-      </svg>
-    ),
-  },
-  {
-    href: "/exams",
-    label: "考试管理",
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-        <polyline points="14 2 14 8 20 8"/>
-        <line x1="16" y1="13" x2="8" y2="13"/>
-        <line x1="16" y1="17" x2="8" y2="17"/>
-      </svg>
-    ),
-  },
-  {
-    href: "/scores",
-    label: "成绩录入",
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 20h9"/>
-        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-      </svg>
-    ),
-  },
-  {
-    href: "/scores/query",
-    label: "成绩查询",
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="11" cy="11" r="8"/>
-        <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-      </svg>
-    ),
-  },
+  { href: "/scores", label: "录入成绩", hint: "进入单条或批量录入" },
+  { href: "/exams/create", label: "新建考试", hint: "建立本次考试框架" },
+  { href: "/scores/query", label: "成绩查询", hint: "按学生或考试查询" },
+  { href: "/analysis/class-grade", label: "分析预警", hint: "查看班级与年级趋势" },
 ];
 
+function getBackendBaseUrl() {
+  if (typeof window === "undefined") {
+    return "http://localhost:8000";
+  }
+  return `http://${window.location.hostname}:8000`;
+}
 
-const STAT_CONFIG = [
-  { key: "student_count" as const, label: "学生总数", icon: (
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/>
-    </svg>
-  ), accent: "#01876c", bg: "#e8f7f4" },
-  { key: "class_count" as const, label: "班级数量", icon: (
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
-    </svg>
-  ), accent: "#0369a1", bg: "#e8f4fc" },
-  { key: "exam_count" as const, label: "本月考试", icon: (
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
-    </svg>
-  ), accent: "#b45309", bg: "#fef3e2" },
-  { key: "score_count" as const, label: "成绩记录", icon: (
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
-    </svg>
-  ), accent: "#7c3aed", bg: "#f3effe" },
-];
+function formatDate(value: string) {
+  return new Date(value).toLocaleDateString("zh-CN", {
+    month: "short",
+    day: "numeric",
+  });
+}
 
-/* ─── Stat card ─── */
-const StatCard = React.memo(function StatCard({
-  icon, label, value, accent, bg, delay,
-}: {
-  icon: React.ReactNode; label: string; value: number;
-  accent: string; bg: string; delay: number;
-}) {
-  const animatedValue = useAnimatedCounter(value, 1400);
-  return (
-    <div className="db-stat-card" style={{ animationDelay: `${delay}ms` }}>
-      <div className="stat-icon-bg" style={{ background: bg, color: accent }}>
-        {icon}
-      </div>
-      <div className="stat-info">
-        <span className="stat-num" style={{ color: accent }}>{animatedValue.toLocaleString()}</span>
-        <span className="stat-name">{label}</span>
-      </div>
-    </div>
-  );
-});
+function formatDateTime(value: string) {
+  return new Date(value).toLocaleString("zh-CN", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function getExamStatus(date: string) {
+  const examDate = new Date(date);
+  const today = new Date();
+  const diffDays = Math.ceil((examDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+  if (diffDays > 2) {
+    return { label: "待开始", tone: "blue" as const, action: "查看考试" };
+  }
+  if (diffDays >= -7) {
+    return { label: "近期考试", tone: "amber" as const, action: "继续跟进" };
+  }
+  return { label: "已归档", tone: "teal" as const, action: "查看结果" };
+}
+
+function buildTasks(stats: DashboardStats, exams: Exam[], events: CalendarEvent[]): TaskItem[] {
+  const items: TaskItem[] = [];
+  const firstExam = exams[0];
+  const firstEvent = events[0];
+
+  if (firstExam) {
+    items.push({
+      title: "最近考试需要跟进",
+      detail: `${firstExam.name} · ${firstExam.grade_level} · ${formatDate(firstExam.date)}`,
+      href: "/exams",
+      cta: "进入考试",
+      tone: "teal",
+    });
+  }
+
+  items.push({
+    title: stats.score_count > 0 ? "成绩工作台已积累数据" : "系统还缺少成绩数据",
+    detail:
+      stats.score_count > 0
+        ? `当前已有 ${stats.score_count.toLocaleString()} 条成绩记录，可继续录入或查询。`
+        : "现在最值得做的事，是先完成第一批成绩录入。",
+    href: stats.score_count > 0 ? "/scores/query" : "/scores/add",
+    cta: stats.score_count > 0 ? "查看成绩" : "开始录入",
+    tone: "amber",
+  });
+
+  if (firstEvent) {
+    items.push({
+      title: "近期校历需要确认",
+      detail: `${firstEvent.title} · ${formatDateTime(firstEvent.start)}`,
+      href: "/exams",
+      cta: "查看安排",
+      tone: "blue",
+    });
+  } else {
+    items.push({
+      title: "本月考试安排待核对",
+      detail: `本月共有 ${stats.exam_count} 场考试记录，建议检查考试配置与录入节奏。`,
+      href: "/exams",
+      cta: "核对考试",
+      tone: "blue",
+    });
+  }
+
+  return items.slice(0, 3);
+}
+
+function buildLatestExamAnalysisHref(exam?: Exam) {
+  if (!exam) {
+    return "/analysis/class-grade";
+  }
+
+  const params = new URLSearchParams();
+  if (exam.academic_year) {
+    params.set("academic_year", exam.academic_year);
+  }
+  params.set("exam", String(exam.id));
+  params.set("grade_level", exam.grade_level);
+  return `/analysis/class-grade/grade?${params.toString()}`;
+}
+
+function getLatestArchivedExam(exams: Exam[]) {
+  const now = Date.now();
+  const archived = exams.filter((exam) => {
+    const examTime = new Date(exam.date).getTime();
+    return !Number.isNaN(examTime) && examTime < now;
+  });
+
+  if (archived.length === 0) {
+    return undefined;
+  }
+
+  return [...archived].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+}
 
 export default function DashboardPage() {
-  const { user, loading } = useAuth();
+  const { user, loading, token } = useAuth();
   const router = useRouter();
-  const [now, setNow] = useState(new Date());
-  const [stats, setStats] = useState<DashboardStats>(DEFAULT_STATS);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => { setMounted(true); const t = setInterval(() => setNow(new Date()), 1000); return () => clearInterval(t); }, []);
-  useEffect(() => { if (!loading && !user) router.replace("/login"); }, [loading, user, router]);
+  const [stats, setStats] = useState<DashboardStats>(EMPTY_STATS);
+  const [recentExams, setRecentExams] = useState<Exam[]>([]);
+  const [upcomingEvents, setUpcomingEvents] = useState<CalendarEvent[]>([]);
+  const [isPageReady, setIsPageReady] = useState(false);
 
   useEffect(() => {
-    if (!user) return;
-    const fetchDashboardStats = async () => {
+    if (!loading && !user) {
+      router.replace("/login");
+    }
+  }, [loading, user, router]);
+
+  useEffect(() => {
+    if (!user || !token) {
+      return;
+    }
+
+    const backendBaseUrl = getBackendBaseUrl();
+
+    const fetchDashboardData = async () => {
       try {
-        const token = localStorage.getItem("accessToken");
-        const hostname = window.location.hostname;
-        const url = token
-          ? `http://${hostname}:8000/api/dashboard/stats/?token=${encodeURIComponent(token)}`
-          : `http://${hostname}:8000/api/dashboard/stats/`;
-        const response = await fetch(url);
-        if (!response.ok) return;
-        const data = await response.json();
-        setStats({ student_count: Number(data.student_count || 0), class_count: Number(data.class_count || 0), exam_count: Number(data.exam_count || 0), score_count: Number(data.score_count || 0) });
-      } catch { /* silent */ }
+        const [statsResponse, examsResponse, eventsResponse] = await Promise.all([
+          fetch(`${backendBaseUrl}/api/dashboard/stats/?token=${encodeURIComponent(token)}`),
+          fetch(`${backendBaseUrl}/api/exams/?page=1&page_size=4`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }),
+          fetch(`${backendBaseUrl}/api/dashboard/events/?token=${encodeURIComponent(token)}`),
+        ]);
+
+        if (statsResponse.ok) {
+          const statsData = await statsResponse.json();
+          setStats({
+            student_count: Number(statsData.student_count || 0),
+            class_count: Number(statsData.class_count || 0),
+            exam_count: Number(statsData.exam_count || 0),
+            score_count: Number(statsData.score_count || 0),
+            coverage: statsData.coverage || undefined,
+          });
+        }
+
+        if (examsResponse.ok) {
+          const examsData = await examsResponse.json();
+          const exams = Array.isArray(examsData?.results) ? examsData.results : Array.isArray(examsData) ? examsData : [];
+          setRecentExams(exams.slice(0, 4));
+        }
+
+        if (eventsResponse.ok) {
+          const eventsData = await eventsResponse.json();
+          const events = Array.isArray(eventsData?.events) ? eventsData.events : [];
+          const upcoming = events
+            .filter((event: CalendarEvent) => new Date(event.start).getTime() >= Date.now() - 24 * 60 * 60 * 1000)
+            .sort((a: CalendarEvent, b: CalendarEvent) => new Date(a.start).getTime() - new Date(b.start).getTime())
+            .slice(0, 3);
+          setUpcomingEvents(upcoming);
+        }
+      } catch (error) {
+        console.error("dashboard fetch failed", error);
+      } finally {
+        setIsPageReady(true);
+      }
     };
-    fetchDashboardStats();
-    const poller = setInterval(fetchDashboardStats, 30000);
-    return () => clearInterval(poller);
-  }, [user]);
 
-  const roleName = useMemo(() => {
-    if (!user) return "";
-    if (user.role === "admin") return "管理员";
-    if (user.role === "grade_manager") return "级长";
-    if (user.role === "subject_teacher") return "科任老师";
-    return "教辅人员";
-  }, [user]);
+    fetchDashboardData();
+  }, [user, token]);
 
-  const displayName = useMemo(() => {
-    if (!user) return "";
-    return `${user.last_name ?? ""}${user.first_name ?? ""}`.trim() || user.username;
-  }, [user]);
-
-  const dateText = now.toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric", weekday: "long" });
-  const timeText = now.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-
-  const hour = now.getHours();
-  const greeting = hour < 12 ? "上午好" : hour < 18 ? "下午好" : "晚上好";
-
-  if (loading || !user) {
+  if (loading || !user || !isPageReady) {
     return (
-      <div className="db-loading">
-        <div className="db-spinner" />
-        <style>{`
-          .db-loading { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #f5f9f8; }
-          .db-spinner { width: 36px; height: 36px; border: 2.5px solid #e0ece9; border-top-color: #01876c; border-radius: 50%; animation: spin 0.75s linear infinite; }
-          @keyframes spin { to { transform: rotate(360deg); } }
+      <div className="home-loading">
+        <div className="home-spinner" />
+        <style jsx>{`
+          .home-loading {
+            min-height: calc(100vh - 60px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+
+          .home-spinner {
+            width: 38px;
+            height: 38px;
+            border-radius: 999px;
+            border: 3px solid rgba(9, 94, 76, 0.12);
+            border-top-color: #0f766e;
+            animation: spin 0.8s linear infinite;
+          }
+
+          @keyframes spin {
+            to {
+              transform: rotate(360deg);
+            }
+          }
         `}</style>
       </div>
     );
   }
 
+  const displayName = `${user.last_name ?? ""}${user.first_name ?? ""}`.trim() || user.username;
+  const tasks = buildTasks(stats, recentExams, upcomingEvents);
+  const latestArchivedExam = getLatestArchivedExam(recentExams);
+  const latestExamAnalysisHref = buildLatestExamAnalysisHref(latestArchivedExam);
+  const teachingClassNames = user.teaching_classes?.map((item) => item.display_name) || [];
+  const classCoverageText =
+    teachingClassNames.length > 0
+      ? teachingClassNames.slice(0, 4).join("、")
+      : stats.coverage?.class_names?.slice(0, 4).join("、") || "暂未分配任教班级";
+
+  const summaryText =
+    user.role === "grade_manager" && user.managed_grade
+      ? `你现在看到的是 ${user.managed_grade} 的工作面板。当前涉及 ${stats.class_count} 个班级、${stats.student_count} 名学生，最近的考试与分析都会优先围绕这个年级展开。`
+      : user.role === "subject_teacher"
+        ? `你现在看到的是自己的任教工作面板。当前关联 ${stats.class_count} 个班级、${stats.student_count} 名学生，首页优先展示你最可能马上要处理的成绩工作。`
+        : `你现在看到的是全校工作台。当前有 ${stats.class_count} 个班级、${stats.student_count} 名学生，本月已有 ${stats.exam_count} 场考试进入系统。`;
+
+  const coverageLabel =
+    user.role === "grade_manager" && user.managed_grade
+      ? `${user.managed_grade}级长视角`
+      : user.role === "subject_teacher"
+        ? "任教班级视角"
+        : "全校视角";
+
+  const coverageValue =
+    user.role === "subject_teacher"
+      ? classCoverageText
+      : `${stats.student_count.toLocaleString()} 名学生 / ${stats.class_count.toLocaleString()} 个班级`;
+
+  const roleTitle =
+    user.role === "admin"
+      ? "管理员"
+      : user.role === "grade_manager"
+        ? "级长"
+        : user.role === "subject_teacher"
+          ? "科任老师"
+          : "教辅人员";
+
   return (
-    <div className={`db-root ${mounted ? "in" : ""}`}>
-
-      {/* ── Page header ── */}
-      <div className="db-page-head">
-        {/* Background decoration */}
-        <div className="db-head-bg">
-          <div className="db-head-orb db-head-orb-1" />
-          <div className="db-head-orb db-head-orb-2" />
-          <div className="db-head-grid" />
-        </div>
-
-        <div className="db-head-inner">
-          <div className="db-head-left">
-            <div className="db-head-greeting">{greeting}，{displayName}</div>
-            <h1 className="db-page-title">数据概览</h1>
-            <p className="db-page-date">{dateText}</p>
-            <div className="db-head-tags">
-              <span className="db-tag">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
-                白云实验学校
-              </span>
-              <span className="db-tag">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                {roleName}
-              </span>
-            </div>
+    <div className="workspace-home">
+      <section className="hero-panel">
+        <div className="hero-copy">
+          <span className="hero-kicker">工作台</span>
+          <h1>今天先把最重要的事做完。</h1>
+          <p>{summaryText}</p>
+          <div className="hero-actions">
+            <Link href="/scores" className="primary-action">
+              录入成绩
+            </Link>
+            <Link href={latestExamAnalysisHref} className="secondary-action">
+              查看最近考试
+            </Link>
           </div>
-          <div className="db-head-right">
-            <div className="db-head-info-col">
-              <div className="db-head-info-item">
-                <span className="db-head-info-label">账号</span>
-                <span className="db-head-info-value">{user.username}</span>
-              </div>
-              <div className="db-head-info-item">
-                <span className="db-head-info-label">管理范围</span>
-                <span className="db-head-info-value">{user.managed_grade || "全校"}</span>
-              </div>
-              <div className="db-head-info-item">
-                <span className="db-head-info-label">当前时间</span>
-                <span className="db-head-info-value">{timeText}</span>
-              </div>
+        </div>
+        <div className="hero-side">
+          <div className="identity-card">
+            <span className="identity-label">{roleTitle}</span>
+            <strong>{displayName}</strong>
+            <div className="identity-metric">
+              <span className="identity-metric-label">{coverageLabel}</span>
+              <span className="identity-metric-value">{coverageValue}</span>
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* ── Stats row ── */}
-      <div className="db-stats-row grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" style={{ marginBottom: "24px" }}>
-        {STAT_CONFIG.map((s, i) => (
-          <StatCard key={s.key} icon={s.icon} label={s.label} accent={s.accent} bg={s.bg} value={stats[s.key]} delay={60 + i * 80} />
-        ))}
-      </div>
+      <section className="section-block">
+        <div className="section-heading">
+          <div>
+            <span className="section-label">第一屏</span>
+            <h2>今日待办</h2>
+          </div>
+          <p>首页不再告诉你系统有多大，只告诉你下一步该做什么。</p>
+        </div>
+        <div className="task-grid">
+          {tasks.map((task) => (
+            <article key={task.title} className={`task-card tone-${task.tone}`}>
+              <div className="task-badge" />
+              <h3>{task.title}</h3>
+              <p>{task.detail}</p>
+              <Link href={task.href}>{task.cta}</Link>
+            </article>
+          ))}
+        </div>
+      </section>
 
-      {/* ── Content ── */}
-      <div className="db-content">
-
-        {/* ── Left ── */}
-        <div className="db-col-main">
-
-          {/* Quick actions */}
-          <div className="db-card" style={{ animationDelay: "440ms" }}>
-            <div className="db-card-head">
-              <div className="db-accent-bar teal" />
-              <h2 className="db-card-title">快捷操作</h2>
+      <section className="content-grid">
+        <article className="panel">
+          <div className="panel-header">
+            <div>
+              <span className="section-label">核心对象</span>
+              <h2>最近考试</h2>
             </div>
-            <div className="db-quick-grid">
-              {QUICK_ACTIONS.map((a, i) => (
-                <Link key={a.href} href={a.href} className="db-quick-item" style={{ animationDelay: `${500 + i * 65}ms` }}>
-                  <div className="db-quick-icon">{a.icon}</div>
-                  <span className="db-quick-label">{a.label}</span>
-                  <svg className="db-quick-arrow" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                </Link>
-              ))}
+            <Link href="/exams" className="text-link">
+              查看全部
+            </Link>
+          </div>
+
+          <div className="exam-list">
+            {recentExams.length === 0 ? (
+              <div className="empty-state">
+                <h3>还没有考试数据</h3>
+                <p>先建立考试，再让首页真正变成工作台。</p>
+                <Link href="/exams/create">新建考试</Link>
+              </div>
+            ) : (
+              recentExams.map((exam) => {
+                const status = getExamStatus(exam.date);
+                return (
+                  <div key={exam.id} className="exam-row">
+                    <div className="exam-main">
+                      <div className="exam-topline">
+                        <h3>{exam.name}</h3>
+                        <span className={`pill pill-${status.tone}`}>{status.label}</span>
+                      </div>
+                      <p>
+                        {exam.grade_level}
+                        {exam.academic_year ? ` · ${exam.academic_year}` : ""}
+                      </p>
+                    </div>
+                    <div className="exam-side">
+                      <span>{formatDate(exam.date)}</span>
+                      <Link href="/exams">{status.action}</Link>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </article>
+
+        <article className="panel">
+          <div className="panel-header">
+            <div>
+              <span className="section-label">近期节奏</span>
+              <h2>系统提醒</h2>
             </div>
           </div>
 
-          {/* Announcement */}
-          <div className="db-card" style={{ animationDelay: "530ms" }}>
-            <div className="db-card-head">
-              <div className="db-accent-bar blue" />
-              <h2 className="db-card-title">系统公告</h2>
+          <div className="signal-stack">
+            <div className="signal-card">
+              <span className="signal-dot teal" />
+              <div>
+                <h3>成绩数据规模</h3>
+                <p>当前系统内共有 {stats.score_count.toLocaleString()} 条成绩记录，可直接进入查询或分析。</p>
+              </div>
             </div>
-            <div className="db-announce">
-              <span className="db-badge">最新</span>
-              <p className="db-announce-text">欢迎使用新版学校管理系统！系统已完成学生、考试、成绩三大模块前后端分离重构，数据结构更清晰，响应速度提升显著。</p>
-              <div className="db-announce-meta">
-                <span>📅 2026-04-10</span>
-                <span>👤 系统管理员</span>
+
+            <div className="signal-card">
+              <span className="signal-dot amber" />
+              <div>
+                <h3>本月考试节奏</h3>
+                <p>{stats.exam_count > 0 ? `本月已登记 ${stats.exam_count} 场考试，建议优先核对录入与发布时间。` : "本月还没有考试记录，建议先建立考试台账。"}</p>
+              </div>
+            </div>
+
+            <div className="signal-card">
+              <span className="signal-dot blue" />
+              <div>
+                <h3>近期校历</h3>
+                <p>
+                  {upcomingEvents.length > 0
+                    ? `${upcomingEvents[0].title} 将在 ${formatDateTime(upcomingEvents[0].start)} 开始。`
+                    : "目前没有读取到近期校历事件，可在后续扩展为更强的任务提醒。"}
+                </p>
               </div>
             </div>
           </div>
-        </div>
+        </article>
+      </section>
 
-        {/* ── Right ── */}
-        <div className="db-col-side">
-          {/* Calendar */}
-          <div className="db-card" style={{ animationDelay: "490ms" }}>
-            <div className="db-card-head">
-              <div className="db-accent-bar green" />
-              <h2 className="db-card-title">日程安排</h2>
+      <section className="content-grid lower-grid">
+        <article className="panel">
+          <div className="panel-header">
+            <div>
+              <span className="section-label">快捷入口</span>
+              <h2>常用操作</h2>
             </div>
-            <CalendarWidget user={user} />
           </div>
-        </div>
-      </div>
+          <div className="quick-grid">
+            {QUICK_ACTIONS.map((action) => (
+              <Link key={action.href} href={action.href} className="quick-card">
+                <strong>{action.label}</strong>
+                <span>{action.hint}</span>
+              </Link>
+            ))}
+          </div>
+        </article>
 
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500&display=swap');
+        <article className="panel">
+          <div className="panel-header">
+            <div>
+              <span className="section-label">系统状态</span>
+              <h2>当前概况</h2>
+            </div>
+          </div>
+          <div className="status-list">
+            <div className="status-row">
+              <span>学生档案</span>
+              <strong>{stats.student_count.toLocaleString()} 人</strong>
+            </div>
+            <div className="status-row">
+              <span>班级数量</span>
+              <strong>{stats.class_count.toLocaleString()} 个</strong>
+            </div>
+            <div className="status-row">
+              <span>最近校历事件</span>
+              <strong>{upcomingEvents.length > 0 ? upcomingEvents.length : 0} 项</strong>
+            </div>
+          </div>
+        </article>
+      </section>
 
-        /* ── Variables ── */
-        :root {
-          --db-bg: #f0f5f3;
-          --db-surface: #ffffff;
-          --db-border: #e2e8e5;
-          --db-border-hover: #c8d9d3;
-          --db-accent: #01876c;
-          --db-accent-light: #e8f7f4;
-          --db-accent-mid: #b8ddd5;
-          --db-text: #1a2820;
-          --db-text-secondary: #5a6b63;
-          --db-text-muted: #8fa398;
-          --db-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
-          --db-shadow-md: 0 4px 12px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.04);
-          --db-radius: 16px;
-          --db-radius-sm: 10px;
-          --db-font: 'Outfit', 'Noto Sans SC', sans-serif;
+      <style jsx>{`
+        .workspace-home {
+          display: grid;
+          gap: 24px;
+          color: #172026;
         }
 
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        a { text-decoration: none; color: inherit; }
-
-        /* ── Root ── */
-        .db-root {
-          background: var(--db-bg);
-          color: var(--db-text);
-          font-family: var(--db-font);
-          padding: 28px 32px 48px;
-          min-height: 100vh;
-          opacity: 0;
-          transform: translateY(10px);
-          transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-        .db-root.in { opacity: 1; transform: translateY(0); }
-
-        /* ── Page header ── */
-        /* ── Page header ── */
-        .db-page-head {
+        .hero-panel {
           position: relative;
-          background: linear-gradient(135deg, #01876c 0%, #02a080 40%, #0369a1 100%);
-          border-radius: 20px;
-          margin-bottom: 28px;
+          display: grid;
+          grid-template-columns: minmax(0, 2.1fr) minmax(280px, 0.9fr);
+          gap: 20px;
+          padding: 28px;
+          border-radius: 28px;
           overflow: hidden;
-          box-shadow: 0 4px 20px rgba(1,135,108,0.25);
+          background:
+            radial-gradient(circle at top right, rgba(92, 111, 255, 0.12), transparent 26%),
+            radial-gradient(circle at bottom left, rgba(255, 255, 255, 0.72), transparent 30%),
+            linear-gradient(145deg, #f7f8fb 0%, #eef1f6 52%, #e8edf3 100%);
+          border: 1px solid rgba(112, 125, 149, 0.18);
+          box-shadow: 0 24px 64px rgba(29, 38, 52, 0.08);
         }
-        .db-head-bg {
-          position: absolute; inset: 0; pointer-events: none;
-        }
-        .db-head-orb {
+
+        .hero-panel::after {
+          content: "";
           position: absolute;
-          border-radius: 50%;
-          filter: blur(60px);
-          opacity: 0.25;
+          inset: auto -80px -140px auto;
+          width: 260px;
+          height: 260px;
+          border-radius: 999px;
+          background: rgba(77, 92, 122, 0.08);
+          filter: blur(6px);
         }
-        .db-head-orb-1 {
-          width: 300px; height: 300px;
-          background: rgba(255,255,255,0.15);
-          top: -100px; right: -50px;
-        }
-        .db-head-orb-2 {
-          width: 200px; height: 200px;
-          background: rgba(255,255,255,0.1);
-          bottom: -80px; left: 30%;
-        }
-        .db-head-grid {
-          position: absolute; inset: 0;
-          background-image: linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
-          background-size: 40px 40px;
-        }
-        .db-head-inner {
+
+        .hero-copy,
+        .hero-side,
+        .panel,
+        .task-card {
           position: relative;
           z-index: 1;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 28px 36px;
         }
-        .db-head-left { display: flex; flex-direction: column; gap: 4px; }
-        .db-head-greeting {
-          font-size: 1rem;
-          color: rgba(255,255,255,0.8);
-          font-weight: 500;
-          letter-spacing: 0.04em;
-          text-transform: uppercase;
-        }
-        .db-page-title {
-          font-family: var(--db-font);
-          font-size: 2.4rem;
-          font-weight: 800;
-          color: #fff;
-          letter-spacing: -0.02em;
-          text-shadow: 0 2px 8px rgba(0,0,0,0.15);
-        }
-        .db-page-date { font-size: 1rem; color: rgba(255,255,255,0.7); }
-        .db-head-tags { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
-        .db-tag {
+
+        .hero-kicker,
+        .section-label {
           display: inline-flex;
           align-items: center;
-          gap: 5px;
-          font-size: 0.88rem;
-          color: rgba(255,255,255,0.8);
-          background: rgba(255,255,255,0.12);
-          border: 1px solid rgba(255,255,255,0.18);
-          padding: 3px 10px;
-          border-radius: 20px;
-          backdrop-filter: blur(4px);
-        }
-        .db-head-right { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
-        .db-head-info-col {
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-          background: rgba(255,255,255,0.12);
-          border: 1px solid rgba(255,255,255,0.2);
-          border-radius: 14px;
-          padding: 14px 20px;
-          backdrop-filter: blur(8px);
-        }
-        .db-head-info-item {
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-        }
-        .db-head-info-label {
-          font-size: 0.68rem;
-          color: rgba(255,255,255,0.6);
+          font-size: 12px;
+          font-weight: 700;
+          letter-spacing: 0.14em;
           text-transform: uppercase;
-          letter-spacing: 0.1em;
-          font-weight: 500;
+          color: #58677d;
         }
-        .db-head-info-value {
-          font-size: 1rem;
+
+        .hero-copy h1,
+        .section-heading h2,
+        .panel-header h2 {
+          margin: 10px 0 0;
+          font-size: 34px;
+          line-height: 1.05;
           font-weight: 700;
-          color: #ffffff;
-          white-space: nowrap;
-          letter-spacing: 0.01em;
-        }
-          background: rgba(255,255,255,0.2);
-          flex-shrink: 0;
+          color: #141922;
         }
 
-        /* ── Stats ── */
-        .db-stats-row {
+        .hero-copy p,
+        .section-heading p {
+          margin: 16px 0 0;
+          max-width: 620px;
+          font-size: 16px;
+          line-height: 1.7;
+          color: #5d6778;
+        }
+
+        .hero-side {
           display: grid;
-          grid-template-columns: repeat(4, 1fr);
           gap: 16px;
-          margin-bottom: 24px;
+          align-content: space-between;
         }
-        @media (max-width: 1100px) { .db-stats-row { grid-template-columns: repeat(2, 1fr); } }
-        @media (max-width: 600px)  { .db-stats-row { grid-template-columns: 1fr; } }
 
-        .db-stat-card {
-          background: var(--db-surface);
-          border: 1px solid var(--db-border);
-          border-radius: var(--db-radius);
-          padding: 20px;
-          display: flex;
-          align-items: center;
-          gap: 16px;
-          box-shadow: var(--db-shadow);
-          opacity: 0;
-          transform: translateY(14px);
-          animation: db-rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-          transition: box-shadow 0.22s ease, transform 0.22s ease, border-color 0.22s ease;
+        .identity-card,
+        .task-card,
+        .panel {
+          background: rgba(255, 255, 255, 0.86);
+          border: 1px solid rgba(255, 255, 255, 0.72);
+          box-shadow: 0 18px 40px rgba(26, 33, 46, 0.06);
         }
-        .db-stat-card:hover { box-shadow: var(--db-shadow-md); transform: translateY(-2px); border-color: var(--db-border-hover); }
-        @keyframes db-rise { to { opacity: 1; transform: translateY(0); } }
 
-        .stat-icon-bg {
-          width: 50px; height: 50px;
-          border-radius: 12px;
-          display: flex; align-items: center; justify-content: center;
-          flex-shrink: 0;
-          transition: transform 0.3s ease;
-        }
-        .db-stat-card:hover .stat-icon-bg { transform: scale(1.06); }
-        .stat-info { display: flex; flex-direction: column; gap: 3px; }
-        .stat-num {
-          font-family: var(--db-font);
-          font-size: 2.2rem;
-          font-weight: 700;
-          line-height: 1;
-          letter-spacing: -0.03em;
-        }
-        .stat-name { font-size: 0.9rem; color: var(--db-text-muted); font-weight: 500; letter-spacing: 0.03em; }
-
-        /* ── Content grid ── */
-        .db-content {
+        .identity-card {
           display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 22px;
+          gap: 6px;
+          padding: 18px 20px;
+          border-radius: 22px;
         }
-        @media (max-width: 1024px) { .db-content { grid-template-columns: 1fr; } }
-        .db-col-main, .db-col-side { display: flex; flex-direction: column; gap: 22px; }
 
-        /* ── Card ── */
-        .db-card {
-          background: var(--db-surface);
-          border: 1px solid var(--db-border);
-          border-radius: var(--db-radius);
-          padding: 24px;
-          box-shadow: var(--db-shadow);
-          opacity: 0;
-          transform: translateY(14px);
-          animation: db-rise 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-          transition: box-shadow 0.22s ease, border-color 0.22s ease;
+        .identity-label {
+          font-size: 12px;
+          color: #7a8698;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
         }
-        .db-card:hover { box-shadow: var(--db-shadow-md); border-color: var(--db-border-hover); }
 
-        .db-card-head {
+        .identity-card strong {
+          font-size: 22px;
+          color: #151b25;
+        }
+
+        .identity-card span:last-child {
+          color: #5e6878;
+        }
+
+        .identity-metric {
+          display: grid;
+          gap: 4px;
+          margin-top: 10px;
+          padding-top: 12px;
+          border-top: 1px solid rgba(106, 118, 138, 0.16);
+        }
+
+        .identity-metric-label {
+          font-size: 11px;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: #7a8698;
+        }
+
+        .identity-metric-value {
+          font-size: 14px;
+          line-height: 1.6;
+          color: #273142;
+        }
+
+        .hero-actions {
           display: flex;
-          align-items: center;
-          gap: 10px;
-          margin-bottom: 18px;
-        }
-        .db-accent-bar { width: 3px; height: 18px; border-radius: 3px; flex-shrink: 0; }
-        .db-accent-bar.teal  { background: linear-gradient(180deg, #01876c, #02a888); }
-        .db-accent-bar.blue  { background: linear-gradient(180deg, #0369a1, #0284c7); }
-        .db-accent-bar.amber { background: linear-gradient(180deg, #b45309, #d97706); }
-        .db-accent-bar.green { background: linear-gradient(180deg, #01876c, #02a888); }
-        .db-card-title { font-family: var(--db-font); font-size: 1.1rem; font-weight: 700; color: var(--db-text); margin: 0; }
-
-        /* ── Status pill ── */
-        .db-status-pill {
-          margin-left: auto;
-          display: flex;
-          align-items: center;
-          gap: 5px;
-          font-size: 0.72rem;
-          color: var(--db-accent);
-          font-weight: 600;
-          background: var(--db-accent-light);
-          padding: 3px 10px;
-          border-radius: 20px;
-          border: 1px solid var(--db-accent-mid);
-        }
-        .db-pill-dot {
-          width: 5px; height: 5px;
-          border-radius: 50%;
-          background: var(--db-accent);
-          animation: db-pulse 2.5s ease-in-out infinite;
-        }
-        @keyframes db-pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
-
-        /* ── Quick actions ── */
-        .db-quick-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
-        @media (max-width: 600px) { .db-quick-grid { grid-template-columns: 1fr; } }
-
-        .db-quick-item {
-          display: flex;
-          align-items: center;
           gap: 12px;
-          padding: 13px 14px;
-          background: var(--db-bg);
-          border: 1px solid var(--db-border);
-          border-radius: var(--db-radius-sm);
-          opacity: 0;
-          transform: translateX(-8px);
-          animation: db-slide 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          flex-wrap: wrap;
+          margin-top: 20px;
+        }
+
+        :global(a.primary-action),
+        :global(a.secondary-action),
+        .task-card a,
+        .empty-state a,
+        .text-link,
+        .exam-side a {
+          text-decoration: none;
           transition: all 0.2s ease;
         }
-        .db-quick-item:hover {
-          background: var(--db-accent-light);
-          border-color: var(--db-accent-mid);
-          transform: translateX(2px);
-        }
-        .db-quick-item:hover .db-quick-arrow { color: var(--db-accent); transform: translateX(3px); }
-        @keyframes db-slide { to { opacity: 1; transform: translateX(0); } }
-        .db-quick-icon {
-          width: 38px; height: 38px;
-          border-radius: 9px;
-          background: var(--db-surface);
-          border: 1px solid var(--db-border);
-          display: flex; align-items: center; justify-content: center;
-          color: var(--db-accent);
-          flex-shrink: 0;
-          transition: background 0.2s, border-color 0.2s;
-        }
-        .db-quick-item:hover .db-quick-icon { background: var(--db-accent-light); border-color: var(--db-accent-mid); }
-        .db-quick-label { flex: 1; font-size: 1rem; font-weight: 500; color: var(--db-text); }
-        .db-quick-arrow { color: var(--db-text-muted); transition: all 0.2s ease; }
 
-        /* ── Announcement ── */
-        .db-announce {
-          background: linear-gradient(135deg, #f0f7ff 0%, #f8faff 100%);
-          border: 1px solid #ddeeff;
-          border-radius: var(--db-radius-sm);
-          padding: 18px;
-        }
-        .db-badge {
+        :global(a.primary-action),
+        :global(a.primary-action:link),
+        :global(a.primary-action:visited),
+        :global(a.primary-action:hover),
+        :global(a.primary-action:active) {
           display: inline-flex;
           align-items: center;
-          background: linear-gradient(135deg, #0369a1, #0284c7);
-          color: #fff;
-          font-size: 0.66rem;
-          font-weight: 700;
-          padding: 3px 10px;
-          border-radius: 20px;
-          text-transform: uppercase;
-          letter-spacing: 0.07em;
-          margin-bottom: 10px;
-        }
-        .db-announce-text { font-size: 0.97rem; color: var(--db-text-secondary); line-height: 1.75; margin: 0 0 14px; }
-        .db-announce-meta { display: flex; gap: 16px; font-size: 0.82rem; color: var(--db-text-muted); }
-
-        /* ── Profile ── */
-        .db-card-profile {
-          background: linear-gradient(145deg, var(--db-accent-light) 0%, var(--db-surface) 50%);
-          border-color: var(--db-accent-mid);
-        }
-        .db-profile {
-          display: flex;
-          align-items: center;
-          gap: 14px;
-          margin-bottom: 18px;
-          padding-bottom: 16px;
-          border-bottom: 1px solid var(--db-border);
-        }
-        .db-profile-avatar {
-          width: 46px; height: 46px;
+          justify-content: center;
+          min-height: 44px;
+          min-width: 124px;
+          padding: 0 16px;
           border-radius: 12px;
-          background: var(--db-accent);
-          display: flex; align-items: center; justify-content: center;
+          background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent),
+            linear-gradient(135deg, #161b24 0%, #242c39 54%, #30384a 100%);
           color: #fff;
-          font-size: 1.1rem;
-          flex-shrink: 0;
-          box-shadow: 0 3px 10px rgba(1,135,108,0.35);
+          font-size: 14px;
+          font-weight: 600;
+          letter-spacing: -0.01em;
+          text-decoration: none !important;
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.08),
+            0 10px 18px rgba(20, 27, 37, 0.14);
         }
-        .db-profile-info { display: flex; flex-direction: column; gap: 2px; flex: 1; }
-        .db-profile-name { font-family: var(--db-font); font-size: 1.2rem; font-weight: 700; color: var(--db-text); }
-        .db-profile-role { font-size: 0.88rem; color: var(--db-accent); font-weight: 500; }
-        .db-profile-online {
-          width: 9px; height: 9px;
-          border-radius: 50%;
-          background: var(--db-accent);
-          box-shadow: 0 0 0 3px rgba(1,135,108,0.12);
-          animation: db-pulse 2.5s ease-in-out infinite;
-          flex-shrink: 0;
-        }
-        .db-profile-fields { display: flex; flex-direction: column; gap: 8px; }
-        .db-field-row {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 9px 12px;
-          background: rgba(255,255,255,0.7);
-          border: 1px solid var(--db-border);
-          border-radius: var(--db-radius-sm);
-        }
-        .db-field-label { font-size: 0.88rem; color: var(--db-text-muted); }
-        .db-field-value { font-size: 0.96rem; font-weight: 500; color: var(--db-text); }
 
-        /* ── Status ── */
-        .db-status-list { display: flex; flex-direction: column; gap: 7px; }
-        .db-status-row {
+        :global(a.secondary-action),
+        :global(a.secondary-action:link),
+        :global(a.secondary-action:visited),
+        :global(a.secondary-action:hover),
+        :global(a.secondary-action:active),
+        .task-card a,
+        .empty-state a,
+        .exam-side a {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 44px;
+          min-width: 144px;
+          padding: 0 16px;
+          border-radius: 12px;
+          background: rgba(255, 255, 255, 0.72);
+          color: #2f3a4b;
+          font-size: 14px;
+          font-weight: 600;
+          letter-spacing: -0.01em;
+          text-decoration: none !important;
+          border: 1px solid rgba(115, 128, 151, 0.18);
+          box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.52),
+            0 8px 16px rgba(34, 44, 62, 0.05);
+          backdrop-filter: blur(10px);
+        }
+
+        .section-block {
+          display: grid;
+          gap: 16px;
+        }
+
+        .section-heading,
+        .panel-header {
+          display: flex;
+          align-items: flex-end;
+          justify-content: space-between;
+          gap: 16px;
+        }
+
+        .section-heading h2,
+        .panel-header h2 {
+          font-size: 24px;
+        }
+
+        .section-heading p {
+          margin: 0;
+          max-width: 420px;
+          font-size: 14px;
+        }
+
+        .task-grid,
+        .content-grid,
+        .quick-grid {
+          display: grid;
+          gap: 16px;
+        }
+
+        .task-grid {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .task-card {
+          display: grid;
+          gap: 14px;
+          padding: 22px;
+          border-radius: 24px;
+        }
+
+        .task-badge {
+          width: 42px;
+          height: 6px;
+          border-radius: 999px;
+          background: #0f766e;
+        }
+
+        .task-card h3,
+        .panel h3 {
+          margin: 0;
+          font-size: 19px;
+          color: #12241f;
+        }
+
+        .task-card p,
+        .signal-card p,
+        .empty-state p,
+        .exam-main p {
+          margin: 0;
+          color: #536863;
+          line-height: 1.65;
+        }
+
+        .tone-teal .task-badge {
+          background: #0f766e;
+        }
+
+        .tone-amber .task-badge {
+          background: #c97b18;
+        }
+
+        .tone-blue .task-badge {
+          background: #2563eb;
+        }
+
+        .content-grid {
+          grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.95fr);
+        }
+
+        .lower-grid {
+          grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
+        }
+
+        .panel {
+          display: grid;
+          gap: 18px;
+          padding: 24px;
+          border-radius: 24px;
+        }
+
+        .text-link {
+          color: #0f766e;
+          font-weight: 600;
+        }
+
+        .exam-list,
+        .signal-stack,
+        .status-list {
+          display: grid;
+          gap: 12px;
+        }
+
+        .exam-row,
+        .signal-card,
+        .status-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+          padding: 16px 18px;
+          border-radius: 18px;
+          background: #f7faf9;
+          border: 1px solid #e4efeb;
+        }
+
+        .exam-main,
+        .signal-card > div {
+          min-width: 0;
+        }
+
+        .exam-topline {
           display: flex;
           align-items: center;
           gap: 10px;
-          padding: 10px 12px;
-          background: var(--db-bg);
-          border: 1px solid var(--db-border);
-          border-radius: var(--db-radius-sm);
-          opacity: 0;
-          transform: translateX(-6px);
-          animation: db-slide 0.35s ease forwards;
-          transition: background 0.2s, border-color 0.2s;
-        }
-        .db-status-row:hover { background: var(--db-accent-light); border-color: var(--db-accent-mid); }
-        .db-status-check {
-          width: 24px; height: 24px;
-          border-radius: 7px;
-          background: var(--db-accent-light);
-          border: 1px solid var(--db-accent-mid);
-          display: flex; align-items: center; justify-content: center;
-          color: var(--db-accent);
-          flex-shrink: 0;
-        }
-        .db-status-label { flex: 1; font-size: 0.95rem; color: var(--db-text-secondary); }
-        .db-status-badge {
-          font-size: 0.7rem;
-          font-weight: 600;
-          color: var(--db-accent);
-          background: var(--db-accent-light);
-          padding: 2px 9px;
-          border-radius: 20px;
+          flex-wrap: wrap;
+          margin-bottom: 6px;
         }
 
-        /* ── Responsive ── */
-        @media (max-width: 768px) {
-          .db-root { padding: 16px 16px 40px; }
-          .db-head-inner { flex-direction: column; gap: 16px; align-items: flex-start; }
-          .db-head-right { width: 100%; justify-content: space-between; }
-          .db-page-head { border-radius: 16px; }
+        .pill {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 28px;
+          padding: 0 10px;
+          border-radius: 999px;
+          font-size: 12px;
+          font-weight: 700;
         }
-        @media (max-width: 480px) {
-          .db-user-card { display: none; }
+
+        .pill-blue {
+          background: #e8f1ff;
+          color: #1d4ed8;
+        }
+
+        .pill-amber {
+          background: #fff3df;
+          color: #b45309;
+        }
+
+        .pill-teal {
+          background: #e8f7f4;
+          color: #0f766e;
+        }
+
+        .exam-side {
+          display: grid;
+          justify-items: end;
+          gap: 10px;
+          font-size: 14px;
+          color: #546963;
+          white-space: nowrap;
+        }
+
+        .empty-state {
+          display: grid;
+          gap: 12px;
+          padding: 18px;
+          border-radius: 18px;
+          background: #f7faf9;
+          border: 1px dashed #c7ddd7;
+        }
+
+        .signal-card {
+          align-items: flex-start;
+          justify-content: flex-start;
+        }
+
+        .signal-dot {
+          width: 11px;
+          height: 11px;
+          margin-top: 7px;
+          border-radius: 999px;
+          flex-shrink: 0;
+        }
+
+        .signal-dot.teal {
+          background: #0f766e;
+        }
+
+        .signal-dot.amber {
+          background: #c97b18;
+        }
+
+        .signal-dot.blue {
+          background: #2563eb;
+        }
+
+        .quick-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .quick-card {
+          display: grid;
+          gap: 8px;
+          padding: 18px;
+          border-radius: 18px;
+          text-decoration: none;
+          color: #12241f;
+          background: linear-gradient(180deg, #ffffff 0%, #f7faf9 100%);
+          border: 1px solid #e4efeb;
+          transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .quick-card span {
+          color: #586d67;
+          font-size: 14px;
+          line-height: 1.6;
+        }
+
+        .status-row {
+          padding-block: 18px;
+        }
+
+        .status-row span {
+          color: #536863;
+        }
+
+        .status-row strong {
+          color: #12241f;
+        }
+
+        .primary-action:hover,
+        .secondary-action:hover,
+        .task-card a:hover,
+        .empty-state a:hover,
+        .text-link:hover,
+        .exam-side a:hover,
+        .quick-card:hover {
+          transform: translateY(-1px);
+        }
+
+        :global(a.primary-action:hover) {
+          box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.1),
+            0 12px 22px rgba(20, 27, 37, 0.18);
+        }
+
+        :global(a.secondary-action:hover) {
+          background: rgba(255, 255, 255, 0.84);
+          border-color: rgba(91, 104, 127, 0.22);
+        }
+
+        .quick-card:hover {
+          box-shadow: 0 12px 24px rgba(18, 48, 43, 0.08);
+        }
+
+        @media (max-width: 1100px) {
+          .task-grid,
+          .content-grid,
+          .lower-grid {
+            grid-template-columns: 1fr;
+          }
+        }
+
+        @media (max-width: 768px) {
+          .workspace-home {
+            gap: 18px;
+          }
+
+          .hero-panel,
+          .panel,
+          .task-card {
+            padding: 18px;
+            border-radius: 20px;
+          }
+
+          .hero-panel {
+            grid-template-columns: 1fr;
+          }
+
+          .hero-copy h1 {
+            font-size: 28px;
+          }
+
+          .section-heading,
+          .panel-header,
+          .exam-row,
+          .status-row {
+            align-items: flex-start;
+            flex-direction: column;
+          }
+
+          .quick-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .exam-side {
+            justify-items: start;
+            white-space: normal;
+          }
         }
       `}</style>
     </div>

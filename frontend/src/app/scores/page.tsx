@@ -80,7 +80,6 @@ const EMPTY_FILTERS: Filters = {
 
 const backendBaseUrl = typeof window !== "undefined" ? `http://${window.location.hostname}:8000` : "http://localhost:8000";
 const SCORES_API_BASE = `${backendBaseUrl}/api/scores`;
-const CLASSES_API_BASE = `${backendBaseUrl}/api/classes`;
 
 export default function ScoresPage() {
   const { user, token, loading } = useAuth();
@@ -186,13 +185,10 @@ export default function ScoresPage() {
 
   const fetchGradeClasses = async (gradeValue: string) => {
     try {
-      const res = await fetch(`${CLASSES_API_BASE}/?cohort=${encodeURIComponent(gradeValue)}&page_size=200`, { headers: { ...authHeader } });
+      const res = await fetch(`${SCORES_API_BASE}/options/?grade_level=${encodeURIComponent(gradeValue)}`, { headers: { ...authHeader } });
       if (!res.ok) return;
       const data = await res.json();
-      const classes: Option[] = (data.results || data).map((c: { id: number; class_name: string }) => ({
-        value: c.class_name,
-        label: c.class_name,
-      }));
+      const classes: Option[] = data.class_name_choices || [];
       const sorted = classes.sort((a, b) => {
         const aNum = Number((a.label.match(/\d+/) || ["999"])[0]);
         const bNum = Number((b.label.match(/\d+/) || ["999"])[0]);

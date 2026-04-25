@@ -14,23 +14,70 @@ def dashboard_stats_api(request):
     
     now = timezone.now()
     
-    # Get counts
-    student_count = Student.objects.count()
-    class_count = Class.objects.count()
-    
-    # Exams this month
-    exam_count = Exam.objects.filter(
+    user = request.user
+
+    students_qs = Student.objects.all()
+    classes_qs = Class.objects.all()
+
+    if user.role == 'grade_manager' and getattr(user, 'managed_grade', None):
+        students_qs = students_qs.filter(current_class__grade_level=user.managed_grade)
+        classes_qs = classes_qs.filter(grade_level=user.managed_grade)
+    elif user.role == 'subject_teacher':
+        teaching_classes = user.teaching_classes.all()
+        class_ids = list(teaching_classes.values_list('id', flat=True))
+        students_qs = students_qs.filter(current_class_id__in=class_ids)
+        classes_qs = teaching_classes
+
+    student_count = students_qs.distinct().count()
+    class_count = classes_qs.distinct().count()
+
+    # Import here to avoid circular imports
+    from .students_grades.services.score_access_service import ScoreAccessService
+
+    # Exams this month — scoped to user's accessible scope
+    exams_this_month = Exam.objects.filter(
         date__year=now.year,
         date__month=now.month
-    ).count()
+    )
+    if user.role == 'grade_manager' and getattr(user, 'managed_grade', None):
+        exams_this_month = exams_this_month.filter(grade_level=user.managed_grade)
+        exam_count = exams_this_month.count()
+    elif user.role == 'subject_teacher':
+        exam_count = ScoreAccessService.scope_exams_from_scores(
+            user, exams_this_month
+        ).count()
+    else:
+        exam_count = exams_this_month.count()
+
+    # Score count — scoped to user's accessible students
+    score_count = ScoreAccessService.scope_scores(
+        user, Score.objects.all()
+    ).values('student', 'exam').distinct().count()
     
-    score_count = Score.objects.values('student', 'exam').distinct().count()
-    
+    coverage = {
+        'scope': 'school',
+        'label': '全校范围',
+    }
+    if user.role == 'grade_manager' and getattr(user, 'managed_grade', None):
+        coverage = {
+            'scope': 'grade',
+            'label': f'{user.managed_grade}范围',
+            'grade_level': user.managed_grade,
+        }
+    elif user.role == 'subject_teacher':
+        teaching_classes = list(user.teaching_classes.all().order_by('grade_level', 'class_name'))
+        coverage = {
+            'scope': 'teacher_classes',
+            'label': '任教班级范围',
+            'class_names': [f'{row.grade_level}{row.class_name}' for row in teaching_classes],
+        }
+
     data = {
         'student_count': student_count,
         'class_count': class_count,
         'exam_count': exam_count,
         'score_count': score_count,
+        'coverage': coverage,
     }
     
     return JsonResponse(data)
@@ -88,7 +135,7 @@ def dashboard_events_api(request):
         })
 
     # 个人日程（本人可见，admin 也可见所有个人日程）
-    is_admin = hasattr(user, 'role') and user.role == 'admin'
+    is_admin = user.role == 'admin'
     if is_admin:
         # admin 可见所有个人日程
         personal_events = CalendarEvent.objects.filter(visibility='personal').order_by('start')[:50]
@@ -125,12 +172,12 @@ def dashboard_events_api(request):
     # 年级日程（级长/科任老师可见本年级，admin 可见所有年级日程）
     if is_admin:
         grade_events = CalendarEvent.objects.filter(visibility='grade').order_by('start')[:50]
-    elif hasattr(user, 'role') and user.role == 'grade_manager' and user.managed_grade:
+    elif user.role == 'grade_manager' and user.managed_grade:
         grade_events = CalendarEvent.objects.filter(
             visibility='grade',
             grade=user.managed_grade
         ).order_by('start')[:50]
-    elif hasattr(user, 'managed_grade') and user.managed_grade:
+    elif user.managed_grade:
         # 科任老师也可见本年级的年级日程
         grade_events = CalendarEvent.objects.filter(
             visibility='grade',

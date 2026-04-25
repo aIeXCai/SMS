@@ -1,6 +1,8 @@
 """API endpoint tests for score-related AJAX/data APIs (post-migration)."""
 from datetime import date
 
+from django.contrib.auth import get_user_model
+
 from .test_base import BaseTestCase
 from school_management.students_grades.models import Class, Student, Exam, ExamSubject, Score
 
@@ -75,3 +77,124 @@ class StudentAnalysisApiTests(BaseTestCase):
         self.assertEqual(len(payload['exams']), 1)
         self.assertIn('trend_data', payload)
         self.assertIn('total', payload['trend_data'])
+
+
+class ScoreScopeApiTests(BaseTestCase):
+    def setUp(self):
+        super().setUp()
+        User = get_user_model()
+
+        self.junior_class = Class.objects.create(grade_level='初三', cohort='初中2026级', class_name='3班')
+        self.senior_class = Class.objects.create(grade_level='高一', cohort='高中2026级', class_name='7班')
+
+        self.junior_student = Student.objects.create(
+            student_id='JS001',
+            name='初三学生',
+            grade_level='初三',
+            cohort='初中2026级',
+            current_class=self.junior_class,
+        )
+        self.senior_student = Student.objects.create(
+            student_id='SS001',
+            name='高一学生',
+            grade_level='高一',
+            cohort='高中2026级',
+            current_class=self.senior_class,
+        )
+
+        self.junior_exam = Exam.objects.create(
+            name='初三联考',
+            academic_year='2025-2026',
+            grade_level='初中2026级',
+            date=date(2026, 3, 10),
+        )
+        self.senior_exam = Exam.objects.create(
+            name='高一月考',
+            academic_year='2025-2026',
+            grade_level='高中2026级',
+            date=date(2026, 3, 11),
+        )
+        ExamSubject.objects.create(exam=self.junior_exam, subject_code='语文', subject_name='语文', max_score=150)
+        ExamSubject.objects.create(exam=self.senior_exam, subject_code='语文', subject_name='语文', max_score=150)
+
+        Score.objects.create(student=self.junior_student, exam=self.junior_exam, subject='语文', score_value=88)
+        Score.objects.create(student=self.senior_student, exam=self.senior_exam, subject='语文', score_value=91)
+
+        self.grade_manager = User.objects.create_user(
+            username='grade_scope_user',
+            password='test-pass-123',
+            role='grade_manager',
+            managed_grade='初三',
+        )
+        self.subject_teacher = User.objects.create_user(
+            username='teacher_scope_user',
+            password='test-pass-123',
+            role='subject_teacher',
+        )
+        self.subject_teacher.teaching_classes.add(self.junior_class)
+        self.admin_user = User.objects.create_user(
+            username='admin_scope_user',
+            password='test-pass-123',
+            role='admin',
+        )
+
+    def test_grade_manager_scores_list_is_limited_to_managed_grade(self):
+        self.client.force_login(self.grade_manager)
+
+        resp = self.client.get('/api/scores/')
+        self.assertEqual(resp.status_code, 200)
+
+        body = resp.json()
+        self.assertEqual(body['count'], 1)
+        self.assertEqual(body['results'][0]['student']['student_id'], 'JS001')
+        self.assertEqual(body['results'][0]['exam']['name'], '初三联考')
+
+    def test_subject_teacher_scores_options_and_search_are_limited_to_teaching_classes(self):
+        self.client.force_login(self.subject_teacher)
+
+        options_resp = self.client.get('/api/scores/options/')
+        self.assertEqual(options_resp.status_code, 200)
+        options_data = options_resp.json()
+        self.assertEqual([item['value'] for item in options_data['grade_levels']], ['初中2026级'])
+        self.assertEqual([item['value'] for item in options_data['class_name_choices']], ['3班'])
+        self.assertEqual([item['value'] for item in options_data['exams']], [str(self.junior_exam.id)])
+
+        search_resp = self.client.get('/api/scores/student-search/', {'q': '学生'})
+        self.assertEqual(search_resp.status_code, 200)
+        search_data = search_resp.json()
+        self.assertEqual(len(search_data['results']), 1)
+        self.assertEqual(search_data['results'][0]['student_id'], 'JS001')
+
+    def test_admin_scores_list_is_unrestricted(self):
+        self.client.force_login(self.admin_user)
+
+        resp = self.client.get('/api/scores/')
+        self.assertEqual(resp.status_code, 200)
+
+        body = resp.json()
+        # Admin sees all 2 scores (unrestricted)
+        self.assertEqual(body['count'], 2)
+        student_ids = {r['student']['student_id'] for r in body['results']}
+        self.assertEqual(student_ids, {'JS001', 'SS001'})
+
+    def test_admin_options_shows_all_grade_levels_and_classes(self):
+        self.client.force_login(self.admin_user)
+
+        options_resp = self.client.get('/api/scores/options/')
+        self.assertEqual(options_resp.status_code, 200)
+        options_data = options_resp.json()
+
+        # Admin sees both cohorts
+        grade_level_values = [item['value'] for item in options_data['grade_levels']]
+        self.assertIn('初中2026级', grade_level_values)
+        self.assertIn('高中2026级', grade_level_values)
+
+        # Admin sees both class names
+        class_name_values = [item['value'] for item in options_data['class_name_choices']]
+        self.assertIn('3班', class_name_values)
+        self.assertIn('7班', class_name_values)
+
+        # Admin sees both exams
+        exam_ids = [item['value'] for item in options_data['exams']]
+        self.assertIn(str(self.junior_exam.id), exam_ids)
+        self.assertIn(str(self.senior_exam.id), exam_ids)
