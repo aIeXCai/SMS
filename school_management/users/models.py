@@ -10,6 +10,7 @@ GRADE_CHOICES = [
     ('高三', '高三'),
 ]
 
+
 class CustomUser(AbstractUser):
     class RoleChoices(models.TextChoices):
         SUBJECT_TEACHER = 'subject_teacher', '科任老师'
@@ -21,6 +22,9 @@ class CustomUser(AbstractUser):
 
     # 级长/科任老师负责的年级
     managed_grade = models.CharField(max_length=16, choices=GRADE_CHOICES, blank=True, null=True, verbose_name='负责年级')
+
+    # 姓名（合并 last_name + first_name）
+    name = models.CharField(max_length=150, blank=True, default='', verbose_name='姓名')
 
     class Meta:
         verbose_name = '用户'

@@ -275,7 +275,7 @@ export default function DashboardPage() {
     );
   }
 
-  const displayName = `${user.last_name ?? ""}${user.first_name ?? ""}`.trim() || user.username;
+  const displayName = user.name?.trim() || user.username;
   const tasks = buildTasks(stats, recentExams, upcomingEvents);
   const latestArchivedExam = getLatestArchivedExam(recentExams);
   const latestExamAnalysisHref = buildLatestExamAnalysisHref(latestArchivedExam);

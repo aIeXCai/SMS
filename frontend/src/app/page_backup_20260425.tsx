@@ -178,7 +178,7 @@ export default function DashboardPage() {
 
   const displayName = useMemo(() => {
     if (!user) return "";
-    return `${user.last_name ?? ""}${user.first_name ?? ""}`.trim() || user.username;
+    return `${user.name ?? ""}`.trim() || user.username;
   }, [user]);
 
   const dateText = now.toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric", weekday: "long" });

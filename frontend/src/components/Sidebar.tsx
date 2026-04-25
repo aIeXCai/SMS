@@ -16,7 +16,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const pathname = usePathname() || "";
   const [analysisOpen, setAnalysisOpen] = useState(false);
   const [targetStudentsOpen, setTargetStudentsOpen] = useState(false);
-  const fullName = `${user?.last_name ?? ""}${user?.first_name ?? ""}`.trim() || user?.username || "";
+  const fullName = user?.name?.trim() || user?.username || "";
 
   const getRoleDisplay = (role: string) => {
     switch (role) {

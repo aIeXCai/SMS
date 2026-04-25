@@ -39,8 +39,7 @@ class Command(BaseCommand):
                 'username': 'admin',
                 'email': 'admin@school.com',
                 'password': 'admin123',
-                'first_name': '系统',
-                'last_name': '管理员',
+                'name': '系统管理员',
                 'role': CustomUser.RoleChoices.ADMIN,
                 'is_staff': True,
                 'is_superuser': True,
@@ -49,8 +48,7 @@ class Command(BaseCommand):
                 'username': 'teacher1',
                 'email': 'teacher1@school.com',
                 'password': 'teacher123',
-                'first_name': '张',
-                'last_name': '老师',
+                'name': '张老师',
                 'role': CustomUser.RoleChoices.SUBJECT_TEACHER,
                 'is_staff': False,
                 'is_superuser': False,
@@ -59,8 +57,7 @@ class Command(BaseCommand):
                 'username': 'manager1',
                 'email': 'manager1@school.com',
                 'password': 'manager123',
-                'first_name': '李',
-                'last_name': '级长',
+                'name': '李级长',
                 'role': CustomUser.RoleChoices.GRADE_MANAGER,
                 'managed_grade': '高一',
                 'is_staff': False,
@@ -70,8 +67,7 @@ class Command(BaseCommand):
                 'username': 'staff1',
                 'email': 'staff1@school.com',
                 'password': 'staff123',
-                'first_name': '王',
-                'last_name': '教辅',
+                'name': '王教辅',
                 'role': CustomUser.RoleChoices.STAFF,
                 'is_staff': False,
                 'is_superuser': False,
@@ -93,8 +89,8 @@ class Command(BaseCommand):
         """删除指定用户"""
         try:
             user = User.objects.get(username=username)
-            user_info = f"{user.username} ({user.get_full_name() or '无姓名'})"
-            
+            user_info = f"{user.username} ({user.name or '未设置'})"
+
             # 确认删除
             self.stdout.write(f"准备删除用户: {user_info}")
             
@@ -120,6 +116,6 @@ class Command(BaseCommand):
             self.stdout.write(
                 f"  ID: {user.id:2d} | "
                 f"用户名: {user.username:10s} | "
-                f"姓名: {user.get_full_name() or '未设置':8s} | "
+                f"姓名: {user.name or '未设置':8s} | "
                 f"角色: {user.get_role_display():6s}"
             )

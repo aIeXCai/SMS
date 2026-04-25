@@ -9,7 +9,7 @@ class CurrentUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
         fields = [
-            'id', 'username', 'email', 'first_name', 'last_name',
+            'id', 'username', 'email', 'name',
             'role', 'managed_grade', 'teaching_classes',
         ]
         extra_kwargs = {

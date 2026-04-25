@@ -13,16 +13,14 @@ class Command(BaseCommand):
                 'username': 'teacher001',
                 'password': 'teacher123',
                 'email': 'teacher001@school.edu',
-                'first_name': '张',
-                'last_name': '老师',
+                'name': '张老师',
                 'role': 'subject_teacher'
             },
             {
                 'username': 'manager001',
                 'password': 'manager123',
                 'email': 'manager001@school.edu',
-                'first_name': '李',
-                'last_name': '级长',
+                'name': '李级长',
                 'role': 'grade_manager',
                 'managed_grade': '高二',
             },
@@ -30,8 +28,7 @@ class Command(BaseCommand):
                 'username': 'manager002',
                 'password': 'manager123',
                 'email': 'manager002@school.edu',
-                'first_name': '王',
-                'last_name': '初中级长',
+                'name': '王初中级长',
                 'role': 'grade_manager',
                 'managed_grade': '初一',
             },
@@ -39,8 +36,7 @@ class Command(BaseCommand):
                 'username': 'staff001',
                 'password': 'staff123',
                 'email': 'staff001@school.edu',
-                'first_name': '王',
-                'last_name': '助理',
+                'name': '王助理',
                 'role': 'staff'
             }
         ]
@@ -58,8 +54,7 @@ class Command(BaseCommand):
                 username=user_data['username'],
                 password=user_data['password'],
                 email=user_data.get('email', ''),
-                first_name=user_data.get('first_name', ''),
-                last_name=user_data.get('last_name', ''),
+                name=user_data.get('name', ''),
             )
 
             user.role = user_data['role']
