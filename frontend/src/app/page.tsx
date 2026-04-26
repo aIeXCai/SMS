@@ -147,11 +147,15 @@ function buildTasks(stats: DashboardStats, exams: Exam[], events: CalendarEvent[
   return items.slice(0, 3);
 }
 
-function buildLatestExamAnalysisHref(exam?: Exam) {
+function buildLatestExamAnalysisHref(exam?: Exam, userRole?: string) {
+  // 科任教师 + 级长：跳转到分析选择页，由下拉框限制其可见范围
+  if (userRole === "subject_teacher" || userRole === "grade_manager") {
+    return "/analysis/class-grade";
+  }
+  // 其他角色：有考试则直接进结果页，无考试则到选择页
   if (!exam) {
     return "/analysis/class-grade";
   }
-
   const params = new URLSearchParams();
   if (exam.academic_year) {
     params.set("academic_year", exam.academic_year);
@@ -278,12 +282,12 @@ export default function DashboardPage() {
   const displayName = user.name?.trim() || user.username;
   const tasks = buildTasks(stats, recentExams, upcomingEvents);
   const latestArchivedExam = getLatestArchivedExam(recentExams);
-  const latestExamAnalysisHref = buildLatestExamAnalysisHref(latestArchivedExam);
+  const latestExamAnalysisHref = buildLatestExamAnalysisHref(latestArchivedExam, user.role);
   const teachingClassNames = user.teaching_classes?.map((item) => item.display_name) || [];
   const classCoverageText =
     teachingClassNames.length > 0
-      ? teachingClassNames.slice(0, 4).join("、")
-      : stats.coverage?.class_names?.slice(0, 4).join("、") || "暂未分配任教班级";
+      ? teachingClassNames.join("、")
+      : stats.coverage?.class_names?.join("、") || "暂未分配任教班级";
 
   const summaryText =
     user.role === "grade_manager" && user.managed_grade

@@ -121,8 +121,20 @@ export default function ClassGradeAnalysisEntryPage() {
           if (gradeOptions.length === 0) gradeOptions = scoreOptionsData.grade_levels || [];
         }
 
+        // 受限制角色：科任教师 + 级长（均只能查看各自负责的年级）
+        const isRestricted = user?.role === "subject_teacher" || user?.role === "grade_manager";
+        const isSubjectTeacher = user?.role === "subject_teacher";
+        const teachingClasses = user?.teaching_classes || [];
+        const teachingClassIds = isSubjectTeacher && teachingClasses.length > 0
+          ? new Set(teachingClasses.map((c: any) => c.id))
+          : null;
+        // 级长用 managed_grade，科任教师用 teaching_classes，两者都是 grade_level 格式
+        const managedGradeLevel = user?.managed_grade || "";
+        const userGradeLevels = isSubjectTeacher && teachingClasses.length > 0
+          ? [...new Set(teachingClasses.map((c: any) => c.grade_level))]
+          : managedGradeLevel && isRestricted ? [managedGradeLevel] : [];
+
         setAcademicYears(yearOptions);
-        setGradeLevels(gradeOptions);
 
         let fetchedExamCount = 0;
         let fetchedClassCount = 0;
@@ -140,13 +152,42 @@ export default function ClassGradeAnalysisEntryPage() {
           const classesData = classesParsed.data;
           const classRows: ClassItem[] = Array.isArray(classesData) ? classesData : (classesData.results || []);
           fetchedClassCount = classRows.length;
+
+          // 建立 grade_level <-> cohort 双向映射（从班级数据中提取）
+          const cohortToGradeLevel: Record<string, string> = {};
+          for (const c of classRows) {
+            if (c.grade_level && c.cohort) {
+              cohortToGradeLevel[c.cohort] = c.grade_level;
+            }
+          }
+
+          // 科任教师：用 teaching_classes 的 grade_level 反查 cohort，过滤年级下拉
+          const filteredGradeOptions = userGradeLevels.length > 0
+            ? gradeOptions.filter((g) => userGradeLevels.includes(cohortToGradeLevel[g.value] || ''))
+            : gradeOptions;
+          setGradeLevels(filteredGradeOptions);
+
           const sorted = [...classRows].sort((a, b) => {
             if (a.grade_level !== b.grade_level) return a.grade_level.localeCompare(b.grade_level, "zh-CN");
             const aNum = Number((a.class_name.match(/\d+/) || ["0"])[0]);
             const bNum = Number((b.class_name.match(/\d+/) || ["0"])[0]);
             return aNum - bNum;
           });
-          setAllClasses(sorted);
+          const filteredSorted = teachingClassIds
+            ? sorted.filter((c) => teachingClassIds.has(c.id))
+            : sorted;
+          setAllClasses(filteredSorted);
+
+          // 科任教师：自动选中其年级（转为cohort格式）和任教班级
+          if (userGradeLevels.length > 0) {
+            const gradeLevelValue = userGradeLevels[0];
+            const cohortValue = Object.entries(cohortToGradeLevel).find(([, gl]) => gl === gradeLevelValue)?.[0] || gradeLevelValue;
+            setSelectedGrade(cohortValue);
+            setSelectedGradeLabel(cohortValue); // 显示也用 cohort 格式，与下拉选项 label 保持一致
+          }
+          if (teachingClassIds && filteredSorted.length > 0) {
+            setSelectedClasses(filteredSorted.map((c) => String(c.id)));
+          }
         } else {
           setAllClasses([]);
         }
@@ -170,7 +211,7 @@ export default function ClassGradeAnalysisEntryPage() {
     };
 
     fetchData();
-  }, [effectiveToken, authHeader]);
+  }, [effectiveToken, authHeader, user]);
 
   useEffect(() => {
     const onDocumentClick = (event: MouseEvent) => {
@@ -434,15 +475,17 @@ export default function ClassGradeAnalysisEntryPage() {
                           <div className="class-dropdown-header">
                             <small className="text-muted"> (<span>{selectedClassCount}</span> 个已选择)</small>
                           </div>
-                          <label className="class-dropdown-item">
-                            <input
-                              type="checkbox"
-                              className="form-check-input"
-                              checked={selectedClasses.includes("all")}
-                              onChange={(event) => handleToggleAllClasses(event.target.checked)}
-                            />
-                            <span className="form-check-label">所有班级</span>
-                          </label>
+                          {user?.role !== "subject_teacher" && (
+                            <label className="class-dropdown-item">
+                              <input
+                                type="checkbox"
+                                className="form-check-input"
+                                checked={selectedClasses.includes("all")}
+                                onChange={(event) => handleToggleAllClasses(event.target.checked)}
+                              />
+                              <span className="form-check-label">所有班级</span>
+                            </label>
+                          )}
                           {allClasses.map((cls) => {
                             const isVisible = !selectedGrade || cls.cohort === selectedGrade;
                             if (!isVisible) return null;

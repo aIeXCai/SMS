@@ -1,4 +1,5 @@
 from rest_framework import serializers
+import re
 from .models import CustomUser
 
 
@@ -22,6 +23,7 @@ class CurrentUserSerializer(serializers.ModelSerializer):
             return []
 
         rows = classes.all().order_by("grade_level", "class_name")
+        sorted_rows = sorted(rows, key=lambda r: int(re.sub(r'\D', '', r.class_name or '0')))
         return [
             {
                 "id": row.id,
@@ -30,5 +32,5 @@ class CurrentUserSerializer(serializers.ModelSerializer):
                 "class_name": row.class_name,
                 "display_name": f"{row.grade_level}{row.class_name}",
             }
-            for row in rows
+            for row in sorted_rows
         ]

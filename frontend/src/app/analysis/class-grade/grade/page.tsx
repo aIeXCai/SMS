@@ -74,7 +74,7 @@ export default function ClassAnalysisGradePage() {
 }
 
 function ClassAnalysisGradeContent() {
-  const { token, loading } = useAuth();
+  const { user, token, loading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -121,7 +121,11 @@ function ClassAnalysisGradeContent() {
 
   useEffect(() => {
     if (!loading && !effectiveToken) router.push("/login");
-  }, [loading, effectiveToken, router]);
+    // 年级成绩分析只对 admin/grade_manager 开放，科任教师引导回选择页
+    if (!loading && effectiveToken && user?.role === "subject_teacher") {
+      router.push("/analysis/class-grade");
+    }
+  }, [loading, effectiveToken, router, user]);
 
   const sortedClassStatistics = useMemo(() => {
     const rows = [...(analysisData?.class_statistics || [])];
