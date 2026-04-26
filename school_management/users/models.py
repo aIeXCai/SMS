@@ -26,6 +26,10 @@ class CustomUser(AbstractUser):
     # 姓名（合并 last_name + first_name）
     name = models.CharField(max_length=150, blank=True, default='', verbose_name='姓名')
 
+    # 继承自 AbstractUser，保留字段但不再使用
+    first_name = models.CharField(max_length=150, blank=True, null=True, editable=False)
+    last_name = models.CharField(max_length=150, blank=True, null=True, editable=False)
+
     class Meta:
         verbose_name = '用户'
         verbose_name_plural = '用户'
