@@ -107,6 +107,8 @@ WSGI_APPLICATION = 'school_management.wsgi.application'
 
 
 # 双库配置：默认使用 MySQL；保留 sqlite 便于回滚和对账。
+# CONN_MAX_AGE: None = 持久连接（推荐生产环境，MySQL wait_timeout 通常 8h）
+# CONN_HEALTH_CHECKS: True = 使用前 ping 数据库，连接已死则自动重连
 MYSQL_DATABASE_CONFIG = {
     'ENGINE': 'django.db.backends.mysql',
     'NAME': os.getenv('MYSQL_DB', os.getenv('DB_NAME', '')),
@@ -117,7 +119,8 @@ MYSQL_DATABASE_CONFIG = {
     'OPTIONS': {
         'charset': 'utf8mb4',
     },
-    'CONN_MAX_AGE': 60,
+    'CONN_MAX_AGE': None,
+    'CONN_HEALTH_CHECKS': True,
 }
 
 DATABASES = {
@@ -274,3 +277,40 @@ RQ_QUEUES = {
 
 # RQ管理界面配置
 RQ_SHOW_ADMIN_LINK = True  # 在Django admin中显示RQ链接
+
+# 错误日志配置：记录所有 server error 到 logs/django.log
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{asctime} {levelname} {name} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'file': {
+            'level': 'ERROR',
+            'class': 'logging.FileHandler',
+            'filename': BASE_DIR / 'logs' / 'django.log',
+            'formatter': 'verbose',
+        },
+        'console': {
+            'level': 'ERROR',
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'django.server': {
+            'handlers': ['file', 'console'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+        'django.request': {
+            'handlers': ['file', 'console'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+    },
+}

@@ -458,12 +458,29 @@ export default function DashboardPage() {
               <h2>常用操作</h2>
             </div>
           </div>
-          <div className="quick-grid">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '12px' }}>
             {QUICK_ACTIONS.map((action) => (
-              <Link key={action.href} href={action.href} className="quick-card">
-                <strong>{action.label}</strong>
-                <span>{action.hint}</span>
-              </Link>
+              <div key={action.href} style={{
+                display: 'grid',
+                gap: '8px',
+                padding: '18px',
+                borderRadius: '18px',
+                background: 'linear-gradient(180deg, #ffffff 0%, #f7faf9 100%)',
+                border: '1px solid #e4efeb',
+                transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+              }}>
+                <Link href={action.href} style={{
+                  textDecoration: 'none',
+                  color: '#12241f',
+                  fontSize: '16px',
+                  fontWeight: '600',
+                }}>
+                  {action.label}
+                </Link>
+                <span style={{ color: '#586d67', fontSize: '14px', lineHeight: 1.6 }}>
+                  {action.hint}
+                </span>
+              </div>
             ))}
           </div>
         </article>
@@ -906,6 +923,33 @@ export default function DashboardPage() {
           background: linear-gradient(180deg, #ffffff 0%, #f7faf9 100%);
           border: 1px solid #e4efeb;
           transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .quick-card strong {
+          color: #12241f;
+          font-weight: 600;
+          font-size: 16px;
+        }
+
+        .quick-card:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 4px 16px rgba(29, 38, 52, 0.1);
+          border-color: #c8d9d3;
+        }
+
+        :global(a.quick-card),
+        :global(a.quick-card:link),
+        :global(a.quick-card:visited),
+        :global(a.quick-card:hover),
+        :global(a.quick-card:active) {
+          text-decoration: none !important;
+          color: #12241f;
+        }
+
+        :global(a.quick-card:hover) {
+          transform: translateY(-1px);
+          box-shadow: 0 4px 16px rgba(29, 38, 52, 0.1);
+          border-color: #c8d9d3;
         }
 
         .quick-card span {
