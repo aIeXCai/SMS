@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
+import { api } from '@/lib/api';
 
 // 定义用户和认证状态的类型
 interface User {
@@ -56,21 +57,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
   }, []);
 
-  const fetchUserProfile = async (accessToken: string) => {
+  const fetchUserProfile = async (_accessToken: string) => {
     try {
-      const response = await fetch('/api/users/me/', {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-        },
-      });
-
-      if (response.ok) {
-        const userData = await response.json();
-        setUser(userData);
-      } else {
-        // Token 可能已过期，尝试刷新或登出
-        logout();
-      }
+      const userData = await api.get<User>('/users/me/');
+      setUser(userData);
     } catch (error) {
       console.error('获取用户信息失败:', error);
       logout();

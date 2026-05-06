@@ -1,19 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
+import { api } from "@/lib/api";
 import SnapshotList, { FilterSnapshot } from "./components/SnapshotList";
 import ComparisonResult, { SnapshotComparisonResult } from "./components/ComparisonResult";
 import UnifiedModal from "../components/UnifiedModal";
-
-const backendBaseUrl =
-  typeof window !== "undefined"
-    ? `http://${window.location.hostname}:8000`
-    : "http://localhost:8000";
-const FILTER_SNAPSHOT_API = `${backendBaseUrl}/api/filter-snapshots/`;
-const FILTER_COMPARE_API = `${backendBaseUrl}/api/filter-snapshots/compare/`;
 
 const normalizeSnapshotList = (payload: unknown): FilterSnapshot[] => {
   const rows = Array.isArray(payload)
@@ -35,7 +29,7 @@ const normalizeSnapshotList = (payload: unknown): FilterSnapshot[] => {
     .filter((item) => Number.isFinite(item.id) && item.id > 0);
 };
 
-export default function TargetStudentTrackingPage() {
+function TargetStudentTrackingContent() {
   const { token, loading, user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -69,17 +63,6 @@ export default function TargetStudentTrackingPage() {
     onConfirmAction: null,
   });
 
-  const effectiveToken = useMemo(() => {
-    if (token) return token;
-    if (typeof window !== "undefined") return localStorage.getItem("accessToken");
-    return null;
-  }, [token]);
-
-  const authHeader = useMemo(() => {
-    if (!effectiveToken) return undefined;
-    return { Authorization: `Bearer ${effectiveToken}` };
-  }, [effectiveToken]);
-
   const baselineSnapshot = useMemo(
     () => snapshots.find((item) => item.id === baselineSnapshotId) || null,
     [snapshots, baselineSnapshotId]
@@ -90,30 +73,20 @@ export default function TargetStudentTrackingPage() {
   );
 
   useEffect(() => {
-    if (!loading && !effectiveToken) {
+    if (!loading && !token) {
       router.push("/login");
     }
-  }, [loading, effectiveToken, router]);
+  }, [loading, token, router]);
 
   useEffect(() => {
-    if (!effectiveToken) return;
+    if (!token) return;
 
     const fetchSnapshots = async () => {
       setLoadingSnapshots(true);
       setSnapshotError(null);
 
       try {
-        const res = await fetch(FILTER_SNAPSHOT_API, {
-          headers: { ...authHeader },
-        });
-
-        const data = await res.json().catch(() => null);
-        if (!res.ok) {
-          setSnapshotError("加载快照失败，请稍后重试");
-          setSnapshots([]);
-          return;
-        }
-
+        const data = await api.get<unknown>('/filter-snapshots/');
         const normalized = normalizeSnapshotList(data);
         setSnapshots(normalized);
 
@@ -131,7 +104,7 @@ export default function TargetStudentTrackingPage() {
     };
 
     fetchSnapshots();
-  }, [effectiveToken, authHeader, searchParams]);
+  }, [token, searchParams]);
 
   const handleSelectBaseline = (snapshotId: number) => {
     setBaselineSnapshotId((prev) => (prev === snapshotId ? null : snapshotId));
@@ -193,29 +166,12 @@ export default function TargetStudentTrackingPage() {
       setComparisonError(null);
       setComparisonResult(null);
 
-      const res = await fetch(FILTER_COMPARE_API, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...authHeader,
-        },
-        body: JSON.stringify({
-          baseline_snapshot_id: baselineSnapshotId,
-          comparison_snapshot_id: comparisonSnapshotId,
-        }),
+      const data = await api.post<SnapshotComparisonResult>('/filter-snapshots/compare/', {
+        baseline_snapshot_id: baselineSnapshotId,
+        comparison_snapshot_id: comparisonSnapshotId,
       });
 
-      const data = await res.json().catch(() => null);
-      if (!res.ok) {
-        const message =
-          data && typeof data === "object" && "message" in data && typeof data.message === "string"
-            ? data.message
-            : "对比分析失败，请稍后重试";
-        setComparisonError(message);
-        return;
-      }
-
-      setComparisonResult(data as SnapshotComparisonResult);
+      setComparisonResult(data);
     } catch (error) {
       console.error("Failed to compare snapshots:", error);
       setComparisonError("对比分析失败，请检查网络后重试");
@@ -231,15 +187,7 @@ export default function TargetStudentTrackingPage() {
     showConfirmModal(`确认删除快照「${target.snapshot_name}」吗？`, async () => {
       try {
         setDeletingSnapshotId(snapshotId);
-        const res = await fetch(`${FILTER_SNAPSHOT_API}${snapshotId}/`, {
-          method: "DELETE",
-          headers: { ...authHeader },
-        });
-
-        if (!res.ok) {
-          showInfoModal("删除快照失败，请稍后重试", "快照删除", "error");
-          return;
-        }
+        await api.delete(`/filter-snapshots/${snapshotId}/`);
 
         setSnapshots((prev) => prev.filter((item) => item.id !== snapshotId));
         setBaselineSnapshotId((prev) => (prev === snapshotId ? null : prev));
@@ -262,44 +210,40 @@ export default function TargetStudentTrackingPage() {
   return (
     <div>
       <div className="page-header">
-        <div className="container-fluid">
-          <div className="row align-items-center">
-            <div className="col-md-8">
+        <div className="w-full px-4 mx-auto max-w-[1400px]">
+          <div className="flex flex-wrap items-center">
+            <div className="flex-1">
               <h1>
-                <i className="fas fa-chart-line me-3"></i>变化追踪
+                <i className="fas fa-chart-line mr-3"></i>变化追踪
               </h1>
               <p className="mb-0 opacity-75">用于快照管理、历史对比与变化分析</p>
             </div>
-            <div className="col-md-4 text-end mt-3 mt-md-0">
-              <button
-                type="button"
-                className="btn btn-light"
-                onClick={() => router.push("/target-students/advanced")}
-              >
-                <i className="fas fa-arrow-left me-1"></i>返回高级筛选
-              </button>
+            <div className="flex-shrink-0 text-right">
+              <Link href="/target-students/advanced" className="secondary-action">
+                <i className="fas fa-arrow-left mr-2"></i>返回高级筛选
+              </Link>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="container-fluid">
-        <div className="row g-3 g-md-4">
-          <div className="col-12 col-xl-8">
-            <div className="card filter-card h-100">
-              <div className="card-header d-flex justify-content-between align-items-center">
+      <div className="w-full px-4 mx-auto max-w-[1400px]">
+        <div className="flex flex-wrap gap-3 md:gap-4">
+          <div className="w-full xl:w-[70%]">
+            <div className="bg-white rounded-lg shadow filter-card h-100">
+              <div className="px-4 py-3 border-b border-gray-200 flex justify-between items-center">
                 <h5 className="mb-0">
-                  <i className="fas fa-camera-retro me-2"></i>历史快照列表
+                  <i className="fas fa-camera-retro mr-2"></i>历史快照列表
                 </h5>
                 <button
                   type="button"
-                  className="btn btn-success btn-sm"
+                  className="bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700 transition-colors text-sm"
                   onClick={() => router.push("/target-students/advanced")}
                 >
-                  <i className="fas fa-plus me-1"></i>前往保存快照
+                  <i className="fas fa-plus mr-1"></i>前往保存快照
                 </button>
               </div>
-              <div className="card-body">
+              <div className="p-4">
                 <SnapshotList
                   snapshots={snapshots}
                   loading={loadingSnapshots}
@@ -315,32 +259,32 @@ export default function TargetStudentTrackingPage() {
             </div>
           </div>
 
-          <div className="col-12 col-xl-4">
-            <div className="card filter-card h-100">
-              <div className="card-header">
+          <div className="flex-1 min-w-0">
+            <div className="bg-white rounded-lg shadow filter-card h-100">
+              <div className="px-4 py-3 border-b border-gray-200">
                 <h5 className="mb-0">
-                  <i className="fas fa-code-compare me-2"></i>对比分析区
+                  <i className="fas fa-code-compare mr-2"></i>对比分析区
                 </h5>
               </div>
-              <div className="card-body">
-                <p className="text-secondary mb-3">已支持双快照选择与对比分析，结果包含新增/退出/保留名单及排名变化。</p>
+              <div className="p-4">
+                <p className="text-gray-500 mb-3">已支持双快照选择与对比分析，结果包含新增/退出/保留名单及排名变化。</p>
 
                 <div className="selected-snapshot-panel mb-3">
-                  <div className="small text-muted mb-2">当前选择</div>
+                  <div className="text-sm text-gray-500 mb-2">当前选择</div>
                   <div className="mb-2">
-                    <span className="badge bg-success-subtle text-success-emphasis me-2">基准</span>
-                    <span className="small">{baselineSnapshot?.snapshot_name || "未选择"}</span>
+                    <span className="bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded mr-2">基准</span>
+                    <span className="text-sm">{baselineSnapshot?.snapshot_name || "未选择"}</span>
                   </div>
                   <div>
-                    <span className="badge bg-primary-subtle text-primary-emphasis me-2">对比</span>
-                    <span className="small">{comparisonSnapshot?.snapshot_name || "未选择"}</span>
+                    <span className="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded mr-2">对比</span>
+                    <span className="text-sm">{comparisonSnapshot?.snapshot_name || "未选择"}</span>
                   </div>
                 </div>
 
-                <div className="d-grid gap-2">
+                <div className="flex flex-col gap-2">
                   <button
                     type="button"
-                    className="btn btn-outline-success"
+                    className="border border-green-300 text-green-600 px-4 py-2 rounded hover:bg-green-50 transition-colors"
                     onClick={() => {
                       setBaselineSnapshotId(null);
                       setComparisonError(null);
@@ -352,7 +296,7 @@ export default function TargetStudentTrackingPage() {
                   </button>
                   <button
                     type="button"
-                    className="btn btn-outline-secondary"
+                    className="border border-gray-300 px-4 py-2 rounded hover:bg-gray-50 transition-colors"
                     onClick={() => {
                       setComparisonSnapshotId(null);
                       setComparisonError(null);
@@ -364,7 +308,7 @@ export default function TargetStudentTrackingPage() {
                   </button>
                   <button
                     type="button"
-                    className="btn btn-outline-primary"
+                    className="border border-blue-300 text-blue-600 px-4 py-2 rounded hover:bg-blue-50 transition-colors"
                     disabled={!baselineSnapshotId || !comparisonSnapshotId || comparisonLoading}
                     onClick={handleCompareSnapshots}
                   >
@@ -374,9 +318,9 @@ export default function TargetStudentTrackingPage() {
 
                 <hr className="my-3" />
 
-                <div className="small text-secondary">
+                <div className="text-sm text-gray-500">
                   快捷入口：
-                  <Link href="/target-students/advanced" className="ms-1 text-decoration-none">
+                  <Link href="/target-students/advanced" className="ml-1">
                     返回高级筛选继续筛选
                   </Link>
                 </div>
@@ -385,15 +329,15 @@ export default function TargetStudentTrackingPage() {
           </div>
         </div>
 
-        <div className="row mt-3">
-          <div className="col-12">
-            <div className="card filter-card">
-              <div className="card-header">
+        <div className="flex flex-wrap mt-3">
+          <div className="w-full">
+            <div className="bg-white rounded-lg shadow filter-card">
+              <div className="px-4 py-3 border-b border-gray-200">
                 <h5 className="mb-0">
-                  <i className="fas fa-chart-bar me-2"></i>对比结果展示
+                  <i className="fas fa-chart-bar mr-2"></i>对比结果展示
                 </h5>
               </div>
-              <div className="card-body">
+              <div className="p-4">
                 <ComparisonResult
                   result={comparisonResult}
                   loading={comparisonLoading}
@@ -404,14 +348,14 @@ export default function TargetStudentTrackingPage() {
           </div>
         </div>
 
-        <div className="row mt-3">
-          <div className="col-12">
-            <div className="alert alert-info border-0 tips-alert">
-              <div className="d-flex align-items-center">
-                <i className="fas fa-lightbulb fa-2x me-3 text-success"></i>
+        <div className="flex flex-wrap mt-3">
+          <div className="w-full">
+            <div className="bg-blue-50 border border-blue-200 text-blue-800 p-4 rounded border-0 tips-alert">
+              <div className="flex items-center">
+                <i className="fas fa-lightbulb fa-2x mr-3 text-green-600"></i>
                 <div>
-                  <h6 className="alert-heading mb-1 text-success">使用指引</h6>
-                  <p className="mb-0 small text-success">
+                  <h6 className="alert-heading mb-1 text-green-600">使用指引</h6>
+                  <p className="mb-0 text-sm text-green-600">
                     建议先在高级筛选页保存关键阶段快照，再在本页做双快照对比，快速定位名单变化和学生排名波动。
                   </p>
                 </div>
@@ -420,8 +364,8 @@ export default function TargetStudentTrackingPage() {
           </div>
         </div>
 
-        <div className="row g-4 mt-2">
-          <div className="col-lg-6">
+        <div className="flex flex-wrap gap-4 mt-2">
+          <div className="flex-1 min-w-0">
             <div className="intro-card h-100">
               <div className="intro-card-header">
                 <div className="intro-icon-wrapper">
@@ -461,7 +405,7 @@ export default function TargetStudentTrackingPage() {
             </div>
           </div>
 
-          <div className="col-lg-6">
+          <div className="flex-1 min-w-0">
             <div className="intro-card h-100">
               <div className="intro-card-header">
                 <div className="intro-icon-wrapper">
@@ -472,7 +416,7 @@ export default function TargetStudentTrackingPage() {
               <div className="intro-card-body">
                 <div className="indicator-item">
                   <div className="indicator-tag">新增</div>
-                  <p>建议优先关注“新进入名单”学生，及时制定跟进策略。</p>
+                  <p>建议优先关注"新进入名单"学生，及时制定跟进策略。</p>
                 </div>
                 <div className="indicator-item">
                   <div className="indicator-tag">退出</div>
@@ -507,6 +451,25 @@ export default function TargetStudentTrackingPage() {
       />
 
       <style jsx global>{`
+        .page-header {
+          background: rgb(1, 135, 108);
+          color: white;
+          padding: 2rem 0;
+          margin-bottom: 2rem;
+          border-radius: 10px;
+        }
+        a.secondary-action,
+        a.secondary-action:link,
+        a.secondary-action:visited,
+        a.secondary-action:hover,
+        a.secondary-action:active {
+          display: inline-flex; align-items: center; justify-content: center;
+          min-height: 44px; min-width: 144px; padding: 0 16px; border-radius: 12px;
+          background: rgba(255,255,255,0.72); color: #2f3a4b; font-size: 14px;
+          text-decoration: none; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+          transition: all 0.2s ease; cursor: pointer;
+        }
+        a.secondary-action:hover { background: rgba(255,255,255,0.9); color: #1a2535; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
         .comparison-meta {
           border: 1px solid #e8f5e9;
           border-radius: 10px;
@@ -521,5 +484,13 @@ export default function TargetStudentTrackingPage() {
         }
       `}</style>
     </div>
+  );
+}
+
+export default function TargetStudentTrackingPage() {
+  return (
+    <Suspense fallback={<div className="p-4">加载中...</div>}>
+      <TargetStudentTrackingContent />
+    </Suspense>
   );
 }

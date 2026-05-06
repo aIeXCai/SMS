@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 
 import ComparisonResult, { SnapshotComparisonResult } from "./ComparisonResult";
 
@@ -75,7 +76,7 @@ describe("ComparisonResult", () => {
   it("点击排名变化表头可切换升降序", () => {
     render(<ComparisonResult result={result} loading={false} error={null} />);
 
-    const addedCard = screen.getByText("新增名单").closest(".card") as HTMLElement;
+    const addedCard = screen.getByText("新增名单").closest(".filter-card") as HTMLElement;
     const tbody = within(addedCard).getByRole("table").querySelector("tbody") as HTMLTableSectionElement;
 
     const firstNameBefore = tbody.querySelector("tr td:nth-child(2)")?.textContent;

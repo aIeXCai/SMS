@@ -15,6 +15,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const { user, logout } = useAuth();
   const pathname = usePathname() || "";
   const [analysisOpen, setAnalysisOpen] = useState(false);
+  const [scoresOpen, setScoresOpen] = useState(false);
   const [targetStudentsOpen, setTargetStudentsOpen] = useState(false);
   const fullName = user?.name?.trim() || user?.username || "";
 
@@ -32,11 +33,12 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   };
 
   useEffect(() => {
-    // 默认打开成绩分析子菜单，如果当前路径属于分析页
     if (pathname?.startsWith("/analysis")) {
       setAnalysisOpen(true);
     }
-    // 默认打开目标生筛选子菜单，如果当前路径属于目标生模块
+    if (pathname?.startsWith("/scores")) {
+      setScoresOpen(true);
+    }
     if (pathname?.startsWith("/target-students")) {
       setTargetStudentsOpen(true);
     }
@@ -85,7 +87,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
           <p className="user-role">{getRoleDisplay(user.role)}</p>
         </div>
         <button
-          className="btn btn-sm btn-light logout-btn"
+          className="text-sm px-2 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors logout-btn"
           style={{ marginLeft: "auto", borderRadius: 6 }}
           onClick={() => {
             logout();
@@ -97,145 +99,220 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
       </div>
 
       <nav className="sidebar-nav">
-        <div className="nav-section">
-          <h6 className="nav-section-title">主要功能</h6>
-          <ul className="nav flex-column">
-            <li className="nav-item">
-              {makeLink("/", "Dashboard", "fa-th-large", pathname === "/")}
-            </li>
-          </ul>
-        </div>
-
-        <div className="nav-section">
-          <h6 className="nav-section-title">教学管理</h6>
-          <ul className="nav flex-column">
-            <li className="nav-item">
-              {makeLink("/students", "学生信息", "fa-user-graduate", pathname.startsWith("/students"))}
-            </li>
-            <li className="nav-item">
-              {makeLink("/exams", "考试管理", "fa-clipboard-list", pathname.startsWith("/exams"))}
-            </li>
-            <li className="nav-item">
-              {makeLink(
-                "/scores",
-                "成绩管理",
-                "fa-chart-line",
-                pathname === "/scores" || pathname.startsWith("/scores/add") || pathname.startsWith("/scores/batch-edit")
-              )}
-            </li>
-            <li className="nav-item">
-              {makeLink("/scores/query", "成绩查询", "fa-search", pathname.startsWith("/scores/query"))}
-            </li>
-            <li className={`nav-item has-submenu ${analysisOpen ? "open" : ""}`}>
-              <a
-                className="nav-link"
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setAnalysisOpen((prev) => !prev);
-                }}
-              >
-                <i className="fas fa-chart-bar" />
-                成绩分析
-              </a>
-              <ul className="nav-submenu">
+        {/* ── Admin 管理员菜单 ── */}
+        {user.role === "admin" && (
+          <>
+            <div className="nav-section">
+              <h6 className="nav-section-title">主要功能</h6>
+              <ul className="flex flex-col">
                 <li className="nav-item">
-                  {makeLink(
-                    "/analysis/class-grade",
-                    "班级/年级分析",
-                    "",
-                    pathname.startsWith("/analysis/class-grade")
-                  )}
-                </li>
-                <li className="nav-item">
-                  {makeLink(
-                    "/analysis/student",
-                    "个人成绩分析",
-                    "",
-                    pathname.startsWith("/analysis/student")
-                  )}
+                  {makeLink("/", "Dashboard", "fa-th-large", pathname === "/")}
                 </li>
               </ul>
-            </li>
-            <li className={`nav-item has-submenu ${targetStudentsOpen ? "open" : ""}`}>
-              <a
-                className={`nav-link${pathname.startsWith("/target-students") ? " active" : ""}`}
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setTargetStudentsOpen((prev) => !prev);
-                }}
-              >
-                <i className="fas fa-bullseye" />
-                目标生筛选
-              </a>
-              <ul className="nav-submenu">
+            </div>
+
+            <div className="nav-section">
+              <h6 className="nav-section-title">全校管理</h6>
+              <ul className="flex flex-col">
                 <li className="nav-item">
-                  {makeLink(
-                    "/target-students",
-                    "简单筛选",
-                    "",
-                    pathname === "/target-students"
-                  )}
+                  {makeLink("/students", "学生管理", "fa-user-graduate", pathname.startsWith("/students"))}
                 </li>
                 <li className="nav-item">
-                  {makeLink(
-                    "/target-students/advanced",
-                    "高级筛选",
-                    "",
-                    pathname.startsWith("/target-students/advanced")
-                  )}
+                  {makeLink("/exams", "考试管理", "fa-clipboard-list", pathname.startsWith("/exams"))}
                 </li>
-                <li className="nav-item">
-                  {makeLink(
-                    "/target-students/rules",
-                    "我的规则",
-                    "",
-                    pathname.startsWith("/target-students/rules")
-                  )}
+                <li className={`nav-item has-submenu ${scoresOpen ? "open" : ""}`}>
+                  <a
+                    className="nav-link"
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setScoresOpen((prev) => !prev);
+                    }}
+                  >
+                    <i className="fas fa-chart-line" />
+                    成绩管理
+                  </a>
+                  <ul className="nav-submenu">
+                    <li className="nav-item">
+                      {makeLink(
+                        "/scores",
+                        "成绩管理",
+                        "",
+                        pathname === "/scores" || pathname.startsWith("/scores/add") || pathname.startsWith("/scores/batch-edit")
+                      )}
+                    </li>
+                    <li className="nav-item">
+                      {makeLink("/scores/query", "成绩查询", "", pathname.startsWith("/scores/query"))}
+                    </li>
+                    <li className="nav-item">
+                      {makeLink(
+                        "/analysis/class-grade",
+                        "成绩分析",
+                        "",
+                        pathname.startsWith("/analysis/class-grade")
+                      )}
+                    </li>
+                    <li className="nav-item">
+                      {makeLink(
+                        "/analysis/student",
+                        "个人分析",
+                        "",
+                        pathname.startsWith("/analysis/student")
+                      )}
+                    </li>
+                  </ul>
                 </li>
-                <li className="nav-item">
-                  {makeLink(
-                    "/target-students/tracking",
-                    "变化追踪",
-                    "",
-                    pathname.startsWith("/target-students/tracking")
-                  )}
+                <li className={`nav-item has-submenu ${targetStudentsOpen ? "open" : ""}`}>
+                  <a
+                    className={`nav-link${pathname.startsWith("/target-students") ? " active" : ""}`}
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setTargetStudentsOpen((prev) => !prev);
+                    }}
+                  >
+                    <i className="fas fa-bullseye" />
+                    目标生筛选
+                  </a>
+                  <ul className="nav-submenu">
+                    <li className="nav-item">
+                      {makeLink("/target-students", "简单筛选", "", pathname === "/target-students")}
+                    </li>
+                    <li className="nav-item">
+                      {makeLink("/target-students/advanced", "高级筛选", "", pathname.startsWith("/target-students/advanced"))}
+                    </li>
+                    <li className="nav-item">
+                      {makeLink("/target-students/rules", "我的规则", "", pathname.startsWith("/target-students/rules"))}
+                    </li>
+                    <li className="nav-item">
+                      {makeLink("/target-students/tracking", "变化追踪", "", pathname.startsWith("/target-students/tracking"))}
+                    </li>
+                  </ul>
                 </li>
               </ul>
-            </li>
-          </ul>
-        </div>
+            </div>
+          </>
+        )}
 
-        <div className="nav-section">
-          <h6 className="nav-section-title">系统管理</h6>
-          <ul className="nav flex-column">
-            <li className="nav-item">
-              {makeLink("/admin", "系统设置", "fa-cog", pathname.startsWith("/admin"))}
-            </li>
-            <li className="nav-item">
-              {makeLink("/reports", "报表管理", "fa-file-alt", pathname.startsWith("/reports"))}
-            </li>
-            <li className="nav-item">
-              {makeLink("/backup", "数据备份", "fa-database", pathname.startsWith("/backup"))}
-            </li>
-          </ul>
-        </div>
+        {/* ── Grade Manager 级长菜单 ── */}
+        {user.role === "grade_manager" && (
+          <>
+            <div className="nav-section">
+              <h6 className="nav-section-title">主要功能</h6>
+              <ul className="flex flex-col">
+                <li className="nav-item">
+                  {makeLink("/", "Dashboard", "fa-th-large", pathname === "/")}
+                </li>
+              </ul>
+            </div>
 
-        <div className="nav-section">
-          <h6 className="nav-section-title">其他功能</h6>
-          <ul className="nav flex-column">
-            <li className="nav-item">
-              {makeLink("/help", "帮助中心", "fa-shield-alt", pathname.startsWith("/help"))}
-            </li>
-            <li className="nav-item">
-              {makeLink("/support", "技术支持", "fa-book", pathname.startsWith("/support"))}
-            </li>
-            <li className="nav-item">
-              {makeLink("/graduation", "毕业管理", "fa-graduation-cap", pathname.startsWith("/graduation"))}
-            </li>
-          </ul>
-        </div>
+            <div className="nav-section">
+              <h6 className="nav-section-title">年级管理</h6>
+              <ul className="flex flex-col">
+                <li className="nav-item">
+                  {makeLink("/students", "年级学生", "fa-user-graduate", pathname.startsWith("/students"))}
+                </li>
+                <li className="nav-item">
+                  {makeLink("/exams", "年级考试", "fa-clipboard-list", pathname.startsWith("/exams"))}
+                </li>
+                <li className="nav-item">
+                  {makeLink(
+                    "/scores",
+                    "成绩管理",
+                    "fa-chart-line",
+                    pathname === "/scores" || pathname.startsWith("/scores/add") || pathname.startsWith("/scores/batch-edit")
+                  )}
+                </li>
+                <li className="nav-item">
+                  {makeLink("/scores/query", "成绩查询", "fa-search", pathname.startsWith("/scores/query"))}
+                </li>
+                <li className="nav-item">
+                  {makeLink("/analysis/class-grade", "成绩分析", "fa-chart-bar", pathname.startsWith("/analysis/class-grade"))}
+                </li>
+                <li className="nav-item">
+                  {makeLink("/analysis/student", "个人分析", "fa-chart-bar", pathname.startsWith("/analysis/student"))}
+                </li>
+                <li className={`nav-item has-submenu ${targetStudentsOpen ? "open" : ""}`}>
+                  <a
+                    className={`nav-link${pathname.startsWith("/target-students") ? " active" : ""}`}
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setTargetStudentsOpen((prev) => !prev);
+                    }}
+                  >
+                    <i className="fas fa-bullseye" />
+                    目标生筛选
+                  </a>
+                  <ul className="nav-submenu">
+                    <li className="nav-item">
+                      {makeLink("/target-students", "简单筛选", "", pathname === "/target-students")}
+                    </li>
+                    <li className="nav-item">
+                      {makeLink("/target-students/advanced", "高级筛选", "", pathname.startsWith("/target-students/advanced"))}
+                    </li>
+                    <li className="nav-item">
+                      {makeLink("/target-students/rules", "我的规则", "", pathname.startsWith("/target-students/rules"))}
+                    </li>
+                    <li className="nav-item">
+                      {makeLink("/target-students/tracking", "变化追踪", "", pathname.startsWith("/target-students/tracking"))}
+                    </li>
+                  </ul>
+                </li>
+              </ul>
+            </div>
+          </>
+        )}
+
+        {/* ── Subject Teacher 科任老师菜单 ── */}
+        {user.role === "subject_teacher" && (
+          <>
+            <div className="nav-section">
+              <h6 className="nav-section-title">主要功能</h6>
+              <ul className="flex flex-col">
+                <li className="nav-item">
+                  {makeLink("/", "Dashboard", "fa-th-large", pathname === "/")}
+                </li>
+              </ul>
+            </div>
+
+            <div className="nav-section">
+              <h6 className="nav-section-title">教学管理</h6>
+              <ul className="flex flex-col">
+                <li className="nav-item">
+                  {makeLink("/students", "任教学生", "fa-user-graduate", pathname.startsWith("/students"))}
+                </li>
+                <li className="nav-item">
+                  {makeLink("/scores/query", "成绩查询", "fa-search", pathname.startsWith("/scores/query"))}
+                </li>
+                <li className={`nav-item has-submenu ${analysisOpen ? "open" : ""}`}>
+                  <a
+                    className="nav-link"
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setAnalysisOpen((prev) => !prev);
+                    }}
+                  >
+                    <i className="fas fa-chart-bar" />
+                    成绩分析
+                  </a>
+                  <ul className="nav-submenu">
+                    <li className="nav-item">
+                      {makeLink("/analysis/class-grade", "班级对比", "", pathname.startsWith("/analysis/class-grade"))}
+                    </li>
+                    <li className="nav-item">
+                      {makeLink("/analysis/student", "个人追踪", "", pathname.startsWith("/analysis/student"))}
+                    </li>
+                  </ul>
+                </li>
+                <li className="nav-item">
+                  {makeLink("/target-students", "目标生筛选", "fa-bullseye", pathname.startsWith("/target-students"))}
+                </li>
+              </ul>
+            </div>
+          </>
+        )}
       </nav>
     </div>
   );

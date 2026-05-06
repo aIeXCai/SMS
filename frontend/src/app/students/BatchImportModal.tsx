@@ -1,4 +1,7 @@
 import React, { useState, useRef } from "react";
+import { api } from "@/lib/api";
+import ImportInstructions from "./components/ImportInstructions";
+import ImportResults from "./components/ImportResults";
 
 interface FailedRow {
   row: number;
@@ -20,11 +23,9 @@ interface BatchImportModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  backendBaseUrl: string;
-  authHeader: HeadersInit | undefined;
 }
 
-export default function BatchImportModal({ isOpen, onClose, onSuccess, backendBaseUrl, authHeader }: BatchImportModalProps) {
+export default function BatchImportModal({ isOpen, onClose, onSuccess }: BatchImportModalProps) {
   const [file, setFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [importResults, setImportResults] = useState<ImportResults | null>(null);
@@ -41,10 +42,7 @@ export default function BatchImportModal({ isOpen, onClose, onSuccess, backendBa
 
   const handleDownloadTemplate = async () => {
     try {
-      const res = await fetch(`${backendBaseUrl}/api/students/download-template/`, {
-        method: "GET",
-        headers: { ...authHeader }
-      });
+      const res = await api.downloadBlob('/students/download-template/');
       if (res.ok) {
         const blob = await res.blob();
         const url = window.URL.createObjectURL(blob);
@@ -69,7 +67,6 @@ export default function BatchImportModal({ isOpen, onClose, onSuccess, backendBa
       setErrorMsg("请先选择一个包含学生信息的 Excel 文件");
       return;
     }
-
     setIsSubmitting(true);
     setErrorMsg("");
     setImportResults(null);
@@ -78,21 +75,13 @@ export default function BatchImportModal({ isOpen, onClose, onSuccess, backendBa
     formData.append("file", file);
 
     try {
-      const res = await fetch(`${backendBaseUrl}/api/students/batch-import/`, {
-        method: "POST",
-        headers: {
-          ...authHeader,
-        },
-        body: formData,
-      });
-
-      const data = await res.json();
-      if (res.ok && data.success) {
+      const data = await api.upload<ImportResults>('/students/batch-import/', formData);
+      if (data.success) {
         setImportResults(data);
       } else {
         setErrorMsg(data.message || "上传或处理失败，请检查文件格式。");
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
       setErrorMsg("网络异常或服务器错误");
     } finally {
@@ -117,198 +106,98 @@ export default function BatchImportModal({ isOpen, onClose, onSuccess, backendBa
   };
 
   return (
-    <div className="modal d-block" style={{ backgroundColor: "rgba(0,0,0,0.6)", position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1050 }} tabIndex={-1} role="dialog">
-      <div className="modal-dialog modal-lg modal-dialog-centered" role="document" style={{ marginTop: '5vh' }}>
-        <div className="modal-content border-0 shadow-lg" style={{ borderRadius: '15px', overflow: 'hidden', borderLeft: '4px solid #28a745' }}>
-          <div className="modal-header border-bottom" style={{ background: 'linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%)', padding: '1.5rem' }}>
-            <h5 className="modal-title fw-bold text-dark mb-0">
-              <i className="fas fa-file-import me-2 text-success"></i>
-              批量导入学生
-            </h5>
-            <button type="button" className="btn-close" onClick={resetStateAndClose} aria-label="Close"></button>
-          </div>
-          
-          <div className="modal-body" style={{ padding: '2rem' }}>
-            {!importResults && (
-              <>
-                <div className="alert border mb-4" style={{ background: 'linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%)', borderColor: '#bee5eb', borderRadius: '10px', padding: '1.5rem' }}>
-                   <div className="d-flex align-items-start">
-                     <i className="fas fa-info-circle me-3" style={{ fontSize: '2rem', color: '#0c5460' }}></i>
-                     <div>
-                      <h6 className="alert-heading fw-bold mb-2 text-dark">导入说明</h6>
-                      <ul className="mb-0 ps-3 lh-lg text-dark small" style={{ opacity: 0.9 }}>
-                        <li>请先下载系统提供的标准 <strong>Excel 模板文件</strong>。</li>
-                        <li><strong>学号</strong> 和 <strong>姓名</strong> 为必填项。</li>
-                        <li>若系统已存在相同学号，将执行<strong>更新操作</strong>。</li>
-                        <li>日期格式确保为 <strong>YYYY-MM-DD</strong>。</li>
-                      </ul>
-                     </div>
-                   </div>
+    <div className="fixed inset-0 z-50 flex items-start justify-center" style={{ backgroundColor: "rgba(0,0,0,0.6)" }} tabIndex={-1} role="dialog">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full mx-4 mt-[5vh] overflow-hidden" style={{ borderLeft: '4px solid #28a745' }}>
+        {/* kept because: gradient background */}
+        <div className="flex items-center justify-between px-6 py-4 border-b" style={{ background: 'linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%)' }}>
+          <h5 className="font-bold text-gray-900 mb-0">
+            <i className="fas fa-file-import mr-2 text-green-600"></i>
+            批量导入学生
+          </h5>
+          <button type="button" className="bg-transparent border-none text-xl leading-none opacity-50 hover:opacity-80 cursor-pointer" onClick={resetStateAndClose} aria-label="Close">&times;</button>
+        </div>
+
+        <div className="p-8">
+          {!importResults && (
+            <>
+              <ImportInstructions onDownloadTemplate={handleDownloadTemplate} />
+
+              {errorMsg && (
+                <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg flex items-center mb-4 shadow-sm">
+                  <i className="fas fa-exclamation-triangle mr-3 text-2xl"></i>
+                  <div>{errorMsg}</div>
+                </div>
+              )}
+
+              <form onSubmit={handleSubmit}>
+                <div
+                  className={`file-upload-area p-5 mb-4 text-center ${file ? 'has-file' : ''}`}
+                  style={{
+                    border: '2px dashed #28a745',
+                    borderRadius: '10px',
+                    backgroundColor: file ? '#e9ecef' : '#f8f9fa',
+                    transition: 'all 0.3s ease',
+                    cursor: 'pointer'
+                  }}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept=".xlsx, .xls"
+                    ref={fileInputRef}
+                    onChange={handleFileChange}
+                  />
+                  {!file ? (
+                    <>
+                      <i className="fas fa-cloud-upload-alt fa-3x text-green-600 mb-3 opacity-75"></i>
+                      <h5 className="mb-2 text-gray-900">点击或拖拽选择文件</h5>
+                      <p className="text-gray-500 text-sm mb-0">支持 .xlsx 或 .xls 格式</p>
+                    </>
+                  ) : (
+                    <div className="text-green-600 scale-in">
+                      <i className="fas fa-file-excel fa-3x mb-3"></i>
+                      <h5 className="text-gray-900 mb-1 font-bold">{file.name}</h5>
+                      <p className="text-gray-500 text-sm mb-0">{formatFileSize(file.size)}</p>
+                    </div>
+                  )}
                 </div>
 
-                <div className="mb-4 text-center" style={{ background: 'linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%)', border: '1px solid #ffeaa7', borderRadius: '10px', padding: '1.5rem' }}>
-                  <button 
-                    type="button" 
-                    onClick={handleDownloadTemplate}
-                    className="btn btn-warning fw-bold text-dark shadow-sm px-4 rounded-pill transition-all"
+                <div className="text-center mt-4">
+                  <button
+                    type="submit"
+                    className="rounded-full shadow px-5 text-lg py-3 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{ background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)', border: 'none', minWidth: '200px' }}
+                    disabled={isSubmitting || !file}
                   >
-                    <i className="fas fa-download me-2"></i>下载导入模板
-                  </button>
-                </div>
-
-                {errorMsg && (
-                  <div className="alert alert-danger border-0 rounded-3 d-flex align-items-center mb-4 shadow-sm">
-                    <i className="fas fa-exclamation-triangle me-3 fs-4"></i>
-                    <div>{errorMsg}</div>
-                  </div>
-                )}
-
-                <form onSubmit={handleSubmit}>
-                  <div 
-                    className={`file-upload-area p-5 mb-4 text-center ${file ? 'has-file' : ''}`} 
-                    style={{
-                       border: '2px dashed #28a745',
-                       borderRadius: '10px',
-                       backgroundColor: file ? '#e9ecef' : '#f8f9fa',
-                       transition: 'all 0.3s ease',
-                       cursor: 'pointer'
-                    }}
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <input 
-                      type="file" 
-                      className="d-none" 
-                      accept=".xlsx, .xls"
-                      ref={fileInputRef}
-                      onChange={handleFileChange}
-                    />
-                    
-                    {!file ? (
+                    {isSubmitting ? (
                       <>
-                        <i className="fas fa-cloud-upload-alt fa-3x text-success mb-3 opacity-75"></i>
-                        <h5 className="mb-2 text-dark">点击或拖拽选择文件</h5>
-                        <p className="text-muted small mb-0">支持 .xlsx 或 .xls 格式</p>
+                        <span className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full inline-block mr-2 align-middle" role="status" aria-hidden="true"></span>
+                        处理中...
                       </>
                     ) : (
-                      <div className="text-success scale-in">
-                        <i className="fas fa-file-excel fa-3x mb-3"></i>
-                        <h5 className="text-dark mb-1 fw-bold">{file.name}</h5>
-                        <p className="text-muted small mb-0">{formatFileSize(file.size)}</p>
-                      </div>
+                      <>
+                        <i className="fas fa-upload mr-2"></i>开始导入
+                      </>
                     )}
-                  </div>
-
-                  <div className="text-center mt-4">
-                    <button 
-                      type="submit" 
-                      className="btn btn-success btn-lg rounded-pill shadow px-5"
-                      style={{ background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)', border: 'none', minWidth: '200px' }}
-                      disabled={isSubmitting || !file}
-                    >
-                      {isSubmitting ? (
-                        <>
-                          <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                          处理中...
-                        </>
-                      ) : (
-                        <>
-                          <i className="fas fa-upload me-2"></i>开始导入
-                        </>
-                      )}
-                    </button>
-                    <button type="button" className="btn btn-light btn-lg rounded-pill shadow-sm px-5 ms-3 border" onClick={resetStateAndClose}>
-                      取消
-                    </button>
-                  </div>
-                </form>
-              </>
-            )}
-
-            {/* 导入结果展示 */}
-            {importResults && (
-              <div className="animation-fade-in">
-                <div className={`alert ${importResults.success ? 'alert-success' : 'alert-danger'} border-0 shadow-sm rounded-3 mb-4`}>
-                  <h4 className={`alert-heading mb-3 ${importResults.success ? 'text-success' : 'text-danger'} fw-bold d-flex align-items-center`}>
-                    <i className={`fas ${importResults.success ? 'fa-check-circle' : 'fa-times-circle'} me-2`}></i>
-                    {importResults.success ? '导入完成！' : '导入失败！'}
-                  </h4>
-                  <div className="p-3 bg-white bg-opacity-50 rounded" style={{ fontSize: '1.05rem' }}>
-                    <div className="d-flex align-items-center mb-2">
-                      <i className="fas fa-check text-success me-2"></i>
-                      <span>成功导入 <strong className="fs-5 text-success">{importResults.imported_count}</strong> 条学生记录</span>
-                    </div>
-                    {importResults.failed_count > 0 && (
-                      <div className="d-flex align-items-center">
-                        <i className="fas fa-times text-danger me-2"></i>
-                        <span>失败记录 <strong className="fs-5 text-danger">{importResults.failed_count}</strong> 条</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="row">
-                  {importResults.failed_rows && importResults.failed_rows.length > 0 && (
-                    <div className="col-12 mb-4">
-                      <div className="card border-danger shadow-sm">
-                        <div className="card-header bg-danger text-white py-2">
-                          <h6 className="mb-0 fw-bold"><i className="fas fa-times me-2"></i>失败详情</h6>
-                        </div>
-                        <div className="card-body p-0" style={{ maxHeight: "250px", overflowY: "auto" }}>
-                          <table className="table table-sm table-hover mb-0">
-                            <thead className="table-light sticky-top">
-                              <tr>
-                                <th className="text-center border-bottom bg-light" style={{ width: '80px' }}>Excel行号</th>
-                                <th className="border-bottom bg-light">失败原因</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {importResults.failed_rows.map((fr, idx) => (
-                                <tr key={idx}>
-                                  <td className="text-center fw-bold text-muted border-end align-middle">{fr.row}</td>
-                                  <td className="text-danger small align-middle" style={{ whiteSpace: 'pre-wrap' }}>{fr.error}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {importResults.warning_messages && importResults.warning_messages.length > 0 && (
-                    <div className="col-12">
-                      <div className="card border-warning shadow-sm">
-                        <div className="card-header bg-warning text-dark py-2">
-                          <h6 className="mb-0 fw-bold"><i className="fas fa-exclamation-triangle me-2"></i>警告信息 (已处理但需留意)</h6>
-                        </div>
-                        <div className="card-body p-3 bg-light" style={{ maxHeight: "200px", overflowY: "auto" }}>
-                          {importResults.warning_messages.map((wm, idx) => (
-                            <div key={idx} className="text-dark small mb-2 lh-base border-bottom pb-2 border-warning border-opacity-25 d-flex">
-                              <i className="fas fa-circle text-warning mt-1 me-2" style={{fontSize: '6px'}}></i>
-                              <span>{wm}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-                
-                <div className="text-center mt-4 pt-3 border-top">
-                  <button 
-                    type="button" 
-                    className="btn btn-primary btn-lg px-5 rounded-pill shadow transition-all" 
-                    onClick={() => { onSuccess(); resetStateAndClose(); }}
-                  >
-                    完成并刷新数据
+                  </button>
+                  <button type="button" className="bg-white border border-gray-300 px-5 py-3 rounded-full shadow-sm text-lg ml-3 hover:bg-gray-50 transition-colors" onClick={resetStateAndClose}>
+                    取消
                   </button>
                 </div>
-              </div>
-            )}
-          </div>
+              </form>
+            </>
+          )}
+
+          {importResults && (
+            <ImportResults
+              importResults={importResults}
+              onComplete={() => { onSuccess(); resetStateAndClose(); }}
+            />
+          )}
         </div>
       </div>
-      
+
       <style dangerouslySetInnerHTML={{__html: `
         .file-upload-area:hover { border-color: #20c997 !important; background-color: #e9ecef !important; }
         .file-upload-area.has-file { border-color: #28a745 !important; }

@@ -55,6 +55,7 @@ class ScoreAccessService:
 
     @classmethod
     def scope_exams_from_scores(cls, user, queryset):
+        """Return exams that HAVE scores the user can see."""
         if cls._is_unrestricted(user):
             return queryset
 
@@ -63,3 +64,17 @@ class ScoreAccessService:
             Score.objects.all(),
         ).values_list("exam_id", flat=True).distinct()
         return queryset.filter(id__in=accessible_exam_ids)
+
+    @classmethod
+    def scope_exams_for_entry(cls, user, queryset):
+        """Return exams the user can ENTER scores for (including exams with no scores yet)."""
+        if cls._is_unrestricted(user):
+            return queryset
+
+        # Find cohorts associated with user's accessible classes
+        class_ids = cls.scoped_class_ids(user)
+        if not class_ids:
+            return queryset.none()
+
+        cohorts = Class.objects.filter(id__in=class_ids).values_list("cohort", flat=True).distinct()
+        return queryset.filter(grade_level__in=cohorts)

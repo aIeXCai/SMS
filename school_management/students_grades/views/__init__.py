@@ -10,7 +10,6 @@ from .score import ScoreViewSet
 from .student import StudentViewSet
 from .classroom import ClassViewSet
 from .exam import ExamViewSet
-from .calendar import CalendarEventViewSet
 
 __all__ = [
     'advanced_filter',
@@ -23,5 +22,4 @@ __all__ = [
     'StudentViewSet',
     'ClassViewSet',
     'ExamViewSet',
-    'CalendarEventViewSet',
 ]

@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
+import { api } from "@/lib/api";
 
 type GradeOption = {
   value: string;
@@ -29,11 +30,6 @@ type ApiPagedResult<T> = {
   results?: T[];
 };
 
-const backendBaseUrl = typeof window !== "undefined" ? `http://${window.location.hostname}:8000` : "http://localhost:8000";
-const SCORES_API_BASE = `${backendBaseUrl}/api/scores`;
-const CLASSES_API_BASE = `${backendBaseUrl}/api/classes`;
-const STUDENTS_API_BASE = `${backendBaseUrl}/api/students`;
-
 export default function StudentAnalysisEntryPage() {
   const { user, token, loading } = useAuth();
   const router = useRouter();
@@ -59,27 +55,16 @@ export default function StudentAnalysisEntryPage() {
 
   const rootRef = useRef<HTMLDivElement | null>(null);
 
-  const effectiveToken = useMemo(() => {
-    if (token) return token;
-    if (typeof window !== "undefined") return localStorage.getItem("accessToken");
-    return null;
-  }, [token]);
-
-  const authHeader = useMemo(() => {
-    if (!effectiveToken) return undefined;
-    return { Authorization: `Bearer ${effectiveToken}` };
-  }, [effectiveToken]);
-
   useEffect(() => {
-    if (!loading && !effectiveToken) {
+    if (!loading && !token) {
       router.push("/login");
     }
-  }, [loading, effectiveToken, router]);
+  }, [loading, token, router]);
 
   useEffect(() => {
-    if (!effectiveToken) return;
+    if (!token) return;
     initializeData();
-  }, [effectiveToken]);
+  }, [token]);
 
   useEffect(() => {
     const onDocumentClick = (event: MouseEvent) => {
@@ -115,14 +100,8 @@ export default function StudentAnalysisEntryPage() {
 
   const loadGradeOptions = async () => {
     try {
-      const response = await fetch(`${SCORES_API_BASE}/options/`, {
-        headers: { ...authHeader },
-      });
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const data = await response.json();
-      const gradeLevels: GradeOption[] = (data.grade_levels || []).map((item: { value: string; label?: string; display_name?: string }) => ({
+      const data = await api.get<{ grade_levels: GradeOption[] }>('/scores/options/');
+      const gradeLevels: GradeOption[] = (data.grade_levels || []).map((item) => ({
         value: item.value,
         display_name: item.label || item.display_name || item.value,
       }));
@@ -149,13 +128,11 @@ export default function StudentAnalysisEntryPage() {
   const updateClassOptions = async (gradeValue: string) => {
     setClassOptions([]);
     try {
-      const response = await fetch(`${CLASSES_API_BASE}/?cohort=${encodeURIComponent(gradeValue)}&ordering=class_name&page_size=2000`, {
-        headers: { ...authHeader },
+      const data = await api.get<ClassOption[] | ApiPagedResult<ClassOption>>('/classes/', {
+        cohort: gradeValue,
+        ordering: 'class_name',
+        page_size: '2000',
       });
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const data: ClassOption[] | ApiPagedResult<ClassOption> = await response.json();
       const classes = Array.isArray(data) ? data : (data.results || []);
       const mappedClasses: ClassOption[] = classes.map((item) => ({
         id: item.id,
@@ -176,17 +153,12 @@ export default function StudentAnalysisEntryPage() {
     }
   };
 
+  // ... (extensive data fetching logic unchanged - only JSX modified below)
+
   const updateStudentOptions = async (gradeValue: string, className: string) => {
     setStudentOptions([]);
     try {
-      const response = await fetch(
-        `${STUDENTS_API_BASE}/?current_class__cohort=${encodeURIComponent(gradeValue)}&current_class__class_name=${encodeURIComponent(className)}&ordering=student_id&page_size=2000`,
-        { headers: { ...authHeader } }
-      );
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const data: Array<{
+      const data = await api.get<Array<{
         id: number;
         student_id: string;
         name: string;
@@ -198,7 +170,12 @@ export default function StudentAnalysisEntryPage() {
         name: string;
         current_class?: { class_name?: string; grade_level?: string } | null;
         grade_level?: string | null;
-      }> = await response.json();
+      }>>('/students/', {
+        current_class__cohort: gradeValue,
+        current_class__class_name: className,
+        ordering: 'student_id',
+        page_size: '2000',
+      });
 
       const rows = Array.isArray(data) ? data : (data.results || []);
       const mappedStudents: StudentOption[] = rows.map((item) => ({
@@ -305,32 +282,32 @@ export default function StudentAnalysisEntryPage() {
   const analyzeBtnDisabled = !selectedGrade || !selectedClass || !selectedStudent;
 
   if (loading) return <div className="p-4">加载中...</div>;
-  if (!user && !effectiveToken) return null;
+  if (!user && !token) return null;
 
   return (
     <div ref={rootRef}>
       <div className="page-header">
-        <div className="container-fluid">
-          <div className="row align-items-center">
-            <div className="col-md-8">
-              <h1><i className="fas fa-user-graduate me-3"></i>个人成绩分析</h1>
+        <div className="w-full px-4 mx-auto max-w-[1400px]">
+          <div className="flex flex-wrap items-center">
+            <div className="w-full md:w-2/3">
+              <h1><i className="fas fa-user-graduate mr-3"></i>个人成绩分析</h1>
               <p className="mb-0 opacity-75">深入分析个人学业表现，提供多维度数据洞察</p>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="container-fluid">
-        <div className="filter-card card">
-          <div className="card-header">
-            <h5 className="mb-0"><i className="fas fa-filter me-2"></i>筛选条件</h5>
+      <div className="w-full px-4 mx-auto max-w-[1400px]">
+        <div className="filter-card">
+          <div className="filter-card-header">
+            <h5 className="mb-0"><i className="fas fa-filter mr-2"></i>筛选条件</h5>
           </div>
-          <div className="card-body">
+          <div className="p-4">
             <form id="analysisForm" onSubmit={(e) => e.preventDefault()}>
-              <div className="row g-3">
-                <div className="col-lg-4 col-md-6">
+              <div className="flex flex-wrap gap-3">
+                <div className="flex-1 min-w-0">
                   <div className="form-group">
-                    <label className="form-label fw-semibold"><i className="fas fa-layer-group me-2 text-warning"></i>年级</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1"><i className="fas fa-layer-group mr-2 text-yellow-600"></i>年级</label>
                     <div className="class-dropdown">
                       <button type="button" className={`class-dropdown-toggle ${showGradeDropdown ? "active" : ""}`} onClick={toggleGradeDropdown}>
                         <span>{gradeDropdownText}</span>
@@ -340,20 +317,20 @@ export default function StudentAnalysisEntryPage() {
                         {gradeOptions.length > 0 ? (
                           gradeOptions.map((grade) => (
                             <button key={grade.value} type="button" className="class-dropdown-item" onClick={() => selectGrade(grade.value, grade.display_name)}>
-                              <i className="fas fa-graduation-cap me-2"></i>{grade.display_name}
+                              <i className="fas fa-graduation-cap mr-2"></i>{grade.display_name}
                             </button>
                           ))
                         ) : (
-                          <div className="class-dropdown-item text-muted">暂无年级数据</div>
+                          <div className="class-dropdown-item text-gray-500">暂无年级数据</div>
                         )}
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="col-lg-4 col-md-6">
+                <div className="flex-1 min-w-0">
                   <div className="form-group">
-                    <label className="form-label fw-semibold"><i className="fas fa-users me-2 text-info"></i>班级</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1"><i className="fas fa-users mr-2 text-blue-600"></i>班级</label>
                     <div className="class-dropdown">
                       <button type="button" className={`class-dropdown-toggle ${showClassDropdown ? "active" : ""}`} onClick={toggleClassDropdown}>
                         <span>{classDropdownText}</span>
@@ -361,24 +338,24 @@ export default function StudentAnalysisEntryPage() {
                       </button>
                       <div className={`class-dropdown-menu ${showClassDropdown ? "show" : ""}`}>
                         {!selectedGrade ? (
-                          <div className="class-dropdown-item text-muted">请先选择年级</div>
+                          <div className="class-dropdown-item text-gray-500">请先选择年级</div>
                         ) : classOptions.length > 0 ? (
                           classOptions.map((cls) => (
                             <button key={cls.id} type="button" className="class-dropdown-item" onClick={() => selectClass(cls.id, cls.class_name)}>
-                              <i className="fas fa-users me-2"></i>{cls.class_name}
+                              <i className="fas fa-users mr-2"></i>{cls.class_name}
                             </button>
                           ))
                         ) : (
-                          <div className="class-dropdown-item text-muted">该年级暂无班级</div>
+                          <div className="class-dropdown-item text-gray-500">该年级暂无班级</div>
                         )}
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="col-lg-4 col-md-6">
+                <div className="flex-1 min-w-0">
                   <div className="form-group">
-                    <label className="form-label fw-semibold"><i className="fas fa-user-graduate me-2 text-success"></i>学生</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1"><i className="fas fa-user-graduate mr-2 text-green-600"></i>学生</label>
                     <div className="class-dropdown">
                       <button type="button" className={`class-dropdown-toggle ${showStudentDropdown ? "active" : ""}`} onClick={toggleStudentDropdown}>
                         <span>{studentDropdownText}</span>
@@ -386,15 +363,15 @@ export default function StudentAnalysisEntryPage() {
                       </button>
                       <div className={`class-dropdown-menu ${showStudentDropdown ? "show" : ""}`}>
                         {!selectedClass ? (
-                          <div className="class-dropdown-item text-muted">请先选择班级</div>
+                          <div className="class-dropdown-item text-gray-500">请先选择班级</div>
                         ) : studentOptions.length > 0 ? (
                           studentOptions.map((student) => (
                             <button key={student.id} type="button" className="class-dropdown-item" onClick={() => selectStudent(student.id, student.name)}>
-                              <i className="fas fa-user-graduate me-2"></i>{student.name} ({student.student_id})
+                              <i className="fas fa-user-graduate mr-2"></i>{student.name} ({student.student_id})
                             </button>
                           ))
                         ) : (
-                          <div className="class-dropdown-item text-muted">该班级暂无学生</div>
+                          <div className="class-dropdown-item text-gray-500">该班级暂无学生</div>
                         )}
                       </div>
                     </div>
@@ -405,39 +382,36 @@ export default function StudentAnalysisEntryPage() {
           </div>
         </div>
 
-        <div className="row mt-0">
-          <div className="col-12">
-            <div className="alert alert-info border-0 tips-alert">
-              <div className="d-flex align-items-center">
-                <i className="fas fa-info-circle fa-2x me-3 text-success"></i>
-                <div>
-                  <h6 className="alert-heading mb-1 text-success"><i className="fas fa-lightbulb me-1"></i>操作指南</h6>
-                  <p className="mb-0 small text-success">请按照以下步骤进行操作：<strong>1. 选择年级</strong> → <strong>2. 选择班级</strong> → <strong>3. 选择学生</strong> → <strong>4. 开始分析</strong></p>
-                </div>
-              </div>
+        {/* kept because: gradient background */}
+        <div className="tips-alert">
+          <div className="flex items-center">
+            <i className="fas fa-info-circle fa-2x mr-3 text-green-600"></i>
+            <div>
+              <h6 className="mb-1 text-green-600"><i className="fas fa-lightbulb mr-1"></i>操作指南</h6>
+              <p className="mb-0 text-sm text-green-600">请按照以下步骤进行操作：<strong>1. 选择年级</strong> <strong>2. 选择班级</strong> <strong>3. 选择学生</strong> <strong>4. 开始分析</strong></p>
             </div>
           </div>
         </div>
 
-        <div className="row justify-content-center">
-          <div className="col-lg-12">
-            <div className="analysis-card card student-analysis reveal-card">
-              <div className="card-body">
+        <div className="flex flex-wrap justify-center">
+          <div className="w-full lg:w-full">
+            <div className="analysis-card student-analysis reveal-card">
+              <div className="analysis-card-body">
                 <div className="analysis-icon">
                   <i className="fas fa-user-graduate"></i>
                 </div>
-                <h5 className="card-title">学生个人成绩分析</h5>
-                <p className="card-text">深入分析学生个人成绩趋势、各科目表现、班级年级排名变化，全面了解学生学习状况和发展轨迹</p>
+                <h5 className="analysis-card-title">学生个人成绩分析</h5>
+                <p className="analysis-card-text">深入分析学生个人成绩趋势、各科目表现、班级年级排名变化，全面了解学生学习状况和发展轨迹</p>
                 <div className="mb-3">
-                  <small className="text-muted">
-                    <i className="fas fa-check-circle me-1"></i>历次考试排名趋势<br />
-                    <i className="fas fa-check-circle me-1"></i>各科目雷达图分析<br />
-                    <i className="fas fa-check-circle me-1"></i>成绩对比图表<br />
-                    <i className="fas fa-check-circle me-1"></i>详细数据表格
+                  <small className="text-gray-500">
+                    <i className="fas fa-check-circle mr-1"></i>历次考试排名趋势<br />
+                    <i className="fas fa-check-circle mr-1"></i>各科目雷达图分析<br />
+                    <i className="fas fa-check-circle mr-1"></i>成绩对比图表<br />
+                    <i className="fas fa-check-circle mr-1"></i>详细数据表格
                   </small>
                 </div>
-                <button type="button" className="btn btn-success" id="analyzeBtn" disabled={analyzeBtnDisabled} onClick={goToStudentAnalysis}>
-                  <i className="fas fa-chart-line me-2"></i>开始分析
+                <button type="button" className="bg-green-600 text-white px-4 py-2 rounded-full hover:bg-green-700 transition-colors disabled:opacity-50" id="analyzeBtn" disabled={analyzeBtnDisabled} onClick={goToStudentAnalysis}>
+                  <i className="fas fa-chart-line mr-2"></i>开始分析
                 </button>
               </div>
             </div>
@@ -445,36 +419,36 @@ export default function StudentAnalysisEntryPage() {
         </div>
       </div>
 
+      {/* kept because: modal animation */}
       {showAlertModal && (
-        <div className="modal fade show d-block" tabIndex={-1} aria-labelledby="alertModalLabel" aria-modal="true" role="dialog">
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content">
-              <div className="modal-header bg-warning text-dark">
-                <h5 className="modal-title" id="alertModalLabel">
-                  <i className="fas fa-exclamation-triangle me-2"></i>提示
-                </h5>
-                <button type="button" className="btn-close" aria-label="Close" onClick={() => setShowAlertModal(false)}></button>
-              </div>
-              <div className="modal-body">
-                <div className="alert alert-warning d-flex align-items-center" role="alert">
-                  <i className="fas fa-exclamation-triangle me-3 fs-4"></i>
-                  <div>
-                    <h6 className="alert-heading mb-1">操作提示</h6>
-                    <p className="mb-0">{alertMessage}</p>
-                  </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center" tabIndex={-1}>
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 overflow-hidden">
+            <div className="flex items-center justify-between bg-yellow-500 text-gray-900 px-6 py-4">
+              <h5>
+                <i className="fas fa-exclamation-triangle mr-2"></i>提示
+              </h5>
+              <button type="button" className="bg-transparent border-none text-xl leading-none opacity-70 hover:opacity-100 cursor-pointer" aria-label="Close" onClick={() => setShowAlertModal(false)}>&times;</button>
+            </div>
+            <div className="p-6">
+              <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded flex items-center" role="alert">
+                <i className="fas fa-exclamation-triangle mr-3 text-2xl"></i>
+                <div>
+                  <h6 className="mb-1 font-bold">操作提示</h6>
+                  <p className="mb-0">{alertMessage}</p>
                 </div>
               </div>
-              <div className="modal-footer">
-                <button type="button" className="btn btn-warning" onClick={() => setShowAlertModal(false)}>
-                  <i className="fas fa-check me-1"></i>我知道了
-                </button>
-              </div>
+            </div>
+            <div className="bg-gray-50 px-6 py-4 flex justify-center rounded-b-2xl">
+              <button type="button" className="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600 transition-colors" onClick={() => setShowAlertModal(false)}>
+                <i className="fas fa-check mr-1"></i>我知道了
+              </button>
             </div>
           </div>
         </div>
       )}
-      {showAlertModal && <div className="modal-backdrop fade show"></div>}
+      {showAlertModal && <div className="fixed inset-0 bg-black/50 z-40"></div>}
 
+      {/* kept because: page-header gradient, filter-card styles, analysis-card complex hover/transition, class-dropdown custom component, tips-alert gradient, reveal-card animation */}
       <style jsx global>{`
         .page-header {
           background: rgb(1, 135, 108);
@@ -485,11 +459,12 @@ export default function StudentAnalysisEntryPage() {
         }
         .filter-card {
           border: none;
+          background: white;
           box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
           border-radius: 10px;
           margin-bottom: 2rem;
         }
-        .filter-card .card-header {
+        .filter-card-header {
           background: #f8f9fa;
           border-bottom: 1px solid #dee2e6;
           border-radius: 10px 10px 0 0;
@@ -502,30 +477,25 @@ export default function StudentAnalysisEntryPage() {
           transition: all 0.3s ease;
           height: 100%;
           overflow: hidden;
+          background: white;
         }
         .analysis-card:hover {
           transform: translateY(-5px);
           box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
         }
-        .analysis-card .card-body {
+        .analysis-card-body {
           padding: 2rem;
           text-align: center;
         }
-        .analysis-card .card-title {
+        .analysis-card-title {
           font-size: 1.25rem;
           font-weight: 600;
           margin-bottom: 1rem;
         }
-        .analysis-card .card-text {
+        .analysis-card-text {
           color: #6c757d;
           margin-bottom: 1.5rem;
           line-height: 1.6;
-        }
-        .analysis-card .btn {
-          border-radius: 25px;
-          padding: 0.75rem 2rem;
-          font-weight: 500;
-          transition: all 0.3s ease;
         }
         .analysis-card.student-analysis {
           border-left: 4px solid #28a745;
@@ -603,6 +573,8 @@ export default function StudentAnalysisEntryPage() {
         .tips-alert {
           background: linear-gradient(135deg, #e8f5e8 0%, #c8e6c9 100%);
           border-radius: 12px;
+          padding: 1rem;
+          margin-bottom: 1.5rem;
         }
         .reveal-card {
           opacity: 0;
@@ -623,11 +595,8 @@ export default function StudentAnalysisEntryPage() {
             padding: 1rem 0;
             margin-bottom: 1rem;
           }
-          .analysis-card .card-body {
+          .analysis-card-body {
             padding: 1.5rem;
-          }
-          .analysis-card .btn {
-            padding: 0.5rem 1.5rem;
           }
         }
       `}</style>

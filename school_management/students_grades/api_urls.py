@@ -12,23 +12,27 @@ from .api_views import (
     FilterSnapshotDetailView,
     compare_snapshots,
 )
-from .views import CalendarEventViewSet
 
 # API 路由配置
-router = DefaultRouter(trailing_slash='/?')
+router = DefaultRouter(trailing_slash=False)
 router.register(r'students', StudentViewSet)
 router.register(r'classes', ClassViewSet)
 router.register(r'exams', ExamViewSet)
 router.register(r'scores', ScoreViewSet)
-router.register(r'calendar-events', CalendarEventViewSet)
 
 urlpatterns = [
     path('students/advanced-filter/', advanced_filter),
+    path('students/advanced-filter', advanced_filter),
     path('filter-rules/', FilterRuleListView.as_view()),
+    path('filter-rules', FilterRuleListView.as_view()),
     path('filter-rules/<int:id>/', FilterRuleDetailView.as_view()),
+    path('filter-rules/<int:id>', FilterRuleDetailView.as_view()),
     path('filter-snapshots/', FilterSnapshotListView.as_view()),
+    path('filter-snapshots', FilterSnapshotListView.as_view()),
     path('filter-snapshots/<int:id>/', FilterSnapshotDetailView.as_view()),
+    path('filter-snapshots/<int:id>', FilterSnapshotDetailView.as_view()),
     path('filter-snapshots/compare/', compare_snapshots),
+    path('filter-snapshots/compare', compare_snapshots),
 
     # 兼容无尾斜杠调用（APPEND_SLASH=False）
     path('scores/options', ScoreViewSet.as_view({'get': 'options'})),

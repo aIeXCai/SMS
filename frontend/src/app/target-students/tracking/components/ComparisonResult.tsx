@@ -101,18 +101,18 @@ const formatDateTime = (value: string) => {
 
 const rankChangeBadge = (delta: number | null) => {
   if (delta === null || delta === undefined) {
-    return <span className="text-muted">-</span>;
+    return <span className="text-gray-500">-</span>;
   }
 
   if (delta > 0) {
-    return <span className="badge bg-success">+{delta}</span>;
+    return <span className="bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded">+{delta}</span>;
   }
 
   if (delta < 0) {
-    return <span className="badge bg-danger">{delta}</span>;
+    return <span className="bg-red-100 text-red-800 text-xs px-2 py-0.5 rounded">{delta}</span>;
   }
 
-  return <span className="badge bg-secondary">0</span>;
+  return <span className="bg-gray-100 text-gray-800 text-xs px-2 py-0.5 rounded">0</span>;
 };
 
 function ChangeTable({
@@ -149,15 +149,15 @@ function ChangeTable({
   const rankSortIcon = rankSortDirection === "asc" ? "fas fa-sort-up" : "fas fa-sort-down";
 
   return (
-    <div className="card filter-card h-100">
-      <div className="card-header d-flex justify-content-between align-items-center">
-        <div className="d-flex align-items-center gap-2">
-          <h6 className="mb-0 d-inline-flex align-items-center fw-semibold" style={{ minHeight: 30, fontSize: "1rem" }}>
-            <i className={`${icon} me-2`}></i>
+    <div className="bg-white rounded-lg shadow filter-card h-100">
+      <div className="px-4 py-3 border-b border-gray-200 flex justify-between items-center">
+        <div className="flex items-center gap-2">
+          <h6 className="mb-0 inline-flex items-center font-semibold" style={{ minHeight: 30, fontSize: "1rem" }}>
+            <i className={`${icon} mr-2`}></i>
             {title}
           </h6>
           <span
-            className="badge bg-primary d-inline-flex align-items-center"
+            className="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded inline-flex items-center"
             style={{ minHeight: 30, fontSize: "0.9rem", padding: "0 10px", borderRadius: 8 }}
           >
             {rows.length} 人
@@ -166,7 +166,7 @@ function ChangeTable({
         <div>
           <button
             type="button"
-            className="btn btn-success btn-sm"
+            className="bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700 transition-colors text-sm"
             onClick={() => {
               const ok = exportSingleTable(title, rows);
               if (!ok) {
@@ -174,17 +174,17 @@ function ChangeTable({
               }
             }}
           >
-            <i className="fas fa-file-excel me-1"></i>导出 Excel
+            <i className="fas fa-file-excel mr-1"></i>导出 Excel
           </button>
         </div>
       </div>
-      <div className="card-body">
+      <div className="p-4">
         {rows.length === 0 ? (
-          <div className="text-center py-4 text-secondary small">暂无数据</div>
+          <div className="text-center py-4 text-gray-500 small">暂无数据</div>
         ) : (
-          <div className="table-responsive">
-            <table className="table table-hover table-bordered align-middle result-table mb-0">
-              <thead className="table-light">
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse [&_tr:hover]:bg-gray-50 table-bordered align-middle result-table mb-0">
+              <thead className="bg-gray-50">
                 <tr>
                   <th className="text-center" style={{ width: "64px" }}>序号</th>
                   <th className="text-center">姓名</th>
@@ -198,15 +198,15 @@ function ChangeTable({
                       onClick={() => setRankSortDirection((prev) => (prev === "asc" ? "desc" : "asc"))}
                     >
                       排名变化
-                      <i className={`${rankSortIcon} ms-1 text-warning`}></i>
+                      <i className={`${rankSortIcon} ml-1 text-yellow-500`}></i>
                     </th>
                 </tr>
               </thead>
               <tbody>
                   {sortedRows.map((item, index) => (
                   <tr key={item.student_id}>
-                    <td className="text-center text-muted">{index + 1}</td>
-                    <td className="text-center fw-medium">{item.name || "-"}</td>
+                    <td className="text-center text-gray-500">{index + 1}</td>
+                    <td className="text-center font-medium">{item.name || "-"}</td>
                     <td className="text-center">{item.cohort || "-"}</td>
                     <td className="text-center">{item.class_name || "-"}</td>
                     <td className="text-center">{item.old_rank ?? "-"}</td>
@@ -235,8 +235,8 @@ function ChangeTable({
 export default function ComparisonResult({ result, loading, error }: ComparisonResultProps) {
   if (loading) {
     return (
-      <div className="text-center py-5 text-secondary">
-        <span className="spinner-border spinner-border-sm me-2"></span>
+      <div className="text-center py-5 text-gray-500">
+        <span className="animate-spin h-3 w-3 border-2 border-blue-600 border-t-transparent rounded-full mr-2 inline-block align-[-0.125em]"></span>
         正在计算快照差异...
       </div>
     );
@@ -244,8 +244,8 @@ export default function ComparisonResult({ result, loading, error }: ComparisonR
 
   if (error) {
     return (
-      <div className="alert alert-danger mb-0" role="alert">
-        <i className="fas fa-triangle-exclamation me-2"></i>
+      <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded mb-0" role="alert">
+        <i className="fas fa-triangle-exclamation mr-2"></i>
         {error}
       </div>
     );
@@ -253,10 +253,10 @@ export default function ComparisonResult({ result, loading, error }: ComparisonR
 
   if (!result) {
     return (
-      <div className="text-center py-5 text-secondary">
-        <i className="fas fa-code-compare fa-2x mb-3 text-muted"></i>
-        <p className="mb-1">请选择基准快照与对比快照后，点击“开始对比分析”。</p>
-        <p className="small mb-0">结果将展示新增、退出、保留名单及排名变化。</p>
+      <div className="text-center py-5 text-gray-500">
+        <i className="fas fa-code-compare fa-2x mb-3 text-gray-500"></i>
+        <p className="mb-1">请选择基准快照与对比快照后，点击"开始对比分析"。</p>
+        <p className="text-sm mb-0">结果将展示新增、退出、保留名单及排名变化。</p>
       </div>
     );
   }
@@ -264,39 +264,39 @@ export default function ComparisonResult({ result, loading, error }: ComparisonR
   return (
     <div>
       <div className="comparison-meta mb-3">
-        <div className="d-flex justify-content-between align-items-center mb-2">
-          <div className="small text-secondary">对比结果导出</div>
+        <div className="flex justify-between items-center mb-2">
+          <div className="text-sm text-gray-500">对比结果导出</div>
           <button
             type="button"
-            className="btn btn-success btn-sm"
+            className="bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700 transition-colors text-sm"
             onClick={() => exportAllTables(result)}
           >
-            <i className="fas fa-file-export me-1"></i>全部导出
+            <i className="fas fa-file-export mr-1"></i>全部导出
           </button>
         </div>
-        <div className="small text-secondary mb-2">
+        <div className="text-sm text-gray-500 mb-2">
           基准：{result.baseline.snapshot_name}（{result.baseline.exam_name}，{formatDateTime(result.baseline.created_at)}）
         </div>
-        <div className="small text-secondary mb-2">
+        <div className="text-sm text-gray-500 mb-2">
           对比：{result.comparison.snapshot_name}（{result.comparison.exam_name}，{formatDateTime(result.comparison.created_at)}）
         </div>
-        <div className="d-flex flex-wrap gap-2 mt-2">
-          <span className="badge bg-success">新增 {result.summary.added_count}</span>
-          <span className="badge bg-danger">退出 {result.summary.removed_count}</span>
-          <span className="badge bg-primary">保留 {result.summary.retained_count}</span>
-          <span className="badge bg-secondary">保留率 {result.summary.retention_rate}</span>
+        <div className="flex flex-wrap gap-2 mt-2">
+          <span className="bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded">新增 {result.summary.added_count}</span>
+          <span className="bg-red-100 text-red-800 text-xs px-2 py-0.5 rounded">退出 {result.summary.removed_count}</span>
+          <span className="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded">保留 {result.summary.retained_count}</span>
+          <span className="bg-gray-100 text-gray-800 text-xs px-2 py-0.5 rounded">保留率 {result.summary.retention_rate}</span>
         </div>
       </div>
 
-      <div className="row g-3 g-md-4">
-        <div className="col-12">
-          <ChangeTable title="新增名单" icon="fas fa-user-plus text-success" rows={result.changes.added || []} />
+      <div className="flex flex-wrap gap-3 md:gap-4">
+        <div className="w-full">
+          <ChangeTable title="新增名单" icon="fas fa-user-plus text-green-600" rows={result.changes.added || []} />
         </div>
-        <div className="col-12">
-          <ChangeTable title="退出名单" icon="fas fa-user-minus text-danger" rows={result.changes.removed || []} />
+        <div className="w-full">
+          <ChangeTable title="退出名单" icon="fas fa-user-minus text-red-600" rows={result.changes.removed || []} />
         </div>
-        <div className="col-12">
-          <ChangeTable title="保留名单" icon="fas fa-user-check text-primary" rows={result.changes.retained || []} />
+        <div className="w-full">
+          <ChangeTable title="保留名单" icon="fas fa-user-check text-blue-600" rows={result.changes.retained || []} />
         </div>
       </div>
     </div>

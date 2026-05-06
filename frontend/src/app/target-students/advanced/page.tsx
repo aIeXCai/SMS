@@ -2,19 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { api } from "@/lib/api";
 import FilterBuilder, { FilterCondition, FilterLogic } from "./components/FilterBuilder";
 import RuleSelector from "./components/RuleSelector";
 import UnifiedModal from "../components/UnifiedModal";
 import { useAuth } from "@/contexts/AuthContext";
 
 type Option = { value: string; label: string };
-
-const backendBaseUrl =
-  typeof window !== "undefined"
-    ? `http://${window.location.hostname}:8000`
-    : "http://localhost:8000";
-const SCORES_API_BASE = `${backendBaseUrl}/api/scores`;
-const FILTER_RULE_API = `${backendBaseUrl}/api/filter-rules/`;
 
 type SavedRule = {
   id: number;
@@ -74,7 +68,9 @@ function formatExamLabel(label: string, gradeLevel: string): string {
     next = next.replace(new RegExp(escaped, "g"), " ");
   }
 
-  // 兜底移除任意位置的届别文本（如：初中2024级 / 高中2026级）
+  // 移除学年文本（如：2024-2025 / 2024/2025）
+  next = next.replace(/\d{4}[-/]\d{4}/g, " ");
+    // 兜底移除任意位置的届别文本（如：初中2024级 / 高中2026级）
   next = next.replace(/(?:初中|高中)\s*\d{4}\s*级/g, " ");
 
   // 去掉因文本替换导致的空括号残留
@@ -123,27 +119,12 @@ export default function AdvancedTargetStudentsPage() {
     variant: "info",
   });
 
-  const effectiveToken = useMemo(() => {
-    if (token) return token;
-    if (typeof window !== "undefined") return localStorage.getItem("accessToken");
-    return null;
-  }, [token]);
-
-  const authHeader = useMemo(() => {
-    if (!effectiveToken) return undefined;
-    return { Authorization: `Bearer ${effectiveToken}` };
-  }, [effectiveToken]);
-
   useEffect(() => {
-    if (!effectiveToken) return;
+    if (!token) return;
 
     const fetchGradeOptions = async () => {
       try {
-        const res = await fetch(`${SCORES_API_BASE}/options/`, {
-          headers: { ...authHeader },
-        });
-        if (!res.ok) return;
-        const data = await res.json();
+        const data = await api.get<{ grade_levels: Option[] }>('/scores/options/');
         setGradeOptions(data.grade_levels || []);
       } catch (error) {
         console.error("Failed to fetch grade options:", error);
@@ -151,22 +132,17 @@ export default function AdvancedTargetStudentsPage() {
     };
 
     fetchGradeOptions();
-  }, [effectiveToken, authHeader]);
+  }, [token]);
 
   useEffect(() => {
-    if (!effectiveToken || !gradeLevel) {
+    if (!token || !gradeLevel) {
       setExamOptions([]);
       return;
     }
 
     const fetchExamOptions = async () => {
       try {
-        const params = new URLSearchParams({ grade_level: gradeLevel });
-        const res = await fetch(`${SCORES_API_BASE}/options/?${params.toString()}`, {
-          headers: { ...authHeader },
-        });
-        if (!res.ok) return;
-        const data = await res.json();
+        const data = await api.get<{ exams: Option[] }>('/scores/options/', { grade_level: gradeLevel });
         setExamOptions(data.exams || []);
       } catch (error) {
         console.error("Failed to fetch exam options:", error);
@@ -174,7 +150,7 @@ export default function AdvancedTargetStudentsPage() {
     };
 
     fetchExamOptions();
-  }, [effectiveToken, gradeLevel, authHeader]);
+  }, [token, gradeLevel]);
 
   useEffect(() => {
     const onClickOutside = (event: MouseEvent) => {
@@ -190,16 +166,12 @@ export default function AdvancedTargetStudentsPage() {
   }, []);
 
   useEffect(() => {
-    if (!effectiveToken) return;
+    if (!token) return;
 
     const fetchRules = async () => {
       setLoadingRules(true);
       try {
-        const res = await fetch(FILTER_RULE_API, {
-          headers: { ...authHeader },
-        });
-        if (!res.ok) return;
-        const data = (await res.json()) as SavedRule[];
+        const data = await api.get<SavedRule[]>('/filter-rules/');
         const advancedRules = data.filter((item) => item.rule_type === "advanced");
         setSavedRules(advancedRules);
       } catch (error) {
@@ -210,7 +182,7 @@ export default function AdvancedTargetStudentsPage() {
     };
 
     fetchRules();
-  }, [effectiveToken, authHeader]);
+  }, [token]);
 
   const handleGradeChange = (value: string) => {
     setGradeLevel(value);
@@ -276,33 +248,33 @@ export default function AdvancedTargetStudentsPage() {
   return (
     <div>
       <div className="page-header">
-        <div className="container-fluid">
-          <div className="row align-items-center">
-            <div className="col-md-8">
+        <div className="w-full px-4 mx-auto max-w-[1400px]">
+          <div className="flex flex-wrap items-center">
+            <div className="flex-1 min-w-0">
               <h1>
-                <i className="fas fa-layer-group me-3"></i>目标生高级筛选
+                <i className="fas fa-layer-group mr-3"></i>目标生高级筛选
               </h1>
               <p className="mb-0 opacity-75">支持多条件组合、规则复用与实时预览（第二期）</p>
             </div>
-            <div className="col-md-4 text-end mt-3 mt-md-0">
+            <div className="flex-shrink-0 text-right">
             </div>
           </div>
         </div>
       </div>
 
-      <div className="container-fluid">
-        <div className="row g-3 g-md-4">
-          <div className="col-12 col-xl-8">
-            <div className="card filter-card h-100">
+      <div className="w-full px-4 mx-auto max-w-[1400px]">
+        <div className="flex flex-wrap gap-3 md:gap-4">
+          <div className="flex-1 min-w-0" style={{ minWidth: 'min(100%, 500px)' }}>
+            <div className="bg-white rounded-lg shadow filter-card h-100">
               <div className="card-header">
                 <h5 className="mb-0">
-                  <i className="fas fa-sliders-h me-2"></i>条件配置区
+                  <i className="fas fa-sliders-h mr-2"></i>条件配置区
                 </h5>
               </div>
               <div className="card-body">
-                <div className="row g-3">
-                  <div className="col-md-4">
-                    <label className="form-label">选择年级</label>
+                <div className="flex flex-wrap gap-3">
+                  <div className="flex-1 min-w-0">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">选择年级</label>
                     <div className="custom-dropdown">
                       <button
                         type="button"
@@ -335,8 +307,8 @@ export default function AdvancedTargetStudentsPage() {
                       </div>
                     </div>
                   </div>
-                  <div className="col-md-4">
-                    <label className="form-label">选择考试</label>
+                  <div className="flex-1 min-w-0">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">选择考试</label>
                     <div className="custom-dropdown">
                       <button
                         type="button"
@@ -377,15 +349,15 @@ export default function AdvancedTargetStudentsPage() {
                       </div>
                     </div>
                   </div>
-                  <div className="col-md-4">
-                    <label className="form-label">逻辑关系</label>
+                  <div className="flex-1 min-w-0">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">逻辑关系</label>
                     <input
-                      className="form-control"
+                      className="w-full border border-gray-300 rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       value={logic === "AND" ? "AND（同时满足）" : "OR（满足其一）"}
                       disabled
                     />
                   </div>
-                  <div className="col-12">
+                  <div className="w-full">
                     <FilterBuilder
                       presetKey={builderPresetKey}
                       presetLogic={builderPresetLogic}
@@ -419,11 +391,11 @@ export default function AdvancedTargetStudentsPage() {
             </div>
           </div>
 
-          <div className="col-12 col-xl-4">
-            <div className="card filter-card h-100">
+          <div className="flex-shrink-0" style={{ width: '340px', maxWidth: '100%' }}>
+            <div className="bg-white rounded-lg shadow filter-card h-100">
               <div className="card-header">
                 <h5 className="mb-0">
-                  <i className="fas fa-bookmark me-2"></i>规则快捷区
+                  <i className="fas fa-bookmark mr-2"></i>规则快捷区
                 </h5>
               </div>
               <div className="card-body">
@@ -437,14 +409,14 @@ export default function AdvancedTargetStudentsPage() {
                 />
 
                 {savedRules.length === 0 && !loadingRules && (
-                  <div className="small text-secondary mt-2">暂无可用高级规则，可在规则页创建后返回加载。</div>
+                  <div className="text-sm text-gray-500 mt-2">暂无可用高级规则，可在规则页创建后返回加载。</div>
                 )}
 
-                <div className="border rounded-3 p-2 bg-light-subtle text-secondary small mt-3">
+                <div className="border rounded-lg p-2 bg-gray-100 text-gray-500 small mt-3">
                   规则管理：
                   <button
                     type="button"
-                    className="btn btn-link btn-sm p-0 ms-1 align-baseline"
+                    className="bg-transparent border-none p-0 text-blue-600 underline cursor-pointer text-sm"
                     onClick={() => router.push("/target-students/rules")}
                   >
                     前往我的规则
@@ -455,15 +427,15 @@ export default function AdvancedTargetStudentsPage() {
           </div>
         </div>
 
-        <div className="row mt-3">
-          <div className="col-12">
-            <div className="alert alert-info border-0 tips-alert">
-              <div className="d-flex align-items-center">
-                <i className="fas fa-lightbulb fa-2x me-3 text-success"></i>
+        <div className="flex flex-wrap mt-3">
+          <div className="w-full">
+            <div className="bg-blue-50 border border-blue-200 text-blue-800 p-4 rounded tips-alert">
+              <div className="flex items-center">
+                <i className="fas fa-lightbulb fa-2x mr-3 text-green-600"></i>
                 <div>
-                  <h6 className="alert-heading mb-1 text-success">使用建议</h6>
-                  <p className="mb-0 small text-success">
-                    先配置 2~3 个核心条件（例如“总分前50 且 数学前30”），再开始筛选并在结果页查看详情、导出和保存快照。
+                  <h6 className="alert-heading mb-1 text-green-600">使用建议</h6>
+                  <p className="mb-0 text-sm text-green-600">
+                    先配置 2~3 个核心条件（例如"总分前50 且 数学前30"），再开始筛选并在结果页查看详情、导出和保存快照。
                   </p>
                 </div>
               </div>
@@ -471,8 +443,8 @@ export default function AdvancedTargetStudentsPage() {
           </div>
         </div>
 
-        <div className="row g-4 mt-2">
-          <div className="col-lg-6">
+        <div className="flex flex-wrap gap-4 mt-2">
+          <div className="flex-1 min-w-0">
             <div className="intro-card h-100">
               <div className="intro-card-header">
                 <div className="intro-icon-wrapper">
@@ -512,7 +484,7 @@ export default function AdvancedTargetStudentsPage() {
             </div>
           </div>
 
-          <div className="col-lg-6">
+          <div className="flex-1 min-w-0">
             <div className="intro-card h-100">
               <div className="intro-card-header">
                 <div className="intro-icon-wrapper">
@@ -523,11 +495,11 @@ export default function AdvancedTargetStudentsPage() {
               <div className="intro-card-body">
                 <div className="indicator-item">
                   <div className="indicator-tag">AND 逻辑</div>
-                  <p>适合找“均衡优生”，条件越多结果越少但越精准。</p>
+                  <p>适合找"均衡优生"，条件越多结果越少但越精准。</p>
                 </div>
                 <div className="indicator-item">
                   <div className="indicator-tag">OR 逻辑</div>
-                  <p>适合找“潜力生集合”，覆盖范围更大，便于二次筛选。</p>
+                  <p>适合找"潜力生集合"，覆盖范围更大，便于二次筛选。</p>
                 </div>
                 <div className="indicator-item">
                   <div className="indicator-tag warning">阈值建议</div>

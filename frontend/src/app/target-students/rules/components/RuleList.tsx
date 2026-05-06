@@ -49,8 +49,8 @@ export default function RuleList({
 
   if (loading) {
     return (
-      <div className="text-center py-5 text-secondary">
-        <span className="spinner-border spinner-border-sm me-2"></span>
+      <div className="text-center py-5 text-gray-500">
+        <span className="animate-spin h-3 w-3 border-2 border-blue-600 border-t-transparent rounded-full mr-2 inline-block align-[-0.125em]"></span>
         正在加载规则列表...
       </div>
     );
@@ -58,8 +58,8 @@ export default function RuleList({
 
   if (error) {
     return (
-      <div className="alert alert-danger mb-0" role="alert">
-        <i className="fas fa-triangle-exclamation me-2"></i>
+      <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded mb-0" role="alert">
+        <i className="fas fa-triangle-exclamation mr-2"></i>
         {error}
       </div>
     );
@@ -67,18 +67,18 @@ export default function RuleList({
 
   if (rules.length === 0) {
     return (
-      <div className="text-center py-5 text-secondary">
-        <i className="fas fa-folder-open fa-2x mb-3 text-muted"></i>
+      <div className="text-center py-5 text-gray-500">
+        <i className="fas fa-folder-open fa-2x mb-3 text-gray-500"></i>
         <p className="mb-1">当前暂无高级规则。</p>
-        <p className="small mb-0">可先在高级筛选页配置条件并保存为规则。</p>
+        <p className="text-sm mb-0">可先在高级筛选页配置条件并保存为规则。</p>
       </div>
     );
   }
 
   return (
     <>
-      <div className="table-responsive">
-        <table className="table table-hover table-bordered align-middle rule-table mb-0">
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse [&_tr:hover]:bg-gray-50 table-bordered align-middle rule-table mb-0">
           <thead>
             <tr>
               <th className="text-center" style={{ width: "70px" }}>序号</th>
@@ -90,23 +90,23 @@ export default function RuleList({
           <tbody>
             {pagedRules.map((rule, index) => (
               <tr key={rule.id}>
-                <td className="text-center text-muted">{(page - 1) * PAGE_SIZE + index + 1}</td>
-                <td className="text-center fw-medium">{rule.name}</td>
+                <td className="text-center text-gray-500">{(page - 1) * PAGE_SIZE + index + 1}</td>
+                <td className="text-center font-medium">{rule.name}</td>
                 <td className="text-center">
                   {rule.rule_config?.conditions?.length ?? 0}
                 </td>
                 <td className="text-center">
-                  <div className="d-flex justify-content-center gap-2">
+                  <div className="flex justify-center gap-2">
                     <button
                       type="button"
-                      className="btn btn-outline-secondary btn-sm"
+                      className="border border-gray-300 px-2 py-1 rounded hover:bg-gray-50 transition-colors text-sm"
                       onClick={() => onEdit?.(rule.id)}
                     >
                       编辑
                     </button>
                     <button
                       type="button"
-                      className="btn btn-outline-danger btn-sm"
+                      className="border border-red-300 text-red-600 px-2 py-1 rounded hover:bg-red-50 transition-colors text-sm"
                       disabled={deletingRuleId === rule.id}
                       onClick={() => onDelete?.(rule.id)}
                     >
@@ -121,7 +121,7 @@ export default function RuleList({
       </div>
 
       {totalPages > 1 && (
-        <nav className="d-flex justify-content-center mt-3">
+        <nav className="flex justify-center mt-3">
           <ul className="pagination mb-0">
             <li className={`page-item ${page === 1 ? "disabled" : ""}`}>
               <button className="page-link" onClick={() => setPage(1)}>首页</button>

@@ -94,11 +94,11 @@ export default function FilterResults({ students, columns }: FilterResultsProps)
 
   const getCaretClass = (type: "score" | "rank", index: number) => {
     if (!sortConfig || sortConfig.type !== type || sortConfig.index !== index) {
-      return "fas fa-sort text-white-50 ms-1";
+      return "fas fa-sort text-white/50 ms-1";
     }
     return sortConfig.direction === "asc"
-      ? "fas fa-sort-up text-warning ms-1"
-      : "fas fa-sort-down text-warning ms-1";
+      ? "fas fa-sort-up text-yellow-500 ms-1"
+      : "fas fa-sort-down text-yellow-500 ms-1";
   };
 
   const formatScore = (score: number | null | undefined): string => {
@@ -114,17 +114,17 @@ export default function FilterResults({ students, columns }: FilterResultsProps)
   if (students.length === 0) {
     return (
       <div className="text-center py-5">
-        <i className="fas fa-search fa-3x text-muted mb-3"></i>
-        <h5 className="text-muted">暂无符合条件的学生</h5>
-        <p className="text-muted">请返回调整筛选条件后重试</p>
+        <i className="fas fa-search fa-3x text-gray-500 mb-3"></i>
+        <h5 className="text-gray-500">暂无符合条件的学生</h5>
+        <p className="text-gray-500">请返回调整筛选条件后重试</p>
       </div>
     );
   }
 
   return (
-    <div className="table-responsive">
-      <table className="table table-hover table-bordered align-middle result-table">
-        <thead className="table-light">
+    <div className="overflow-x-auto">
+      <table className="w-full border-collapse [&_tr:hover]:bg-gray-50 table-bordered align-middle result-table">
+        <thead className="bg-gray-50">
           <tr>
             <th className="text-center" style={{ width: "70px" }}>序号</th>
             <th className="text-center">姓名</th>
@@ -155,8 +155,8 @@ export default function FilterResults({ students, columns }: FilterResultsProps)
         <tbody>
           {sortedStudents.map((student, rowIndex) => (
             <tr key={student.student_id}>
-              <td className="text-center text-muted">{rowIndex + 1}</td>
-              <td className="text-center fw-medium">{student.name}</td>
+              <td className="text-center text-gray-500">{rowIndex + 1}</td>
+              <td className="text-center font-medium">{student.name}</td>
               <td className="text-center">{student.cohort || "-"}</td>
               <td className="text-center">{student.class_name || "-"}</td>
               {columns.map((column) => {
@@ -168,9 +168,9 @@ export default function FilterResults({ students, columns }: FilterResultsProps)
                     </td>
                     <td className="text-center">
                       {typeof detail?.rank === "number" ? (
-                        <span className="badge bg-info">{detail.rank}</span>
+                        <span className="bg-cyan-100 text-cyan-800 text-xs px-2 py-0.5 rounded">{detail.rank}</span>
                       ) : (
-                        <span className="text-muted">-</span>
+                        <span className="text-gray-500">-</span>
                       )}
                     </td>
                   </Fragment>

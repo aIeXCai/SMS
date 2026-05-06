@@ -1,13 +1,19 @@
-
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
+import { api } from "@/lib/api";
 import { canWriteStudents } from "@/lib/permissions";
+import StudentFormFields from "../components/StudentFormFields";
 
-const backendBaseUrl = typeof window !== "undefined" ? `http://${window.location.hostname}:8000` : "http://localhost:8000";
+type StatsData = {
+  status_choices: string[];
+  grade_level_choices: string[];
+  cohort_choices: string[];
+  class_name_choices: string[];
+};
 
 export default function StudentAddPage() {
   const { user, token, loading } = useAuth();
@@ -20,8 +26,8 @@ export default function StudentAddPage() {
     cohort_choices: [] as string[],
     class_name_choices: [] as string[]
   });
-  
-  const [formData, setFormData] = useState({
+
+  const [formData, setFormData] = useState<Record<string, string>>({
     student_id: "",
     name: "",
     gender: "",
@@ -46,37 +52,23 @@ export default function StudentAddPage() {
   const [successMsg, setSuccessMsg] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
 
-  const authHeader = useMemo(() => {
-    if (!token) return undefined;
-    return {
-      Authorization: `Bearer ${token}`,
-    };
-  }, [token]);
-
   useEffect(() => {
     if (!token) return;
-
     const fetchStats = async () => {
       try {
-        const res = await fetch(`${backendBaseUrl}/api/students/stats/`, {
-          headers: { ...authHeader }
+        const data = await api.get<StatsData>('/students/stats/');
+        setStatsChoices({
+          status_choices: data.status_choices || ['在读', '转学', '休学', '复学', '毕业'],
+          grade_level_choices: data.grade_level_choices || [],
+          cohort_choices: data.cohort_choices || [],
+          class_name_choices: data.class_name_choices || [],
         });
-        if (res.ok) {
-          const data = await res.json();
-          setStatsChoices({
-            status_choices: data.status_choices || ['在读', '转学', '休学', '复学', '毕业'],
-            grade_level_choices: data.grade_level_choices || [],
-            cohort_choices: data.cohort_choices || [],
-            class_name_choices: data.class_name_choices || [],
-          });
-        }
       } catch (err) {
         console.error("无法获取配置选项", err);
       }
     };
-
     fetchStats();
-  }, [token, authHeader]);
+  }, [token]);
 
   useEffect(() => {
     if (!loading && user && !canStudentWrite) {
@@ -88,7 +80,6 @@ export default function StudentAddPage() {
     const { name, value } = e.target;
     setFormData(prev => {
       const newData = { ...prev, [name]: value };
-      // 当 section 或 cohort_year 变化时，自动计算 cohort
       if (name === 'section' || name === 'cohort_year') {
         const section = name === 'section' ? value : prev.section;
         const cohortYear = name === 'cohort_year' ? value : prev.cohort_year;
@@ -109,19 +100,12 @@ export default function StudentAddPage() {
     setFieldErrors({});
 
     try {
-      const payload: any = { ...formData };
-
+      const payload = { ...formData } as Record<string, unknown>;
       const dateFields = ['date_of_birth', 'entry_date', 'graduation_date'];
-      dateFields.forEach(f => {
-        if (!payload[f]) payload[f] = null;
-      });
-
+      dateFields.forEach(f => { if (!payload[f]) payload[f] = null; });
       const uniqueFields = ['id_card_number', 'student_enrollment_number'];
-      uniqueFields.forEach(f => {
-        if (!payload[f]) payload[f] = null;
-      });
+      uniqueFields.forEach(f => { if (!payload[f]) payload[f] = null; });
 
-      // 构建 current_class 对象
       if (payload.grade_level && payload.class_name && payload.cohort) {
         payload.current_class = {
           cohort: payload.cohort,
@@ -129,302 +113,80 @@ export default function StudentAddPage() {
           class_name: payload.class_name
         };
       }
-      // 删除不需要发送到后端的字段
       delete payload.section;
       delete payload.cohort_year;
       delete payload.class_name;
 
-      const res = await fetch(`${backendBaseUrl}/api/students/`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...authHeader,
-        },
-        body: JSON.stringify(payload)
-      });
-
-      if (res.ok) {
-        setSuccessMsg("学生添加成功！");
-        setTimeout(() => {
-          router.push("/students");
-        }, 1500);
-      } else {
-        const errData = await res.json();
-        setFieldErrors(errData);
-        setErrorMsg("保存失败，请检查上面填写的表单信息是否有误。");
-      }
-    } catch (err: any) {
+      await api.post('/students/', payload);
+      setSuccessMsg("学生添加成功！");
+      setTimeout(() => { router.push("/students"); }, 1500);
+    } catch (err: unknown) {
       console.error(err);
-      setErrorMsg("网络异常或服务器错误");
+      const msg = err instanceof Error ? err.message : "网络异常或服务器错误";
+      setErrorMsg(msg);
     } finally {
       setIsSubmitting(false);
     }
   };
 
   if (loading) return <div className="text-center py-5">加载中...</div>;
-  if (!user) {
-    router.push("/login");
-    return null;
-  }
+  if (!user) { router.push("/login"); return null; }
   if (!canStudentWrite) return null;
-
-  const renderInput = (id: string, label: string, type = "text", required = false, placeholder = " ") => (
-    <div className="col-md-6 mb-3">
-      <div className="form-floating">
-        <input
-          type={type}
-          className={`form-control ${fieldErrors[id] ? "is-invalid" : ""}`}
-          id={id}
-          name={id}
-          value={(formData as any)[id] || ""}
-          onChange={handleChange}
-          required={required}
-          placeholder={placeholder}
-        />
-        <label htmlFor={id} className={required ? "required-field" : ""}>
-          {label}
-        </label>
-        {fieldErrors[id] && (
-          <div className="invalid-feedback">
-            {fieldErrors[id].map((err, i) => <div key={i}>{err}</div>)}
-          </div>
-        )}
-      </div>
-    </div>
-  );
 
   return (
     <div>
       <div className="page-header">
-        <div className="container-fluid">
-          <div className="row align-items-center">
-            <div className="col-md-8">
-              <h1>
-                <i className="fas fa-user-edit me-3"></i>新增学生
-              </h1>
+        <div className="w-full px-4 mx-auto max-w-[1400px]">
+          <div className="flex flex-wrap items-center">
+            <div className="w-full md:w-2/3">
+              <h1><i className="fas fa-user-edit mr-3"></i>新增学生</h1>
               <p className="mb-0 opacity-75">填写学生基本信息，带 * 号的字段为必填项</p>
             </div>
-            <div className="col-md-4 text-end">
-              <Link href="/students" className="btn btn-outline-light">
-                <i className="fas fa-arrow-left me-1"></i>返回列表
+            <div className="w-full md:w-1/3 text-right">
+              <Link href="/students" className="border border-white text-white px-4 py-2 rounded hover:bg-white/10 transition-colors">
+                <i className="fas fa-arrow-left mr-1"></i>返回列表
               </Link>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="container-fluid">
+      <div className="w-full px-4 mx-auto max-w-[1400px]">
         {successMsg && (
-          <div className="alert alert-success alert-dismissible fade show" role="alert">
-            <i className="fas fa-info-circle me-2"></i>
-            {successMsg}
-            <button type="button" className="btn-close" onClick={() => setSuccessMsg("")}></button>
+          <div className="bg-green-50 border border-green-200 text-green-800 p-4 rounded mb-3" role="alert">
+            <i className="fas fa-info-circle mr-2"></i>{successMsg}
+            <button type="button" className="float-right bg-transparent border-none text-current opacity-50 hover:opacity-100 cursor-pointer text-lg leading-none" onClick={() => setSuccessMsg("")}>&times;</button>
           </div>
         )}
-        
         {errorMsg && (
-          <div className="alert alert-danger alert-dismissible fade show" role="alert">
-            <i className="fas fa-info-circle me-2"></i>
-            {errorMsg}
-            <button type="button" className="btn-close" onClick={() => setErrorMsg("")}></button>
+          <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded mb-3" role="alert">
+            <i className="fas fa-info-circle mr-2"></i>{errorMsg}
+            <button type="button" className="float-right bg-transparent border-none text-current opacity-50 hover:opacity-100 cursor-pointer text-lg leading-none" onClick={() => setErrorMsg("")}>&times;</button>
           </div>
         )}
 
-        <div className="row justify-content-center">
-          <div className="col-lg-8">
-            <div className="card form-card mb-5">
-              <div className="card-header">
-                <h5 className="mb-0">
-                  <i className="fas fa-user-plus me-2"></i>学生信息
-                </h5>
+        <div className="flex flex-wrap justify-center">
+          <div className="w-full lg:w-2/3">
+            <div className="form-card mb-5">
+              <div className="form-card-header">
+                <h5 className="mb-0"><i className="fas fa-user-plus mr-2"></i>学生信息</h5>
               </div>
-              <div className="card-body">
+              <div className="form-card-body">
                 <form onSubmit={handleSubmit}>
-                  <div className="row">
-                    
-                    {renderInput("student_id", "学号", "text", true)}
-                    {renderInput("name", "姓名", "text", true)}
+                  <StudentFormFields
+                    formData={formData}
+                    fieldErrors={fieldErrors}
+                    statsChoices={statsChoices}
+                    onChange={handleChange}
+                  />
 
-                    <div className="col-md-6 mb-3">
-                      <div className="form-floating">
-                        <select
-                          className={`form-select ${fieldErrors.gender ? "is-invalid" : ""}`}
-                          id="gender"
-                          name="gender"
-                          value={formData.gender}
-                          onChange={handleChange}
-                        >
-                          <option value="">---------</option>
-                          <option value="男">男</option>
-                          <option value="女">女</option>
-                        </select>
-                        <label htmlFor="gender">性别</label>
-                        {fieldErrors.gender && (
-                          <div className="invalid-feedback">
-                            {fieldErrors.gender.map((err, i) => <div key={i}>{err}</div>)}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {renderInput("date_of_birth", "出生日期", "date")}
-
-                    <div className="col-md-6 mb-3">
-                      <div className="form-floating">
-                        <select
-                          className={`form-select ${fieldErrors.status ? "is-invalid" : ""}`}
-                          id="status"
-                          name="status"
-                          value={formData.status}
-                          onChange={handleChange}
-                        >
-                          {statsChoices.status_choices.map(st => (
-                            <option key={st} value={st}>{st}</option>
-                          ))}
-                        </select>
-                        <label htmlFor="status">在校状态</label>
-                        {fieldErrors.status && (
-                          <div className="invalid-feedback">
-                            {fieldErrors.status.map((err, i) => <div key={i}>{err}</div>)}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {renderInput("id_card_number", "身份证号码")}
-                    {renderInput("student_enrollment_number", "学籍号")}
-
-                    <div className="col-md-6 mb-3">
-                      <div className="form-floating">
-                        <textarea
-                          className={`form-control ${fieldErrors.home_address ? "is-invalid" : ""}`}
-                          id="home_address"
-                          name="home_address"
-                          value={formData.home_address}
-                          onChange={handleChange}
-                          placeholder=" "
-                          style={{ height: "calc(3.5rem + 2px)" }}
-                        ></textarea>
-                        <label htmlFor="home_address">家庭地址</label>
-                        {fieldErrors.home_address && (
-                          <div className="invalid-feedback">
-                            {fieldErrors.home_address.map((err, i) => <div key={i}>{err}</div>)}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {renderInput("guardian_name", "监护人姓名")}
-                    {renderInput("guardian_contact_phone", "监护人联系电话")}
-                    {renderInput("entry_date", "入学日期", "date")}
-                    {renderInput("graduation_date", "毕业日期", "date")}
-
-                    <div className="col-md-6 mb-3">
-                      <div className="form-floating">
-                        <select
-                          className="form-select"
-                          id="section"
-                          name="section"
-                          value={formData.section}
-                          onChange={handleChange}
-                          required
-                        >
-                          <option value="">请选择学段</option>
-                          <option value="初中">初中</option>
-                          <option value="高中">高中</option>
-                        </select>
-                        <label htmlFor="section" className="required-field">
-                          <i className="fas fa-layer-group me-1"></i>学段
-                        </label>
-                      </div>
-                    </div>
-
-                    <div className="col-md-6 mb-3">
-                      <div className="form-floating">
-                        <select
-                          className="form-select"
-                          id="cohort_year"
-                          name="cohort_year"
-                          value={formData.cohort_year}
-                          onChange={handleChange}
-                          required
-                        >
-                          <option value="">请选择入学年份</option>
-                          <option value="2023">2023级</option>
-                          <option value="2024">2024级</option>
-                          <option value="2025">2025级</option>
-                          <option value="2026">2026级</option>
-                          <option value="2027">2027级</option>
-                          <option value="2028">2028级</option>
-                          <option value="2029">2029级</option>
-                        </select>
-                        <label htmlFor="cohort_year" className="required-field">
-                          <i className="fas fa-calendar me-1"></i>入学年份
-                        </label>
-                      </div>
-                    </div>
-
-                    <div className="col-md-6 mb-3">
-                      <div className="form-floating">
-                        <select
-                          className={`form-select ${fieldErrors.grade_level ? "is-invalid" : ""}`}
-                          id="grade_level"
-                          name="grade_level"
-                          value={formData.grade_level}
-                          onChange={handleChange}
-                          required
-                        >
-                          <option value="">请选择年级</option>
-                          {statsChoices.grade_level_choices.map(c => (
-                            <option key={c} value={c}>{c}</option>
-                          ))}
-                        </select>
-                        <label htmlFor="grade_level" className="required-field">
-                          <i className="fas fa-graduation-cap me-1"></i>当前年级
-                        </label>
-                        {fieldErrors.grade_level && (
-                          <div className="invalid-feedback">
-                            {fieldErrors.grade_level.map((err, i) => <div key={i}>{err}</div>)}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="col-md-6 mb-3">
-                      <div className="form-floating">
-                        <select
-                          className={`form-select ${fieldErrors.class_name ? "is-invalid" : ""}`}
-                          id="class_name"
-                          name="class_name"
-                          value={formData.class_name}
-                          onChange={handleChange}
-                          required
-                        >
-                          <option value="">请选择班级</option>
-                          {statsChoices.class_name_choices.map(c => (
-                            <option key={c} value={c}>{c}</option>
-                          ))}
-                        </select>
-                        <label htmlFor="class_name" className="required-field">
-                          <i className="fas fa-users me-1"></i>班级名称
-                        </label>
-                        {fieldErrors.class_name && (
-                          <div className="invalid-feedback">
-                            {fieldErrors.class_name.map((err, i) => <div key={i}>{err}</div>)}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                  </div>
-                  
-                  <div className="d-flex justify-content-center mt-4">
-                    <div className="btn-group-custom d-flex">
-                      <Link href="/students" className="btn btn-outline-secondary btn-custom me-3">
-                        <i className="fas fa-times me-2"></i>取消
+                  <div className="flex justify-center mt-4">
+                    <div className="btn-group-custom flex">
+                      <Link href="/students" className="btn-outline-secondary btn-custom mr-3">
+                        <i className="fas fa-times mr-2"></i>取消
                       </Link>
-                      <button type="submit" className="btn btn-primary btn-custom" disabled={isSubmitting}>
-                        <i className="fas fa-save me-2"></i>
+                      <button type="submit" className="btn-primary btn-custom" disabled={isSubmitting}>
+                        <i className="fas fa-save mr-2"></i>
                         {isSubmitting ? "保存中..." : "保存记录"}
                       </button>
                     </div>
@@ -436,98 +198,28 @@ export default function StudentAddPage() {
         </div>
       </div>
 
+      {/* kept because: page-header gradient, form-card gradient header, pseudo-elements (::after), transitions, media queries */}
       <style jsx global>{`
-        .page-header {
-          background: rgb(1,135, 108);
-          color: white;
-          padding: 2rem 0;
-          margin-bottom: 2rem;
-          border-radius: 10px;
-        }
-
-        .page-header h1 {
-          margin: 0;
-          font-weight: 600;
-        }
-
-        .form-card {
-          border: none;
-          border-radius: 15px;
-          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-          overflow: hidden;
-        }
-
-        .form-card .card-header {
-          background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-          border-bottom: 1px solid #dee2e6;
-          padding: 1.5rem;
-        }
-
-        .form-card .card-body {
-          padding: 2rem;
-        }
-
-        .form-floating {
-          margin-bottom: 1.5rem;
-        }
-
-        .form-floating > .form-control,
-        .form-floating > .form-select {
-          height: calc(3.5rem + 2px);
-          line-height: 1.25;
-        }
-
-        .form-floating > label {
-          padding: 1rem 0.75rem;
-        }
-
-        .invalid-feedback {
-          display: block;
-          width: 100%;
-          margin-top: 0.25rem;
-          font-size: 0.875rem;
-          color: #dc3545;
-        }
-
-        .btn-group-custom {
-          gap: 1rem;
-        }
-
-        .btn-custom {
-          padding: 0.75rem 2rem;
-          font-weight: 500;
-          border-radius: 25px;
-          transition: all 0.3s ease;
-        }
-
-        .btn-custom:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-        }
-
-        .required-field::after {
-          content: ' *';
-          color: #dc3545;
-        }
-
+        .page-header { background: rgb(1,135,108); color: white; padding: 2rem 0; margin-bottom: 2rem; border-radius: 10px; }
+        .page-header h1 { margin: 0; font-weight: 600; }
+        .form-card { border: none; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); overflow: hidden; background: white; }
+        .form-card-header { background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-bottom: 1px solid #dee2e6; padding: 1.5rem; }
+        .form-card-body { padding: 2rem; }
+        .form-floating { margin-bottom: 1.5rem; }
+        .form-floating > .form-control, .form-floating > .form-select { height: calc(3.5rem + 2px); line-height: 1.25; width: 100%; border: 1px solid #ced4da; border-radius: 0.375rem; padding: 1rem 0.75rem; }
+        .form-floating > label { padding: 1rem 0.75rem; }
+        .invalid-feedback { display: block; width: 100%; margin-top: 0.25rem; font-size: 0.875rem; color: #dc3545; }
+        .btn-group-custom { gap: 1rem; }
+        .btn-custom { padding: 0.75rem 2rem; font-weight: 500; border-radius: 25px; transition: all 0.3s ease; }
+        .btn-custom:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+        .btn-primary.btn-custom { background: linear-gradient(135deg, #007bff, #0056b3); border: none; color: white; }
+        .btn-outline-secondary.btn-custom { background: transparent; border: 1px solid #6c757d; color: #6c757d; }
+        .required-field::after { content: ' *'; color: #dc3545; }
         @media (max-width: 768px) {
-          .page-header {
-            padding: 1rem 0;
-            margin-bottom: 1rem;
-          }
-          
-          .form-card .card-body {
-            padding: 1rem;
-          }
-          
-          .btn-group-custom {
-            flex-direction: column;
-          }
-          
-          .btn-custom {
-            width: 100%;
-            margin-bottom: 0.5rem;
-          }
+          .page-header { padding: 1rem 0; margin-bottom: 1rem; }
+          .form-card-body { padding: 1rem; }
+          .btn-group-custom { flex-direction: column; }
+          .btn-custom { width: 100%; margin-bottom: 0.5rem; }
         }
       `}</style>
     </div>

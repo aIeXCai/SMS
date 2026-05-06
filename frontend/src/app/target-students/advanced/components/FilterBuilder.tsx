@@ -239,30 +239,30 @@ export default function FilterBuilder({
 
   return (
     <div>
-      <div className="d-flex align-items-center justify-content-between mb-3">
-        <label className="form-label mb-0 fw-semibold">筛选条件</label>
-        <button type="button" className="btn btn-sm btn-outline-primary" onClick={addCondition}>
-          <i className="fas fa-plus me-1"></i>添加条件
+      <div className="flex items-center justify-between mb-3">
+        <label className="block text-sm font-semibold text-gray-700 mb-0">筛选条件</label>
+        <button type="button" className="border border-blue-300 text-blue-600 px-2 py-1 rounded hover:bg-blue-50 transition-colors text-sm" onClick={addCondition}>
+          <i className="fas fa-plus mr-1"></i>添加条件
         </button>
       </div>
 
-      <div className="d-flex flex-column gap-2">
+      <div className="flex flex-col gap-2">
         {conditions.map((condition, index) => (
-          <div key={condition.id} className="border rounded-3 p-2 p-md-3 bg-light-subtle">
-            <div className="d-flex justify-content-between align-items-center mb-2">
-              <span className="small text-secondary">条件 {index + 1}</span>
+          <div key={condition.id} className="border rounded-lg p-2 p-md-3 bg-gray-50">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm text-gray-500">条件 {index + 1}</span>
               <button
                 type="button"
-                className="btn btn-sm btn-outline-danger"
+                className="border border-red-300 text-red-600 px-2 py-1 rounded hover:bg-red-50 transition-colors text-sm"
                 onClick={() => removeCondition(condition.id)}
               >
-                <i className="fas fa-trash me-1"></i>删除
+                <i className="fas fa-trash mr-1"></i>删除
               </button>
             </div>
 
-            <div className="row g-2">
-              <div className="col-md-3">
-                <label className="form-label small mb-1">科目</label>
+            <div className="flex flex-wrap gap-2">
+              <div className="w-full md:w-1/3">
+                <label className="block text-xs font-medium text-gray-700 mb-1">科目</label>
                 {renderDropdown({
                   id: `${condition.id}-subject`,
                   value: condition.subject,
@@ -271,8 +271,8 @@ export default function FilterBuilder({
                 })}
               </div>
 
-              <div className="col-md-3">
-                <label className="form-label small mb-1">维度</label>
+              <div className="w-full md:w-1/3">
+                <label className="block text-xs font-medium text-gray-700 mb-1">维度</label>
                 {renderDropdown({
                   id: `${condition.id}-dimension`,
                   value: condition.dimension,
@@ -282,8 +282,8 @@ export default function FilterBuilder({
                 })}
               </div>
 
-              <div className="col-md-3">
-                <label className="form-label small mb-1">条件</label>
+              <div className="w-full md:w-1/3">
+                <label className="block text-xs font-medium text-gray-700 mb-1">条件</label>
                 {renderDropdown({
                   id: `${condition.id}-operator`,
                   value: condition.operator,
@@ -293,19 +293,19 @@ export default function FilterBuilder({
                 })}
               </div>
 
-              <div className="col-md-3">
-                <label className="form-label small mb-1">数值</label>
+              <div className="w-full md:w-1/3">
+                <label className="block text-xs font-medium text-gray-700 mb-1">数值</label>
                 {condition.operator === "range" ? (
-                  <div className="d-flex align-items-center gap-1">
+                  <div className="flex items-center gap-1">
                     <input
-                      className="form-control form-control-sm"
+                      className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       value={condition.valueA}
                       onChange={(e) => updateCondition(condition.id, { valueA: e.target.value.replace(/\D/g, "") })}
                       placeholder="N"
                     />
-                    <span className="small text-secondary">-</span>
+                    <span className="text-sm text-gray-500">-</span>
                     <input
-                      className="form-control form-control-sm"
+                      className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       value={condition.valueB}
                       onChange={(e) => updateCondition(condition.id, { valueB: e.target.value.replace(/\D/g, "") })}
                       placeholder="M"
@@ -313,7 +313,7 @@ export default function FilterBuilder({
                   </div>
                 ) : (
                   <input
-                    className="form-control form-control-sm"
+                    className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     value={condition.valueA}
                     onChange={(e) => updateCondition(condition.id, { valueA: e.target.value.replace(/\D/g, "") })}
                     placeholder="如 50"
@@ -326,19 +326,19 @@ export default function FilterBuilder({
       </div>
 
       <div className="mt-3">
-        <label className="form-label fw-semibold">逻辑关系</label>
-        <div className="d-flex flex-wrap align-items-center justify-content-between gap-2">
-          <div className="d-flex gap-2">
+        <label className="block text-sm font-semibold text-gray-700 mb-1">逻辑关系</label>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex gap-2">
             <button
               type="button"
-              className={`btn btn-sm ${logic === "AND" ? "btn-primary" : "btn-outline-primary"}`}
+              className={`text-sm px-2 py-1 rounded transition-colors ${logic === "AND" ? "bg-blue-600 text-white hover:bg-blue-700" : "border border-blue-300 text-blue-600 hover:bg-blue-50"}`}
               onClick={() => setLogic("AND")}
             >
               AND（同时满足）
             </button>
             <button
               type="button"
-              className={`btn btn-sm ${logic === "OR" ? "btn-primary" : "btn-outline-primary"}`}
+              className={`text-sm px-2 py-1 rounded transition-colors ${logic === "OR" ? "bg-blue-600 text-white hover:bg-blue-700" : "border border-blue-300 text-blue-600 hover:bg-blue-50"}`}
               onClick={() => setLogic("OR")}
             >
               OR（满足其一）
@@ -347,16 +347,16 @@ export default function FilterBuilder({
 
           <button
             type="button"
-            className="btn btn-primary filter-action-btn"
+            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors filter-action-btn"
             disabled={normalized.length === 0 || !canStart}
             onClick={() => onStartFilter?.({ logic, conditions: normalized })}
           >
-            <i className="fas fa-play me-1"></i>开始筛选
+            <i className="fas fa-play mr-1"></i>开始筛选
           </button>
         </div>
       </div>
 
-      <div className="small text-secondary mt-2">
+      <div className="text-sm text-gray-500 mt-2">
         当前有效条件：{normalized.length} 条
       </div>
     </div>

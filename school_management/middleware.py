@@ -20,22 +20,21 @@ class JWTAuthenticationMiddleware:
         self.jwt_auth = JWTAuthentication()
 
     def __call__(self, request):
-        # 1. 如果 URL 中包含 token，说明是显式的 SSO 跳转，优先级最高
-        # 这种情况下，我们强制使用 JWT 进行认证，并更新 Session
-        if request.GET.get('token'):
+        # 1. 检查 Authorization header (Bearer token)，优先处理前端 API 请求
+        if request.META.get('HTTP_AUTHORIZATION', '').startswith('Bearer '):
+            self.authenticate_via_jwt(request)
+
+        # 2. 如果 URL 中包含 token，说明是显式的 SSO 跳转
+        elif request.GET.get('token'):
             redirect_response = self.authenticate_via_jwt(request)
             if redirect_response:
                 return redirect_response
-        
-        # 2. 检查 Cookie 中的 JWT Token
-        # 如果 Cookie 中有 Token，我们需要验证它是否与当前 Session 用户一致
-        # 如果不一致（例如 Session 是 Admin，但 Cookie 是 Manager），通常意味着前端切换了用户
-        # 此时我们应该优先信任前端的状态（因为它是主入口）
+
+        # 3. 检查 Cookie 中的 JWT Token
         elif request.COOKIES.get('jwt_token'):
              self.authenticate_via_jwt(request)
-             
-        # 3. 如果没有 JWT Token，则保持原有的 Session 状态（如果有）
-        # 这允许纯 Django Admin 的正常使用
+
+        # 4. 如果没有 JWT Token，则保持原有的 Session 状态
 
         response = self.get_response(request)
         return response

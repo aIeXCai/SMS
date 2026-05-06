@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
+import { api } from "@/lib/api";
 import RuleList from "./components/RuleList";
 import RuleEditor from "./components/RuleEditor";
 import UnifiedModal from "../components/UnifiedModal";
@@ -25,12 +26,6 @@ type SavedRule = {
   last_used_at: string | null;
   updated_at: string;
 };
-
-const backendBaseUrl =
-  typeof window !== "undefined"
-    ? `http://${window.location.hostname}:8000`
-    : "http://localhost:8000";
-const FILTER_RULE_API = `${backendBaseUrl}/api/filter-rules/`;
 
 type EditorState =
   | { mode: "create" }
@@ -79,39 +74,19 @@ export default function TargetStudentRulesPage() {
     onConfirmAction: null,
   });
 
-  const effectiveToken = useMemo(() => {
-    if (token) return token;
-    if (typeof window !== "undefined") return localStorage.getItem("accessToken");
-    return null;
-  }, [token]);
-
-  const authHeader = useMemo(() => {
-    if (!effectiveToken) return undefined;
-    return { Authorization: `Bearer ${effectiveToken}` };
-  }, [effectiveToken]);
-
   useEffect(() => {
-    if (!loading && !effectiveToken) {
+    if (!loading && !token) {
       router.push("/login");
     }
-  }, [loading, effectiveToken, router]);
+  }, [loading, token, router]);
 
   const fetchRules = async () => {
-    if (!effectiveToken) return;
+    if (!token) return;
     setLoadingRules(true);
     setError(null);
 
     try {
-      const res = await fetch(FILTER_RULE_API, {
-        headers: { ...authHeader },
-      });
-
-      if (!res.ok) {
-        setError("规则列表加载失败，请稍后重试");
-        return;
-      }
-
-      const data = (await res.json()) as SavedRule[];
+      const data = await api.get<SavedRule[]>('/filter-rules/');
       const advancedRules = data.filter((item) => item.rule_type === "advanced");
       setRules(advancedRules);
     } catch (err) {
@@ -124,7 +99,7 @@ export default function TargetStudentRulesPage() {
 
   useEffect(() => {
     fetchRules();
-  }, [effectiveToken, authHeader]);
+  }, [token]);
 
   const showInfoModal = (
     message: string,
@@ -187,15 +162,7 @@ export default function TargetStudentRulesPage() {
     showConfirmModal(`确认删除规则「${target.name}」吗？`, async () => {
       setDeletingRuleId(ruleId);
       try {
-        const res = await fetch(`${FILTER_RULE_API}${ruleId}/`, {
-          method: "DELETE",
-          headers: { ...authHeader },
-        });
-
-        if (!res.ok) {
-          showInfoModal("删除失败，请稍后重试", "规则删除", "error");
-          return;
-        }
+        await api.delete(`/filter-rules/${ruleId}/`);
 
         await fetchRules();
         if (editorState?.mode === "edit" && editorState.rule.id === ruleId) {
@@ -225,30 +192,20 @@ export default function TargetStudentRulesPage() {
     setSavingRule(true);
 
     const isEdit = Boolean(payload.id);
-    const url = isEdit ? `${FILTER_RULE_API}${payload.id}/` : FILTER_RULE_API;
-    const method = isEdit ? "PUT" : "POST";
+    const body = {
+      name: payload.name,
+      rule_type: "advanced" as const,
+      rule_config: {
+        logic: payload.logic,
+        conditions: payload.conditions,
+      },
+    };
 
     try {
-      const res = await fetch(url, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-          ...authHeader,
-        },
-        body: JSON.stringify({
-          name: payload.name,
-          rule_type: "advanced",
-          rule_config: {
-            logic: payload.logic,
-            conditions: payload.conditions,
-          },
-        }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        showInfoModal(data?.detail || data?.message || "保存失败，请检查输入后重试", "规则保存", "error");
-        return;
+      if (isEdit) {
+        await api.put(`/filter-rules/${payload.id}/`, body);
+      } else {
+        await api.post('/filter-rules/', body);
       }
 
       await fetchRules();
@@ -256,7 +213,8 @@ export default function TargetStudentRulesPage() {
       showInfoModal(isEdit ? "规则更新成功" : "规则创建成功，已与高级筛选规则联动", "规则保存", "success");
     } catch (err) {
       console.error("Failed to save rule:", err);
-      showInfoModal("保存失败，请检查网络后重试", "规则保存", "error");
+      const msg = err instanceof Error ? err.message : "保存失败，请检查网络后重试";
+      showInfoModal(msg, "规则保存", "error");
     } finally {
       setSavingRule(false);
     }
@@ -265,44 +223,40 @@ export default function TargetStudentRulesPage() {
   return (
     <div>
       <div className="page-header">
-        <div className="container-fluid">
-          <div className="row align-items-center">
-            <div className="col-md-8">
+        <div className="w-full px-4 mx-auto max-w-[1400px]">
+          <div className="flex flex-wrap items-center">
+            <div className="flex-1">
               <h1>
-                <i className="fas fa-bookmark me-3"></i>我的规则
+                <i className="fas fa-bookmark mr-3"></i>我的规则
               </h1>
               <p className="mb-0 opacity-75">集中管理高级筛选规则，支持新建、编辑、删除与复用</p>
             </div>
-            <div className="col-md-4 text-end mt-3 mt-md-0">
-              <button
-                type="button"
-                className="btn btn-light"
-                onClick={() => router.push("/target-students/advanced")}
-              >
-                <i className="fas fa-arrow-left me-1"></i>返回高级筛选
-              </button>
+            <div className="flex-shrink-0 text-right">
+              <Link href="/target-students/advanced" className="secondary-action">
+                <i className="fas fa-arrow-left mr-2"></i>返回高级筛选
+              </Link>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="container-fluid">
-        <div className="row g-3 g-md-4">
-          <div className="col-12 col-xl-7">
-            <div className="card filter-card h-100">
-              <div className="card-header d-flex justify-content-between align-items-center">
+      <div className="w-full px-4 mx-auto max-w-[1400px]">
+        <div className="flex flex-wrap">
+          <div className="w-full xl:w-3/5 xl:pr-2">
+            <div className="bg-white rounded-lg shadow filter-card h-100">
+              <div className="px-4 py-3 border-b border-gray-200 flex justify-between items-center">
                 <h5 className="mb-0">
-                  <i className="fas fa-list me-2"></i>规则列表
+                  <i className="fas fa-list mr-2"></i>规则列表
                 </h5>
                 <button
                   type="button"
-                  className="btn btn-success btn-sm"
+                  className="bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700 transition-colors text-sm"
                   onClick={() => setEditorState({ mode: "create" })}
                 >
-                  <i className="fas fa-plus me-1"></i>新建规则
+                  <i className="fas fa-plus mr-1"></i>新建规则
                 </button>
               </div>
-              <div className="card-body">
+              <div className="p-4">
                 <RuleList
                   rules={rules}
                   loading={loadingRules}
@@ -315,14 +269,14 @@ export default function TargetStudentRulesPage() {
             </div>
           </div>
 
-          <div className="col-12 col-xl-5">
-            <div className="card filter-card h-100">
-              <div className="card-header">
+          <div className="w-full xl:w-2/5 xl:pl-2">
+            <div className="bg-white rounded-lg shadow filter-card h-100">
+              <div className="px-4 py-3 border-b border-gray-200">
                 <h5 className="mb-0">
-                  <i className="fas fa-pen-to-square me-2"></i>规则编辑区
+                  <i className="fas fa-pen-to-square mr-2"></i>规则编辑区
                 </h5>
               </div>
-              <div className="card-body">
+              <div className="p-4">
                 {editorState ? (
                   <RuleEditor
                     initialRule={
@@ -345,11 +299,11 @@ export default function TargetStudentRulesPage() {
                   />
                 ) : (
                   <>
-                    <p className="text-secondary mb-3">可新建规则，或在左侧规则列表中点击“编辑”进入回填编辑。</p>
-                    <div className="d-grid gap-2">
+                    <p className="text-gray-500 mb-3">可新建规则，或在左侧规则列表中点击"编辑"进入回填编辑。</p>
+                    <div className="flex flex-col gap-2">
                       <button
                         type="button"
-                        className="btn btn-outline-success"
+                        className="border border-green-300 text-green-600 px-4 py-2 rounded hover:bg-green-50 transition-colors"
                         onClick={() => setEditorState({ mode: "create" })}
                       >
                         新建高级规则
@@ -360,9 +314,9 @@ export default function TargetStudentRulesPage() {
 
                 <hr className="my-3" />
 
-                <div className="small text-secondary">
+                <div className="text-sm text-gray-500">
                   快捷入口：
-                  <Link href="/target-students/advanced" className="ms-1 text-decoration-none">
+                  <Link href="/target-students/advanced" className="ml-1">
                     返回高级筛选继续配置
                   </Link>
                 </div>
@@ -371,14 +325,14 @@ export default function TargetStudentRulesPage() {
           </div>
         </div>
 
-        <div className="row mt-3">
-          <div className="col-12">
-            <div className="alert alert-info border-0 tips-alert">
-              <div className="d-flex align-items-center">
-                <i className="fas fa-lightbulb fa-2x me-3 text-success"></i>
+        <div className="flex flex-wrap mt-3">
+          <div className="w-full">
+            <div className="bg-blue-50 border border-blue-200 text-blue-800 p-4 rounded border-0 tips-alert">
+              <div className="flex items-center">
+                <i className="fas fa-lightbulb fa-2x mr-3 text-green-600"></i>
                 <div>
-                  <h6 className="alert-heading mb-1 text-success">使用指引</h6>
-                  <p className="mb-0 small text-success">
+                  <h6 className="alert-heading mb-1 text-green-600">使用指引</h6>
+                  <p className="mb-0 text-sm text-green-600">
                     建议先在高级筛选页验证条件效果，再回到本页保存为规则，后续可一键复用并持续迭代。
                   </p>
                 </div>
@@ -387,8 +341,8 @@ export default function TargetStudentRulesPage() {
           </div>
         </div>
 
-        <div className="row g-4 mt-2">
-          <div className="col-lg-6">
+        <div className="flex flex-wrap gap-4 mt-2">
+          <div className="flex-1 min-w-0">
             <div className="intro-card h-100">
               <div className="intro-card-header">
                 <div className="intro-icon-wrapper">
@@ -412,7 +366,7 @@ export default function TargetStudentRulesPage() {
                   </div>
                   <div className="feature-content">
                     <h6>按业务场景命名</h6>
-                    <p>规则命名建议包含目标和阈值，例如“总分前50+数学前100”。</p>
+                    <p>规则命名建议包含目标和阈值，例如"总分前50+数学前100"。</p>
                   </div>
                 </div>
                 <div className="feature-item">
@@ -428,7 +382,7 @@ export default function TargetStudentRulesPage() {
             </div>
           </div>
 
-          <div className="col-lg-6">
+          <div className="flex-1 min-w-0">
             <div className="intro-card h-100">
               <div className="intro-card-header">
                 <div className="intro-icon-wrapper">
@@ -454,6 +408,28 @@ export default function TargetStudentRulesPage() {
           </div>
         </div>
       </div>
+
+      <style jsx global>{`
+        .page-header {
+          background: rgb(1, 135, 108);
+          color: white;
+          padding: 2rem 0;
+          margin-bottom: 2rem;
+          border-radius: 10px;
+        }
+        a.secondary-action,
+        a.secondary-action:link,
+        a.secondary-action:visited,
+        a.secondary-action:hover,
+        a.secondary-action:active {
+          display: inline-flex; align-items: center; justify-content: center;
+          min-height: 44px; min-width: 144px; padding: 0 16px; border-radius: 12px;
+          background: rgba(255,255,255,0.72); color: #2f3a4b; font-size: 14px;
+          text-decoration: none; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+          transition: all 0.2s ease; cursor: pointer;
+        }
+        a.secondary-action:hover { background: rgba(255,255,255,0.9); color: #1a2535; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+      `}</style>
 
       <UnifiedModal
         open={modalState.open}

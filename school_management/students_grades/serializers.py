@@ -4,7 +4,6 @@ from .models.student import Class
 from .models.exam import Exam, ExamSubject, SUBJECT_CHOICES as EXAM_SUBJECT_CHOICES
 from .models.score import Score
 from .models.filter import SavedFilterRule, FilterResultSnapshot
-from .models.calendar import CalendarEvent
 from .services.advanced_filter import AdvancedFilterService
 
 
@@ -298,58 +297,3 @@ class FilterResultSnapshotSerializer(serializers.ModelSerializer):
 
         return attrs
 
-
-class CalendarEventSerializer(serializers.ModelSerializer):
-    """日历日程序列化器"""
-    creator_name = serializers.SerializerMethodField()
-    exam_name = serializers.CharField(source='exam.name', read_only=True, default='')
-
-    class Meta:
-        model = CalendarEvent
-        fields = [
-            'id', 'title', 'start', 'end', 'is_all_day',
-            'event_type', 'description', 'location', 'grade', 'visibility',
-            'creator', 'creator_name', 'exam', 'exam_name',
-            'created_at', 'updated_at'
-        ]
-        read_only_fields = ['id', 'creator', 'creator_name', 'exam', 'exam_name', 'created_at', 'updated_at']
-
-    def get_creator_name(self, obj):
-        if obj.creator:
-            full_name = obj.creator.get_full_name()
-            return full_name if full_name else obj.creator.username
-        return ''
-
-    def create(self, validated_data):
-        user = self.context['request'].user
-        validated_data['creator'] = user
-        # 级长创建年级日程时，自动填入其负责的年级
-        if validated_data.get('visibility') == 'grade' and not validated_data.get('grade'):
-            if hasattr(user, 'role') and user.role == 'grade_manager' and user.managed_grade:
-                validated_data['grade'] = user.managed_grade
-        return super().create(validated_data)
-
-    def validate(self, data):
-        """权限校验"""
-        user = self.context['request'].user
-        visibility = data.get('visibility', getattr(self.instance, 'visibility', 'personal'))
-
-        if visibility == 'grade':
-            if not hasattr(user, 'role') or user.role != 'grade_manager':
-                raise serializers.ValidationError({'visibility': '只有级长可以创建年级日程'})
-            # 级长只能创建自己年级的日程
-            user_grade = getattr(user, 'managed_grade', '')
-            # 自动填入级长负责的年级（如果用户没选）
-            if not data.get('grade'):
-                data['grade'] = user_grade
-            requested_grade = data.get('grade', '')
-            if requested_grade and requested_grade != user_grade:
-                raise serializers.ValidationError({'grade': f'你只能创建{user_grade}的年级日程'})
-        if visibility == 'school':
-            if not hasattr(user, 'role') or user.role != 'admin':
-                raise serializers.ValidationError({'visibility': '只有管理员可以创建全校日程'})
-
-        if visibility == 'grade' and not data.get('grade'):
-            raise serializers.ValidationError({'grade': '年级日程必须指定年级'})
-
-        return data

@@ -16,8 +16,10 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
 
+    // Login endpoint is special: api.post would trigger 401 redirect on bad credentials,
+    // preventing inline error display. Keep raw fetch for this case.
     try {
-      const res = await fetch('/api/token/', {
+      const res = await fetch('/api/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })

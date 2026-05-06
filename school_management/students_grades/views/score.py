@@ -198,12 +198,12 @@ class ScoreViewSet(viewsets.ModelViewSet):
             Student.objects.select_related('current_class').all(),
         )
 
-        exams = ScoreAccessService.scope_exams_from_scores(request.user, Exam.objects.all())
+        exams = ScoreAccessService.scope_exams_for_entry(request.user, Exam.objects.all())
         if grade_level_filter:
             exams = exams.filter(grade_level=grade_level_filter)
         exams = exams.order_by('-academic_year', '-date', 'name')[:100]
 
-        all_exams_qs = ScoreAccessService.scope_exams_from_scores(request.user, Exam.objects.all())
+        all_exams_qs = ScoreAccessService.scope_exams_for_entry(request.user, Exam.objects.all())
         if grade_level_filter:
             all_exams_qs = all_exams_qs.filter(grade_level=grade_level_filter)
         academic_year_values = sorted(

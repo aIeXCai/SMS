@@ -19,7 +19,7 @@ export default function StudentImportPage() {
 
   if (!user) {
     return (
-      <div className="container py-5">
+      <div className="w-full px-4 mx-auto max-w-[1400px] py-5">
         <h2>请先登录</h2>
         <p>您需要登录后才能访问此页面。</p>
       </div>
@@ -28,7 +28,7 @@ export default function StudentImportPage() {
 
   if (!canStudentWrite) {
     return (
-      <div className="container py-5">
+      <div className="w-full px-4 mx-auto max-w-[1400px] py-5">
         <h2>无权限访问</h2>
         <p>当前角色仅可查看学生信息，不能进行导入操作。</p>
       </div>
@@ -36,10 +36,10 @@ export default function StudentImportPage() {
   }
 
   return (
-    <div className="container py-5">
+    <div className="w-full px-4 mx-auto max-w-[1400px] py-5">
       <h2>批量导入（功能待完成）</h2>
       <p>此页面为占位页面，后续将实现 Excel 导入功能，并调用后端接口完成批量导入。</p>
-      <Link href="/students" className="btn btn-primary">
+      <Link href="/students" className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors">
         返回学生列表
       </Link>
     </div>

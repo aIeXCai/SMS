@@ -123,8 +123,14 @@ MYSQL_DATABASE_CONFIG = {
     'CONN_HEALTH_CHECKS': True,
 }
 
+import sys as _sys
+_is_testing = 'test' in _sys.argv
+
 DATABASES = {
-    'default': MYSQL_DATABASE_CONFIG,
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'test_db.sqlite3',
+    } if _is_testing else MYSQL_DATABASE_CONFIG,
     'mysql': MYSQL_DATABASE_CONFIG,
     'sqlite': {
         'ENGINE': 'django.db.backends.sqlite3',
@@ -221,6 +227,7 @@ SIMPLE_JWT = {
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:3000',
     'http://127.0.0.1:3000',
+    'http://192.168.2.78:3000',
 ]
 
 # 允许前端向后端传递认证信息

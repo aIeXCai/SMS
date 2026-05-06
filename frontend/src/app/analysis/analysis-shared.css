@@ -1,0 +1,180 @@
+/* ================================================================
+   Shared styles for all analysis pages.
+   Imported by each analysis page to avoid CSS duplication.
+   ================================================================ */
+
+/* --- Page header (analysis variant: gradient + 15px radius) --- */
+.analysis-page-header {
+  background: linear-gradient(135deg, rgb(1,135,108) 0%, rgb(1,105,85) 100%);
+  color: white;
+  padding: 2rem 0;
+  margin-bottom: 2rem;
+  border-radius: 15px;
+}
+.analysis-page-header .breadcrumb-item,
+.analysis-page-header .breadcrumb-item a,
+.analysis-page-header .breadcrumb-item.active,
+.analysis-page-header .breadcrumb-item + .breadcrumb-item::before {
+  color: #ffffff;
+}
+
+/* --- Back button --- */
+.btn-return {
+  background: gray;
+  border: none;
+  border-radius: 25px;
+  padding: 0.75rem 2rem;
+  color: white;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  box-shadow: 0 8px 25px rgba(1, 135, 108, 0.2);
+}
+.btn-return:hover {
+  transform: translateY(-2px);
+  color: white;
+  box-shadow: 0 12px 35px rgba(1, 135, 108, 0.3);
+}
+
+/* --- Analysis info card --- */
+.analysis-info-card {
+  background: linear-gradient(135deg, rgba(1,135,108,0.1) 0%, rgba(1,135,108,0.15) 100%);
+  border: none;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  margin-bottom: 1.5rem;
+  padding: 1rem 1.5rem;
+}
+.analysis-info-card .alert-heading {
+  font-weight: 700;
+}
+
+/* --- Stats cards (gradient green) --- */
+.stats-card {
+  background: linear-gradient(135deg, rgb(1,135,108) 0%, rgb(1,105,85) 100%);
+  color: white;
+  border-radius: 15px;
+  padding: 20px;
+  margin-bottom: 15px;
+  box-shadow: 0 8px 25px rgba(1,135,108,0.2);
+  transition: all 0.3s ease;
+  border: none;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.stats-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 12px 35px rgba(1,135,108,0.3);
+}
+.stats-number {
+  font-size: 2.8rem;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+  color: white;
+}
+.stats-label {
+  font-size: 1rem;
+  opacity: 0.9;
+  font-weight: 500;
+  color: white;
+}
+
+/* --- Chart card --- */
+.chart-card {
+  border: none;
+  border-radius: 15px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  margin-bottom: 1.5rem;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%);
+}
+.chart-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.15);
+}
+.chart-card .card-body {
+  padding: 1rem;
+}
+.chart-card .card-header {
+  background: linear-gradient(135deg, rgba(1,135,108,0.1) 0%, rgba(1,135,108,0.15) 100%);
+  border: none;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid rgba(1, 135, 108, 0.2);
+}
+.chart-card .card-header h5,
+.chart-card .card-header i {
+  color: rgb(1, 135, 108);
+  font-weight: 700;
+}
+
+/* --- Chart containers (base) --- */
+.chart-container {
+  position: relative;
+  height: 340px;
+  margin-bottom: 10px;
+  padding: 10px;
+}
+.chart-container-large {
+  position: relative;
+  height: 450px;
+  margin-bottom: 10px;
+  padding: 10px;
+}
+
+/* --- Sortable table headers --- */
+.sortable {
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  transition: background-color 0.2s ease;
+}
+.sort-icon {
+  margin-left: 8px;
+  color: #0dd338ff;
+  font-size: 12px;
+}
+
+/* --- Modern table --- */
+.table-modern thead th {
+  background: #017b6c;
+  color: white;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* --- Alert modern --- */
+.alert-modern {
+  border: none;
+  border-radius: 10px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  margin-bottom: 2rem;
+}
+
+/* --- No-data message --- */
+.no-data-message {
+  text-align: center;
+  padding: 3rem;
+  color: #6c757d;
+  font-size: 1.1rem;
+}
+.no-data-message i {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+/* --- Loading spinner --- */
+.loading-spinner {
+  width: 3rem;
+  height: 3rem;
+  border: 0.3rem solid #f3f3f3;
+  border-top: 0.3rem solid #007bff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}

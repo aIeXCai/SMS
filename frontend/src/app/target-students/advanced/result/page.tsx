@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
+import { api } from "@/lib/api";
 import * as XLSX from "xlsx";
 import { FilterCondition, FilterLogic } from "../components/FilterBuilder";
 import FilterResults from "../components/FilterResults";
@@ -41,14 +43,6 @@ type AdvancedFilterResult = {
   students: FilterStudent[];
 };
 
-const backendBaseUrl =
-  typeof window !== "undefined"
-    ? `http://${window.location.hostname}:8000`
-    : "http://localhost:8000";
-const SCORES_API_BASE = `${backendBaseUrl}/api/scores`;
-const ADVANCED_FILTER_API = `${backendBaseUrl}/api/students/advanced-filter/`;
-const FILTER_SNAPSHOT_API = `${backendBaseUrl}/api/filter-snapshots/`;
-
 const resolveErrorMessage = (payload: unknown, fallback: string) => {
   if (!payload || typeof payload !== "object") return fallback;
 
@@ -79,7 +73,7 @@ const resolveErrorMessage = (payload: unknown, fallback: string) => {
   return fallback;
 };
 
-export default function AdvancedTargetStudentsResultPage() {
+function AdvancedTargetStudentsResultContent() {
   const { token, loading, user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -99,22 +93,11 @@ export default function AdvancedTargetStudentsResultPage() {
   const [showSnapshotModal, setShowSnapshotModal] = useState(false);
   const [snapshotNameDraft, setSnapshotNameDraft] = useState("");
 
-  const effectiveToken = useMemo(() => {
-    if (token) return token;
-    if (typeof window !== "undefined") return localStorage.getItem("accessToken");
-    return null;
-  }, [token]);
-
-  const authHeader = useMemo(() => {
-    if (!effectiveToken) return undefined;
-    return { Authorization: `Bearer ${effectiveToken}` };
-  }, [effectiveToken]);
-
   useEffect(() => {
-    if (!loading && !effectiveToken) {
+    if (!loading && !token) {
       router.push("/login");
     }
-  }, [loading, effectiveToken, router]);
+  }, [loading, token, router]);
 
   useEffect(() => {
     const parsedExamId = searchParams.get("exam_id") || "";
@@ -139,15 +122,11 @@ export default function AdvancedTargetStudentsResultPage() {
   }, [searchParams, router]);
 
   useEffect(() => {
-    if (!effectiveToken) return;
+    if (!token) return;
 
     const fetchGradeOptions = async () => {
       try {
-        const res = await fetch(`${SCORES_API_BASE}/options/`, {
-          headers: { ...authHeader },
-        });
-        if (!res.ok) return;
-        const data = await res.json();
+        const data = await api.get<{ grade_levels: Option[] }>('/scores/options/');
         setGradeOptions(data.grade_levels || []);
       } catch (error) {
         console.error("Failed to fetch grade options:", error);
@@ -155,22 +134,17 @@ export default function AdvancedTargetStudentsResultPage() {
     };
 
     fetchGradeOptions();
-  }, [effectiveToken, authHeader]);
+  }, [token]);
 
   useEffect(() => {
-    if (!effectiveToken || !gradeLevel) {
+    if (!token || !gradeLevel) {
       setExamOptions([]);
       return;
     }
 
     const fetchExamOptions = async () => {
       try {
-        const params = new URLSearchParams({ grade_level: gradeLevel });
-        const res = await fetch(`${SCORES_API_BASE}/options/?${params.toString()}`, {
-          headers: { ...authHeader },
-        });
-        if (!res.ok) return;
-        const data = await res.json();
+        const data = await api.get<{ exams: Option[] }>('/scores/options/', { grade_level: gradeLevel });
         setExamOptions(data.exams || []);
       } catch (error) {
         console.error("Failed to fetch exam options:", error);
@@ -178,10 +152,10 @@ export default function AdvancedTargetStudentsResultPage() {
     };
 
     fetchExamOptions();
-  }, [effectiveToken, gradeLevel, authHeader]);
+  }, [token, gradeLevel]);
 
   useEffect(() => {
-    if (!effectiveToken || !examId || conditions.length === 0) return;
+    if (!token || !examId || conditions.length === 0) return;
 
     const fetchResult = async () => {
       setIsLoading(true);
@@ -189,25 +163,11 @@ export default function AdvancedTargetStudentsResultPage() {
       setResult(null);
 
       try {
-        const res = await fetch(ADVANCED_FILTER_API, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...authHeader,
-          },
-          body: JSON.stringify({
-            exam_id: Number(examId),
-            logic,
-            conditions,
-          }),
+        const data = await api.post<AdvancedFilterResult>('/students/advanced-filter/', {
+          exam_id: Number(examId),
+          logic,
+          conditions,
         });
-
-        const data = await res.json();
-
-        if (!res.ok) {
-          setMessages([{ id: Date.now(), type: "danger", text: data.message || "筛选失败" }]);
-          return;
-        }
 
         setResult(data);
         setMessages([{ id: Date.now(), type: "success", text: `筛选完成，共 ${data.count} 名目标生` }]);
@@ -220,7 +180,7 @@ export default function AdvancedTargetStudentsResultPage() {
     };
 
     fetchResult();
-  }, [effectiveToken, authHeader, examId, logic, conditions]);
+  }, [token, examId, logic, conditions]);
 
   const examLabel = useMemo(() => {
     return examOptions.find((item) => item.value === examId)?.label || examId;
@@ -307,44 +267,24 @@ export default function AdvancedTargetStudentsResultPage() {
       setIsSavingSnapshot(true);
       const studentIds = result.students.map((student) => student.student_id);
 
-      const res = await fetch(FILTER_SNAPSHOT_API, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...authHeader,
+      const data = await api.post<{ id?: number }>('/filter-snapshots/', {
+        snapshot_name: snapshotName,
+        exam_id: Number(examId),
+        rule_config_snapshot: {
+          logic,
+          conditions,
         },
-        body: JSON.stringify({
-          snapshot_name: snapshotName,
-          exam_id: Number(examId),
-          rule_config_snapshot: {
-            logic,
-            conditions,
-          },
-          result_snapshot: {
-            student_ids: studentIds,
-            count: studentIds.length,
-          },
-        }),
+        result_snapshot: {
+          student_ids: studentIds,
+          count: studentIds.length,
+        },
       });
-
-      const data = await res.json().catch(() => null);
-
-      if (!res.ok) {
-        setMessages([
-          {
-            id: Date.now(),
-            type: "danger",
-            text: resolveErrorMessage(data, "保存快照失败，请稍后重试"),
-          },
-        ]);
-        return;
-      }
 
       setMessages([
         {
           id: Date.now(),
           type: "success",
-          text: `快照“${snapshotName}”已保存，可在变化追踪页发起对比`,
+          text: `快照"${snapshotName}"已保存，可在变化追踪页发起对比`,
         },
       ]);
       setShowSnapshotModal(false);
@@ -361,7 +301,8 @@ export default function AdvancedTargetStudentsResultPage() {
       }
     } catch (error) {
       console.error("Save snapshot failed:", error);
-      setMessages([{ id: Date.now(), type: "danger", text: "保存快照失败，请稍后重试" }]);
+      const msg = error instanceof Error ? error.message : "保存快照失败，请稍后重试";
+      setMessages([{ id: Date.now(), type: "danger", text: msg }]);
     } finally {
       setIsSavingSnapshot(false);
     }
@@ -373,61 +314,64 @@ export default function AdvancedTargetStudentsResultPage() {
   return (
     <div>
       <div className="page-header">
-        <div className="container-fluid">
-          <div className="row align-items-center">
-            <div className="col-md-8">
+        <div className="w-full px-4 mx-auto max-w-[1400px]">
+          <div className="flex flex-wrap items-center">
+            <div className="flex-1">
               <h1>
-                <i className="fas fa-bullseye me-3"></i>高级筛选结果
+                <i className="fas fa-bullseye mr-3"></i>高级筛选结果
               </h1>
               <p className="mb-0 opacity-75">查看高级筛选结果或返回调整筛选条件</p>
             </div>
-            <div className="col-md-4 text-end">
-              <button
-                type="button"
-                className="btn btn-light"
-                onClick={() => router.push("/target-students/advanced")}
-              >
-                <i className="fas fa-arrow-left me-1"></i>返回高级筛选
-              </button>
+            <div className="flex-shrink-0 text-right">
+              <Link href="/target-students/advanced" className="secondary-action">
+                <i className="fas fa-arrow-left mr-2"></i>返回高级筛选
+              </Link>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="container-fluid">
+      <div className="w-full px-4 mx-auto max-w-[1400px]">
         {messages.length > 0 && (
           <div className="mb-3">
-            {messages.map((msg) => (
-              <div key={msg.id} className={`alert alert-${msg.type} alert-dismissible fade show`} role="alert">
-                <i className="fas fa-info-circle me-2"></i>
-                {msg.text}
-                <button type="button" className="btn-close" onClick={() => setMessages((prev) => prev.filter((m) => m.id !== msg.id))}></button>
-              </div>
-            ))}
+            {messages.map((msg) => {
+              const alertStyles: Record<string, string> = {
+                success: "bg-green-50 border border-green-200 text-green-800 p-4 rounded",
+                danger: "bg-red-50 border border-red-200 text-red-800 p-4 rounded",
+                info: "bg-blue-50 border border-blue-200 text-blue-800 p-4 rounded",
+              };
+              return (
+                <div key={msg.id} className={alertStyles[msg.type] || alertStyles.info} role="alert">
+                  <i className="fas fa-info-circle mr-2"></i>
+                  {msg.text}
+                  <button type="button" className="bg-transparent border-none text-current opacity-50 hover:opacity-100 cursor-pointer text-lg leading-none ml-2" onClick={() => setMessages((prev) => prev.filter((m) => m.id !== msg.id))}></button>
+                </div>
+              );
+            })}
           </div>
         )}
 
-        <div className="card filter-card mb-3">
-          <div className="card-header">
-            <h5 className="mb-0"><i className="fas fa-sliders-h me-2"></i>本次筛选条件</h5>
+        <div className="bg-white rounded-lg shadow filter-card mb-3">
+          <div className="px-4 py-3 border-b border-gray-200">
+            <h5 className="mb-0"><i className="fas fa-sliders-h mr-2"></i>本次筛选条件</h5>
           </div>
-          <div className="card-body">
-            <div className="row g-3">
-              <div className="col-md-4">
-                <label className="form-label">年级</label>
-                <input className="form-control" value={gradeOptions.find((item) => item.value === gradeLevel)?.label || gradeLevel} disabled />
+          <div className="p-4">
+            <div className="flex flex-wrap gap-3">
+              <div className="w-full md:w-1/4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">年级</label>
+                <input className="w-full border border-gray-300 rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value={gradeOptions.find((item) => item.value === gradeLevel)?.label || gradeLevel} disabled />
               </div>
-              <div className="col-md-4">
-                <label className="form-label">考试</label>
-                <input className="form-control" value={examLabel} disabled />
+              <div className="w-full md:w-1/4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">考试</label>
+                <input className="w-full border border-gray-300 rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value={examLabel} disabled />
               </div>
-              <div className="col-md-4">
-                <label className="form-label">逻辑关系</label>
-                <input className="form-control" value={logic === "AND" ? "AND（同时满足）" : "OR（满足其一）"} disabled />
+              <div className="w-full md:w-1/4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">逻辑关系</label>
+                <input className="w-full border border-gray-300 rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value={logic === "AND" ? "AND（同时满足）" : "OR（满足其一）"} disabled />
               </div>
-              <div className="col-12">
-                <label className="form-label">条件列表</label>
-                <div className="d-flex flex-wrap gap-2">
+              <div className="w-full">
+                <label className="block text-sm font-medium text-gray-700 mb-1">条件列表</label>
+                <div className="flex flex-wrap gap-2">
                   {conditions.map((condition, index) => {
                     const subjectLabelMap: Record<string, string> = {
                       total: "总分",
@@ -452,7 +396,7 @@ export default function AdvancedTargetStudentsResultPage() {
                       : `${condition.value}`;
 
                     return (
-                      <span key={condition.id} className="badge text-bg-light border text-dark">
+                      <span key={condition.id} className="text-xs px-2 py-0.5 rounded bg-gray-100 border border-gray-300 text-gray-800">
                         条件{index + 1}：{subjectLabelMap[condition.subject] || condition.subject} · {dimensionLabel}
                         {operatorLabelMap[condition.operator] || condition.operator} {valueText}
                       </span>
@@ -464,45 +408,45 @@ export default function AdvancedTargetStudentsResultPage() {
           </div>
         </div>
 
-        <div className="card filter-card mt-3">
-          <div className="card-header d-flex justify-content-between align-items-center">
-            <div className="d-flex align-items-center gap-2">
-              <h5 className="mb-0"><i className="fas fa-list me-2"></i>筛选结果</h5>
-              <span className="badge bg-primary fs-6">
+        <div className="bg-white rounded-lg shadow filter-card mt-3">
+          <div className="px-4 py-3 border-b border-gray-200 flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <h5 className="mb-0"><i className="fas fa-list mr-2"></i>筛选结果</h5>
+              <span className="bg-blue-100 text-blue-800 text-base px-2 py-0.5 rounded">
                 共 {result?.count || 0} 名目标生
               </span>
             </div>
-            <div className="d-flex align-items-center gap-2">
+            <div className="flex items-center gap-2">
               <button
                 type="button"
-                className="btn btn-primary btn-sm"
+                className="bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 transition-colors text-sm"
                 onClick={openSnapshotModal}
                 disabled={isLoading || isSavingSnapshot || !result || result.students.length === 0}
               >
-                <i className="fas fa-save me-1"></i>
+                <i className="fas fa-save mr-1"></i>
                 {isSavingSnapshot ? "保存中..." : "保存为快照"}
               </button>
               <button
                 type="button"
-                className="btn btn-success btn-sm"
+                className="bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700 transition-colors text-sm"
                 onClick={handleExportExcel}
                 disabled={isLoading || !result || result.students.length === 0}
               >
-                <i className="fas fa-file-excel me-1"></i>导出 Excel
+                <i className="fas fa-file-excel mr-1"></i>导出 Excel
               </button>
               <button
                 type="button"
-                className="btn btn-outline-primary btn-sm"
+                className="border border-blue-300 text-blue-600 px-2 py-1 rounded hover:bg-blue-50 transition-colors text-sm"
                 onClick={() => router.push("/target-students/tracking")}
               >
-                <i className="fas fa-chart-line me-1"></i>前往变化追踪
+                <i className="fas fa-chart-line mr-1"></i>前往变化追踪
               </button>
             </div>
           </div>
-          <div className="card-body">
+          <div className="p-4">
             {isLoading ? (
-              <div className="text-center py-5 text-muted">
-                <span className="spinner-border spinner-border-sm me-2"></span>
+              <div className="text-center py-5 text-gray-500">
+                <span className="animate-spin h-3 w-3 border-2 border-blue-600 border-t-transparent rounded-full mr-2 inline-block align-[-0.125em]"></span>
                 正在筛选中...
               </div>
             ) : (
@@ -514,78 +458,105 @@ export default function AdvancedTargetStudentsResultPage() {
           </div>
         </div>
 
-        <button type="button" className="btn btn-primary position-fixed bottom-0 end-0 m-4" style={{ zIndex: 1000 }} onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
+        <button type="button" className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors fixed bottom-0 right-0 m-4" style={{ zIndex: 1000 }} onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
           <i className="fas fa-arrow-up"></i>
         </button>
       </div>
 
         {showSnapshotModal && (
           <>
-            <div className="modal fade show d-block" tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="saveSnapshotModalLabel">
-              <div className="modal-dialog modal-dialog-centered" role="document">
-                <div className="modal-content border-0 shadow">
-                  <div className="modal-header bg-light">
-                    <h5 className="modal-title" id="saveSnapshotModalLabel">
-                      <i className="fas fa-save me-2 text-primary"></i>
-                      保存筛选快照
-                    </h5>
-                    <button
-                      type="button"
-                      className="btn-close"
-                      aria-label="Close"
-                      onClick={() => {
-                        if (!isSavingSnapshot) setShowSnapshotModal(false);
-                      }}
-                    ></button>
-                  </div>
-                  <div className="modal-body">
-                    <div className="mb-3">
-                      <label className="form-label">快照名称</label>
-                      <input
-                        className="form-control"
-                        value={snapshotNameDraft}
-                        onChange={(e) => setSnapshotNameDraft(e.target.value)}
-                        maxLength={100}
-                        placeholder="请输入快照名称"
-                        disabled={isSavingSnapshot}
-                      />
-                    </div>
-                    <div className="small text-secondary">
-                      将保存本次筛选条件与目标生名单（共 {result?.count || 0} 人）。
-                    </div>
-                  </div>
-                  <div className="modal-footer">
-                    <button
-                      type="button"
-                      className="btn btn-light"
-                      onClick={() => setShowSnapshotModal(false)}
+            <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
+              <div className="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 overflow-hidden">
+                <div className="flex items-center justify-between px-6 py-4 border-b bg-gray-50">
+                  <h5 className="font-bold text-gray-900 text-lg">
+                    <i className="fas fa-save mr-2 text-blue-600"></i>
+                    保存筛选快照
+                  </h5>
+                  <button
+                    type="button"
+                    className="bg-transparent border-none text-xl leading-none opacity-50 hover:opacity-80 cursor-pointer"
+                    aria-label="Close"
+                    onClick={() => {
+                      if (!isSavingSnapshot) setShowSnapshotModal(false);
+                    }}
+                  >&times;</button>
+                </div>
+                <div className="p-6">
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">快照名称</label>
+                    <input
+                      className="w-full border border-gray-300 rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      value={snapshotNameDraft}
+                      onChange={(e) => setSnapshotNameDraft(e.target.value)}
+                      maxLength={100}
+                      placeholder="请输入快照名称"
                       disabled={isSavingSnapshot}
-                    >
-                      取消
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-primary"
-                      onClick={() => handleSaveSnapshot(false)}
-                      disabled={isSavingSnapshot}
-                    >
-                      {isSavingSnapshot ? "保存中..." : "保存快照"}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-outline-primary"
-                      onClick={() => handleSaveSnapshot(true)}
-                      disabled={isSavingSnapshot}
-                    >
-                      {isSavingSnapshot ? "保存中..." : "保存并前往追踪"}
-                    </button>
+                    />
                   </div>
+                  <div className="text-sm text-gray-500">
+                    将保存本次筛选条件与目标生名单（共 {result?.count || 0} 人）。
+                  </div>
+                </div>
+                <div className="flex justify-end gap-3 px-6 py-4 border-t bg-gray-50">
+                  <button
+                    type="button"
+                    className="bg-white border border-gray-300 px-4 py-2 rounded hover:bg-gray-50 transition-colors"
+                    onClick={() => setShowSnapshotModal(false)}
+                    disabled={isSavingSnapshot}
+                  >
+                    取消
+                  </button>
+                  <button
+                    type="button"
+                    className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors"
+                    onClick={() => handleSaveSnapshot(false)}
+                    disabled={isSavingSnapshot}
+                  >
+                    {isSavingSnapshot ? "保存中..." : "保存快照"}
+                  </button>
+                  <button
+                    type="button"
+                    className="border border-blue-300 text-blue-600 px-4 py-2 rounded hover:bg-blue-50 transition-colors"
+                    onClick={() => handleSaveSnapshot(true)}
+                    disabled={isSavingSnapshot}
+                  >
+                    {isSavingSnapshot ? "保存中..." : "保存并前往追踪"}
+                  </button>
                 </div>
               </div>
             </div>
-            <div className="modal-backdrop fade show"></div>
           </>
         )}
+
+      <style jsx global>{`
+        .page-header {
+          background: rgb(1, 135, 108);
+          color: white;
+          padding: 2rem 0;
+          margin-bottom: 2rem;
+          border-radius: 10px;
+        }
+        a.secondary-action,
+        a.secondary-action:link,
+        a.secondary-action:visited,
+        a.secondary-action:hover,
+        a.secondary-action:active {
+          display: inline-flex; align-items: center; justify-content: center;
+          min-height: 44px; min-width: 144px; padding: 0 16px; border-radius: 12px;
+          background: rgba(255,255,255,0.72); color: #2f3a4b; font-size: 14px;
+          text-decoration: none; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+          transition: all 0.2s ease; cursor: pointer;
+        }
+        a.secondary-action:hover { background: rgba(255,255,255,0.9); color: #1a2535; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+      `}</style>
     </div>
+  );
+}
+
+export default function AdvancedTargetStudentsResultPage() {
+  return (
+    <Suspense fallback={<div className="p-4">加载中...</div>}>
+      <AdvancedTargetStudentsResultContent />
+    </Suspense>
   );
 }

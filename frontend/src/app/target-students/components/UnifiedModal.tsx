@@ -44,7 +44,7 @@ export default function UnifiedModal({
         <div className="ts-modal-content">
           <div className={`ts-modal-header ${variant}`}>
             <h5 className="ts-modal-title">
-              <i className={`fas ${iconClass} me-2`}></i>
+              <i className={`fas ${iconClass} mr-2`}></i>
               {title}
             </h5>
             <button type="button" className="ts-modal-close" onClick={onClose} aria-label="关闭">
@@ -58,7 +58,7 @@ export default function UnifiedModal({
           <div className="ts-modal-footer">
             {showCancel ? (
               <button type="button" className="ts-btn-modal ts-btn-cancel" onClick={onClose}>
-                <i className="fas fa-times me-2"></i>
+                <i className="fas fa-times mr-2"></i>
                 {cancelText}
               </button>
             ) : null}
@@ -67,7 +67,7 @@ export default function UnifiedModal({
               className={`ts-btn-modal ${variant === "success" ? "ts-btn-success" : variant === "error" ? "ts-btn-danger" : "ts-btn-primary"}`}
               onClick={onConfirm}
             >
-              <i className={`fas ${showCancel ? "fa-check" : "fa-circle-check"} me-2`}></i>
+              <i className={`fas ${showCancel ? "fa-check" : "fa-circle-check"} mr-2`}></i>
               {confirmText}
             </button>
           </div>

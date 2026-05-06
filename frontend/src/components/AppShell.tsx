@@ -15,7 +15,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <>
       <button
-        className="mobile-toggle btn btn-light"
+        className="mobile-toggle bg-white border border-gray-300 px-4 py-2 rounded hover:bg-gray-50 transition-colors"
         onClick={() => setSidebarOpen((prev) => !prev)}
         type="button"
       >

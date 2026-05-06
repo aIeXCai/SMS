@@ -198,9 +198,9 @@ export default function RuleEditor({ initialRule, saving, onCancel, onSubmit }: 
   return (
     <div>
       <div className="mb-3">
-        <label className="form-label">规则名称</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">规则名称</label>
         <input
-          className="form-control"
+          className="w-full border border-gray-300 rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="例如：总分前50且数学前100"
@@ -208,18 +208,18 @@ export default function RuleEditor({ initialRule, saving, onCancel, onSubmit }: 
       </div>
 
       <div className="mb-3">
-        <label className="form-label">逻辑关系</label>
-        <div className="d-flex gap-2">
+        <label className="block text-sm font-medium text-gray-700 mb-1">逻辑关系</label>
+        <div className="flex gap-2">
           <button
             type="button"
-            className={`btn btn-sm ${logic === "AND" ? "btn-primary" : "btn-outline-primary"}`}
+            className={`text-sm px-2 py-1 rounded transition-colors ${logic === "AND" ? "bg-blue-600 text-white hover:bg-blue-700" : "border border-blue-300 text-blue-600 hover:bg-blue-50"}`}
             onClick={() => setLogic("AND")}
           >
             AND（同时满足）
           </button>
           <button
             type="button"
-            className={`btn btn-sm ${logic === "OR" ? "btn-primary" : "btn-outline-primary"}`}
+            className={`text-sm px-2 py-1 rounded transition-colors ${logic === "OR" ? "bg-blue-600 text-white hover:bg-blue-700" : "border border-blue-300 text-blue-600 hover:bg-blue-50"}`}
             onClick={() => setLogic("OR")}
           >
             OR（满足其一）
@@ -227,28 +227,28 @@ export default function RuleEditor({ initialRule, saving, onCancel, onSubmit }: 
         </div>
       </div>
 
-      <div className="d-flex justify-content-between align-items-center mb-2">
-        <label className="form-label mb-0">筛选条件</label>
-        <button type="button" className="btn btn-sm btn-outline-primary" onClick={addCondition}>
-          <i className="fas fa-plus me-1"></i>添加
+      <div className="flex justify-between items-center mb-2">
+        <label className="block text-sm font-medium text-gray-700 mb-0">筛选条件</label>
+        <button type="button" className="border border-blue-300 text-blue-600 px-2 py-1 rounded hover:bg-blue-50 transition-colors text-sm" onClick={addCondition}>
+          <i className="fas fa-plus mr-1"></i>添加
         </button>
       </div>
 
-      <div className="d-flex flex-column gap-2">
+      <div className="flex flex-col gap-2">
         {conditions.map((condition, index) => (
-          <div key={condition.id} className="border rounded-3 p-2 bg-light-subtle">
-            <div className="d-flex justify-content-between align-items-center mb-2">
-              <span className="small text-secondary">条件 {index + 1}</span>
-              <button type="button" className="btn btn-sm btn-outline-danger" onClick={() => removeCondition(condition.id)}>
+          <div key={condition.id} className="border rounded-lg p-2 bg-gray-50">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm text-gray-500">条件 {index + 1}</span>
+              <button type="button" className="border border-red-300 text-red-600 px-2 py-1 rounded hover:bg-red-50 transition-colors text-sm" onClick={() => removeCondition(condition.id)}>
                 删除
               </button>
             </div>
 
-            <div className="row g-2">
-              <div className="col-md-3">
-                <label className="form-label small mb-1">科目</label>
+            <div className="flex flex-wrap gap-2">
+              <div className="w-full md:w-1/3">
+                <label className="block text-xs font-medium text-gray-700 mb-1">科目</label>
                 <select
-                  className="form-select form-select-sm"
+                  className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500"
                   value={condition.subject}
                   onChange={(e) => updateCondition(condition.id, { subject: e.target.value })}
                 >
@@ -260,10 +260,10 @@ export default function RuleEditor({ initialRule, saving, onCancel, onSubmit }: 
                 </select>
               </div>
 
-              <div className="col-md-3">
-                <label className="form-label small mb-1">维度</label>
+              <div className="w-full md:w-1/3">
+                <label className="block text-xs font-medium text-gray-700 mb-1">维度</label>
                 <select
-                  className="form-select form-select-sm"
+                  className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500"
                   value={condition.dimension}
                   onChange={(e) => updateCondition(condition.id, { dimension: e.target.value as "grade" | "class" })}
                 >
@@ -272,10 +272,10 @@ export default function RuleEditor({ initialRule, saving, onCancel, onSubmit }: 
                 </select>
               </div>
 
-              <div className="col-md-3">
-                <label className="form-label small mb-1">条件</label>
+              <div className="w-full md:w-1/3">
+                <label className="block text-xs font-medium text-gray-700 mb-1">条件</label>
                 <select
-                  className="form-select form-select-sm"
+                  className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500"
                   value={condition.operator}
                   onChange={(e) => updateCondition(condition.id, { operator: e.target.value as FilterOperator })}
                 >
@@ -285,19 +285,19 @@ export default function RuleEditor({ initialRule, saving, onCancel, onSubmit }: 
                 </select>
               </div>
 
-              <div className="col-md-3">
-                <label className="form-label small mb-1">数值</label>
+              <div className="w-full md:w-1/3">
+                <label className="block text-xs font-medium text-gray-700 mb-1">数值</label>
                 {condition.operator === "range" ? (
-                  <div className="d-flex align-items-center gap-1">
+                  <div className="flex items-center gap-1">
                     <input
-                      className="form-control form-control-sm"
+                      className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       value={condition.valueA}
                       onChange={(e) => updateCondition(condition.id, { valueA: e.target.value.replace(/\D/g, "") })}
                       placeholder="N"
                     />
-                    <span className="small text-secondary">-</span>
+                    <span className="text-sm text-gray-500">-</span>
                     <input
-                      className="form-control form-control-sm"
+                      className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       value={condition.valueB}
                       onChange={(e) => updateCondition(condition.id, { valueB: e.target.value.replace(/\D/g, "") })}
                       placeholder="M"
@@ -305,7 +305,7 @@ export default function RuleEditor({ initialRule, saving, onCancel, onSubmit }: 
                   </div>
                 ) : (
                   <input
-                    className="form-control form-control-sm"
+                    className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     value={condition.valueA}
                     onChange={(e) => updateCondition(condition.id, { valueA: e.target.value.replace(/\D/g, "") })}
                     placeholder="如 50"
@@ -317,30 +317,30 @@ export default function RuleEditor({ initialRule, saving, onCancel, onSubmit }: 
         ))}
       </div>
 
-      <div className="small text-secondary mt-2">当前有效条件：{validConditions.length} 条</div>
+      <div className="text-sm text-gray-500 mt-2">当前有效条件：{validConditions.length} 条</div>
 
       {errorText && (
-        <div className="alert alert-warning py-2 px-3 mt-3 mb-0" role="alert">
-          <i className="fas fa-triangle-exclamation me-2"></i>
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 py-2 px-3 rounded mt-3 mb-0" role="alert">
+          <i className="fas fa-triangle-exclamation mr-2"></i>
           {errorText}
         </div>
       )}
 
-      <div className="d-flex gap-2 mt-3">
-        <button type="button" className="btn btn-success" disabled={saving} onClick={handleSubmit}>
+      <div className="flex gap-2 mt-3">
+        <button type="button" className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition-colors" disabled={saving} onClick={handleSubmit}>
           {saving ? (
             <>
-              <span className="spinner-border spinner-border-sm me-2"></span>
+              <span className="animate-spin h-3 w-3 border-2 border-blue-600 border-t-transparent rounded-full mr-2 inline-block align-[-0.125em]"></span>
               保存中...
             </>
           ) : (
             <>
-              <i className="fas fa-floppy-disk me-1"></i>
+              <i className="fas fa-floppy-disk mr-1"></i>
               {initialRule?.id ? "保存修改" : "保存规则"}
             </>
           )}
         </button>
-        <button type="button" className="btn btn-outline-secondary" disabled={saving} onClick={onCancel}>
+        <button type="button" className="border border-gray-300 px-4 py-2 rounded hover:bg-gray-50 transition-colors" disabled={saving} onClick={onCancel}>
           取消
         </button>
       </div>
