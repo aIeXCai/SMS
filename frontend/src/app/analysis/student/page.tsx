@@ -101,10 +101,22 @@ export default function StudentAnalysisEntryPage() {
   const loadGradeOptions = async () => {
     try {
       const data = await api.get<{ grade_levels: GradeOption[] }>('/scores/options/');
-      const gradeLevels: GradeOption[] = (data.grade_levels || []).map((item) => ({
+      let gradeLevels: GradeOption[] = (data.grade_levels || []).map((item) => ({
         value: item.value,
         display_name: item.label || item.display_name || item.value,
       }));
+
+      // Subject teacher: only show grades they teach
+      if (user?.role === "subject_teacher" && user.teaching_classes?.length) {
+        const teachingGrades = [...new Set(user.teaching_classes.map((c) => c.grade_level))];
+        gradeLevels = gradeLevels.filter((g) => teachingGrades.includes(g.value));
+        // Auto-select if only one grade
+        if (gradeLevels.length === 1) {
+          setSelectedGrade(gradeLevels[0].value);
+          setGradeDropdownText(gradeLevels[0].display_name);
+        }
+      }
+
       if (gradeLevels.length > 0) {
         setGradeOptions(gradeLevels);
       } else {
@@ -140,12 +152,19 @@ export default function StudentAnalysisEntryPage() {
         cohort: item.cohort || "",
         display_name: `${item.cohort || ""}${item.class_name}`,
       }));
-      const sortedClasses = [...mappedClasses].sort((a, b) => {
+      let sortedClasses = [...mappedClasses].sort((a, b) => {
         const aNum = Number((a.class_name.match(/\d+/) || ["999"])[0]);
         const bNum = Number((b.class_name.match(/\d+/) || ["999"])[0]);
         if (aNum !== bNum) return aNum - bNum;
         return a.class_name.localeCompare(b.class_name, "zh-CN");
       });
+
+      // Subject teacher: only show classes they teach
+      if (user?.role === "subject_teacher" && user.teaching_classes?.length) {
+        const teachingClassIds = new Set(user.teaching_classes.map((c) => c.id));
+        sortedClasses = sortedClasses.filter((c) => teachingClassIds.has(c.id));
+      }
+
       setClassOptions(sortedClasses);
     } catch (error) {
       console.error("获取班级数据失败:", error);

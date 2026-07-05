@@ -79,3 +79,22 @@ db.sqlite3.backup
 
 # Data export dump
 data_migration.json
+
+# Project-local working documents and sample/private data
+/docs/
+/data/
+
+# WorkBuddy
+.workbuddy/
+
+# Claude
+.claude/
+
+# npm cache
+frontend/.npm-cache/
+
+# SQLite database files (all)
+*.sqlite3
+
+# Handoff documents
+HANDOFF.md

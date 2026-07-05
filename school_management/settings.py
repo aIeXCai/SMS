@@ -307,6 +307,12 @@ LOGGING = {
             'class': 'logging.StreamHandler',
             'formatter': 'verbose',
         },
+        'llm_file': {
+            'level': 'DEBUG',
+            'class': 'logging.FileHandler',
+            'filename': BASE_DIR / 'logs' / 'llm.log',
+            'formatter': 'verbose',
+        },
     },
     'loggers': {
         'django.server': {
@@ -317,6 +323,11 @@ LOGGING = {
         'django.request': {
             'handlers': ['file', 'console'],
             'level': 'ERROR',
+            'propagate': False,
+        },
+        'school_management.students_grades.services': {
+            'handlers': ['llm_file'],
+            'level': 'DEBUG',
             'propagate': False,
         },
     },

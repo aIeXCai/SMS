@@ -22,6 +22,9 @@ redis>=5.0.0
 # mysqlclient>=2.1.0      # MySQL adapter
 PyMySQL>=1.1.2            # MySQL adapter fallback (pure Python)
 
+# AI Integration (MiniMax API)
+requests>=2.31.0
+
 # Development Dependencies (optional)
 # django-debug-toolbar>=4.0.0
 # pytest-django>=4.5.0          

@@ -304,6 +304,16 @@ class ScoreViewSet(viewsets.ModelViewSet):
         exam_ids = request.query_params.get('exam_ids', '')
         exam_id = request.query_params.get('exam_id')
 
+        # Subject teacher: verify student belongs to their teaching classes
+        user = request.user
+        if getattr(user, 'role', None) == 'subject_teacher':
+            accessible_students = ScoreAccessService.scope_students(user, Student.objects.all())
+            if not accessible_students.filter(pk=student_id).exists():
+                return Response(
+                    {'success': False, 'error': '无权限访问该学生的分析数据'},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
         try:
             analysis_data = ScoreAnalysisService.build_student_analysis_data(student_id, exam_ids, exam_id)
             return Response({'success': True, 'data': analysis_data})
