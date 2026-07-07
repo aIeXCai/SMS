@@ -1,0 +1,100 @@
+[
+  {
+    "label": "AC-1 单人年级排名",
+    "input": "初二14班黄晨田期末模拟考年级排名",
+    "type": "answer",
+    "time": "11.5s",
+    "message": "**黄晨田**在初二下学期期末模拟考（2026年6月22日）中，年级总分排名为**第 657 名**（共 672 人），总分 **274.8 分**，所在班级为 14 班。\n\n需要我再查一下他班级排名，或者单科（语文/数学/英语）的具体表现吗？",
+    "checks": [
+      [
+        "响应类型为 answer",
+        true
+      ],
+      [
+        "message 含 '黄晨田'",
+        true
+      ],
+      [
+        "message 含排名信息(排/名/第)",
+        true
+      ]
+    ],
+    "passed": true
+  },
+  {
+    "label": "AC-2 追问继承",
+    "input": "刘畅呢",
+    "type": "answer",
+    "time": "7.1s",
+    "message": "在初二下学期期末模拟考（2026年6月）中，**刘畅**的年级排名如下：\n\n| 排名 | 姓名 | 班级 | 总分 | 年级总人数 |\n|------|------|------|------|------------|\n| 第 205 名 | 刘畅 | 7班 | 580.6 | 672 人 |",
+    "checks": [
+      [
+        "响应类型为 answer",
+        true
+      ],
+      [
+        "message 含 '刘畅'",
+        true
+      ],
+      [
+        "message 含排名信息",
+        true
+      ]
+    ],
+    "passed": true
+  },
+  {
+    "label": "AC-3 加权排名",
+    "input": "初二格致班期中期末6:4加权前三",
+    "type": "clarification",
+    "time": "12.1s",
+    "message": "请选择加权的期中和期末考试组合",
+    "checks": [
+      [
+        "响应类型为 answer",
+        false
+      ],
+      [
+        "message 或 tables 含排名/加权结果",
+        true
+      ]
+    ],
+    "passed": false
+  },
+  {
+    "label": "AC-4 趋势分析",
+    "input": "黄晨田数学最近5次变化",
+    "type": "answer",
+    "time": "15.7s",
+    "message": "黄晨田的数学成绩最近 5 次考试整体呈上升趋势，尤其是最近一次有非常明显的进步。\n\n| 考试名称 | 日期 | 分数 | 班级排名 | 分数变化 | 排名变化 |\n|---|---|---|---|---|---|\n| 初二上学期开学考试 | 2025-09-01 | 69 | 第 13 名 | -",
+    "checks": [
+      [
+        "响应类型为 answer",
+        true
+      ],
+      [
+        "message/tables 含趋势数据",
+        true
+      ]
+    ],
+    "passed": true
+  },
+  {
+    "label": "AC-5 跨群体对比",
+    "input": "初二10班数学在南山班排第几",
+    "type": "clarification",
+    "time": "22.0s",
+    "message": "你说的「期末」是哪一场考试？",
+    "checks": [
+      [
+        "响应类型为 answer 或 clarification",
+        true
+      ],
+      [
+        "如果 answer, 含对比信息",
+        true
+      ]
+    ],
+    "passed": true
+  }
+]

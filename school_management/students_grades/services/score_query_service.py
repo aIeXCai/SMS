@@ -10,7 +10,9 @@ class ScoreQueryService:
 
     @staticmethod
     def filter_scores(request):
-        scores = Score.objects.select_related('student', 'student__current_class', 'exam').order_by(
+        scores = Score.objects.select_related('student', 'student__current_class', 'exam').exclude(
+            student__status='毕业'
+        ).order_by(
             'student__student_id', 'exam__date', 'subject'
         )
         scores = ScoreAccessService.scope_scores(request.user, scores)

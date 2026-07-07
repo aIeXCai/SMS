@@ -348,6 +348,7 @@
   margin-left: 220px;
   min-height: 100vh;
   background: #f8f9fa;
+  transition: margin-right 300ms ease-out;
 }
 
 .main-content {

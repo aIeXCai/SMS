@@ -6,9 +6,10 @@ import { Sidebar } from "@/components/Sidebar";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   FloatingAIButton,
-  AIChatWindow,
+  AISidebar,
   useAIChat,
 } from "@/components/ai";
+import type { AIClarificationReply } from "@/components/ai/types";
 
 const WELCOME_QUESTIONS = [
   "张三的数学成绩最近有什么变化？",
@@ -28,6 +29,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     unreadCount,
     sendMessage,
     markAsRead,
+    conversations,
+    activeConversationId,
+    createConversation,
+    switchConversation,
+    deleteConversation,
+    clearAllConversations,
+    clearMessages,
   } = useAIChat(aiOpen);
 
   const handleToggleAI = () => {
@@ -43,7 +51,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // When user selects an exam from disambiguation cards, re-query with exam_id
   const handleDisambiguationSelect = useCallback(
     (examId: number) => {
-      // Find the last user message to re-use the original question text
       const lastUserMsg = [...messages]
         .reverse()
         .find((m) => m.role === "user");
@@ -52,6 +59,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       }
     },
     [messages, sendMessage]
+  );
+
+  // V3: When user selects a clarification option, pass AIClarificationReply to sendMessage
+  const handleClarificationSelect = useCallback(
+    (reply: AIClarificationReply) => {
+      if (reply.value === "取消") {
+        sendMessage("取消");
+      } else {
+        sendMessage("", undefined, reply);
+      }
+    },
+    [sendMessage]
   );
 
   if (pathname === "/login") {
@@ -70,7 +89,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <i className="fas fa-bars"></i>
       </button>
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <div className="main-wrapper">
+      <div className="main-wrapper" style={{ marginRight: aiOpen ? 420 : 0 }}>
         <div className="main-content">{children}</div>
       </div>
 
@@ -81,14 +100,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             isOpen={aiOpen}
             hasUnread={unreadCount > 0}
           />
-          <AIChatWindow
+          <AISidebar
             isOpen={aiOpen}
             onClose={() => setAiOpen(false)}
             messages={messages}
             isLoading={isLoading}
             onSendMessage={sendMessage}
+            conversations={conversations}
+            activeConversationId={activeConversationId}
+            onCreateConversation={createConversation}
+            onSwitchConversation={switchConversation}
+            onDeleteConversation={deleteConversation}
+            onClearAll={clearAllConversations}
             welcomeQuestions={WELCOME_QUESTIONS}
             onDisambiguationSelect={handleDisambiguationSelect}
+            onClarificationSelect={handleClarificationSelect}
           />
         </>
       )}

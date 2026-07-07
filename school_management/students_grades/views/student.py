@@ -42,6 +42,14 @@ class StudentViewSet(viewsets.ModelViewSet):
     ordering_fields = ['student_id', 'name', 'entry_date']
     ordering = ['student_id']
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        # 默认排除已毕业学生。当用户显式选择 status=毕业 时不排除。
+        status_param = self.request.query_params.get('status', None)
+        if status_param is None:
+            qs = qs.exclude(status='毕业')
+        return qs
+
     def get_permissions(self):
         """
         根据操作类型设置不同的权限

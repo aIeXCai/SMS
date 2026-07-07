@@ -190,7 +190,7 @@ class ScoreAnalysisService:
         if grade_level and target_class.cohort != grade_level:
             raise ScoreAnalysisServiceError('班级与年级参数不一致', 400)
 
-        scores = Score.objects.filter(exam=exam, student__current_class=target_class)
+        scores = Score.objects.filter(exam=exam, student__current_class=target_class).exclude(student__status='毕业')
         analysis_result = analyze_single_class(scores, target_class, exam)
         chart_data = json.loads(analysis_result.get('chart_data_json', '{}') or '{}')
 

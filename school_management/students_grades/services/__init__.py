@@ -8,9 +8,6 @@ from .score_analysis_service import ScoreAnalysisService, ScoreAnalysisServiceEr
 from .score_mutation_service import ScoreMutationService, ScoreMutationServiceError
 from .score_import_service import ScoreImportService, ScoreImportServiceError
 from .ai_minimax_client import call_minimax, call_minimax_safe
-from .ai_query_plan_service import AIQueryPlanService
-from .ai_query_executor import AIQueryExecutor
-from .ai_response_service import AIResponseService
 
 __all__ = [
     "execute_target_student_rule",
@@ -27,7 +24,4 @@ __all__ = [
     "ScoreImportServiceError",
     "call_minimax",
     "call_minimax_safe",
-    "AIQueryPlanService",
-    "AIQueryExecutor",
-    "AIResponseService",
 ]

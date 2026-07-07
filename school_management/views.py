@@ -16,7 +16,7 @@ def dashboard_stats_api(request):
     
     user = request.user
 
-    students_qs = Student.objects.all()
+    students_qs = Student.objects.exclude(status='毕业')
     classes_qs = Class.objects.all()
 
     if user.role == 'grade_manager' and getattr(user, 'managed_grade', None):

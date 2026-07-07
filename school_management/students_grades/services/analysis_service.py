@@ -185,7 +185,7 @@ def analyze_multiple_classes(selected_classes, exam):
     all_scores = Score.objects.filter(
         exam=exam,
         student__current_class__in=selected_classes,
-    ).select_related("student", "student__current_class")
+    ).exclude(student__status='毕业').select_related("student", "student__current_class")
 
     exam_subjects = list(ExamSubject.objects.filter(exam=exam))
     exam_subject_map = {item.subject_code: item for item in exam_subjects}
@@ -317,7 +317,7 @@ def analyze_grade(exam, grade_level):
     all_scores = Score.objects.filter(
         exam=exam,
         student__current_class__cohort=grade_level,
-    ).select_related("student", "student__current_class")
+    ).exclude(student__status='毕业').select_related("student", "student__current_class")
 
     exam_subjects = list(ExamSubject.objects.filter(exam=exam))
     exam_subject_map = {item.subject_code: item for item in exam_subjects}

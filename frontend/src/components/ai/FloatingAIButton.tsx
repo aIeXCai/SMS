@@ -18,11 +18,11 @@ export function FloatingAIButton({
       type="button"
       className="fixed z-[999] flex items-center justify-center
                  w-14 h-14 rounded-full
-                 shadow-lg transition-all duration-200 ease-out
+                 shadow-lg transition-all duration-300 ease-out
                  hover:scale-105 hover:shadow-xl
                  active:scale-95 group"
       style={{
-        right: "24px",
+        right: isOpen ? "444px" : "24px",
         bottom: "24px",
         backgroundColor: "#01876c",
       }}

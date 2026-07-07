@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .ai.views import AIQueryView
+from .ai_agent.views import ScoreAgentQueryView
 from .api_views import (
     StudentViewSet,
     ClassViewSet,
@@ -22,9 +22,9 @@ router.register(r'exams', ExamViewSet)
 router.register(r'scores', ScoreViewSet)
 
 urlpatterns = [
-    # AI 智能查询助手
-    path('ai/query/', AIQueryView.as_view()),
-    path('ai/query', AIQueryView.as_view()),
+    # AI Agent V3 ReAct
+    path('ai/agent/query/', ScoreAgentQueryView.as_view()),
+    path('ai/agent/query', ScoreAgentQueryView.as_view()),
 
     path('students/advanced-filter/', advanced_filter),
     path('students/advanced-filter', advanced_filter),

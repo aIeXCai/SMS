@@ -18,6 +18,10 @@ import os
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
+def _env_bool(name: str, default: str = 'false') -> bool:
+    return os.getenv(name, default).strip().lower() in {'1', 'true', 'yes', 'on'}
+
+
 def _load_env_file(env_path: Path) -> None:
     if not env_path.exists():
         return
@@ -49,6 +53,18 @@ DEBUG = True
 APPEND_SLASH = False
 
 ALLOWED_HOSTS = ['*']
+
+
+# ---- SMS AI Agent ----
+# V2: LLM intent layer, 灰度开关
+AI_AGENT_V2_ENABLED = _env_bool('AI_AGENT_V2_ENABLED')
+# V3: ReAct function-calling agent (default off, enable via .env)
+AI_AGENT_V3_ENABLED = _env_bool('AI_AGENT_V3_ENABLED')
+
+# MiniMax M3 API (used by V3 function-calling)
+MINIMAX_API_KEY = os.getenv('MINIMAX_API_KEY', '')
+MINIMAX_MODEL = os.getenv('MINIMAX_MODEL', 'MiniMax-M3')
+MINIMAX_BASE_URL = os.getenv('MINIMAX_BASE_URL', 'https://api.minimax.chat/v1')
 
 
 # Application definition
@@ -326,6 +342,11 @@ LOGGING = {
             'propagate': False,
         },
         'school_management.students_grades.services': {
+            'handlers': ['llm_file'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+        'school_management.students_grades.ai_agent': {
             'handlers': ['llm_file'],
             'level': 'DEBUG',
             'propagate': False,
