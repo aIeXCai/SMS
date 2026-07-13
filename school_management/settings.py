@@ -60,6 +60,9 @@ ALLOWED_HOSTS = ['*']
 AI_AGENT_V2_ENABLED = _env_bool('AI_AGENT_V2_ENABLED')
 # V3: ReAct function-calling agent (default off, enable via .env)
 AI_AGENT_V3_ENABLED = _env_bool('AI_AGENT_V3_ENABLED')
+AI_AGENT_V3_SAFE_MODE = _env_bool('AI_AGENT_V3_SAFE_MODE')
+AI_AGENT_V3_FALLBACK_ENABLED = _env_bool('AI_AGENT_V3_FALLBACK_ENABLED', 'true')
+AI_AGENT_AUDIT_LOG_ENABLED = _env_bool('AI_AGENT_AUDIT_LOG_ENABLED', 'true')
 
 # MiniMax M3 API (used by V3 function-calling)
 MINIMAX_API_KEY = os.getenv('MINIMAX_API_KEY', '')

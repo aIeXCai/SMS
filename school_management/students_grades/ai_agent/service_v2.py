@@ -5,6 +5,8 @@ import uuid
 
 from django.conf import settings
 
+from .security.context import build_agent_security_context
+from .security.fallback_policy import fallback_unavailable_response, is_simple_v1_fallback_allowed
 from .service import ScoreAgentService
 
 logger = logging.getLogger(__name__)
@@ -39,8 +41,19 @@ class ScoreAgentServiceV2:
             result["request_id"] = request_id
             return result
         except Exception:
-            logger.exception("V3 agent crashed, falling back to V1")
-            return self._fallback_to_v1(request_id, message, context, clarification_reply, user)
+            logger.exception("V3 agent crashed")
+            security_context = build_agent_security_context(user)
+            if getattr(settings, "AI_AGENT_V3_FALLBACK_ENABLED", True) and is_simple_v1_fallback_allowed(
+                message,
+                context=context,
+                clarification_reply=clarification_reply,
+                security_context=security_context,
+                reason="agent_unhandled_exception",
+            ):
+                return self._fallback_to_v1(request_id, message, context, clarification_reply, user)
+            result = fallback_unavailable_response()
+            result["request_id"] = request_id
+            return result
 
     # ---- V1 fallback ----
     def _fallback_to_v1(self, request_id, message, context, clarification_reply, user):

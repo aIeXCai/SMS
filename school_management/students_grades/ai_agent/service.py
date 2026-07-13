@@ -7,6 +7,13 @@ import uuid
 from django.db.models import Q
 
 from .fallback import build_fallback
+from .security.context import build_agent_security_context
+from .security.permissions import (
+    AgentPermissionError,
+    PERMISSION_DENIED_MESSAGE,
+    allowed_exam_ids,
+    scope_students,
+)
 from .tools.comparison_tool import calculate_group_comparison
 from .tools.group_tool import resolve_business_group
 from .tools.ranking_tool import calculate_ranking
@@ -52,6 +59,10 @@ class ScoreAgentService:
     def handle(self, *, message, context=None, clarification_reply=None, user=None):
         context = dict(context or {})
         request_id = str(uuid.uuid4())
+        self._security_context = build_agent_security_context(user) if user is not None else None
+
+        if self._security_context is not None and not self._security_context.allowed:
+            return self._permission_denied(request_id)
 
         if message.strip() == "取消" or (clarification_reply or {}).get("value") == "取消":
             return {
@@ -100,6 +111,10 @@ class ScoreAgentService:
         if scope_response.get("type") == "error":
             return scope_response
         scope = scope_response["scope"]
+        try:
+            scope = self._secure_scope(scope)
+        except AgentPermissionError:
+            return self._permission_denied(request_id)
         if parsed["analysis_type"] == "weighted":
             return self._handle_weighted(parsed, scope, request_id)
         if parsed["analysis_type"] == "trend":
@@ -201,6 +216,8 @@ class ScoreAgentService:
     def _resolve_student_name(self, text, parsed):
         """Resolve student names from DB before falling back to regex parsing."""
         students = Student.objects.exclude(status='毕业')
+        if self._security_context is not None:
+            students = scope_students(self._security_context, students)
         if parsed.get("cohort"):
             students = students.filter(cohort=parsed["cohort"])
 
@@ -228,6 +245,8 @@ class ScoreAgentService:
         inherited = parsed.get("student_name")
         if inherited:
             students = Student.objects.exclude(status='毕业').filter(name=candidate)
+            if self._security_context is not None:
+                students = scope_students(self._security_context, students)
             if parsed.get("cohort"):
                 students = students.filter(cohort=parsed["cohort"])
             if students.exists():
@@ -305,8 +324,11 @@ class ScoreAgentService:
         if not grade:
             return None
 
+        students = Student.objects.exclude(status='毕业').filter(grade_level=grade, cohort__isnull=False)
+        if self._security_context is not None:
+            students = scope_students(self._security_context, students)
         cohorts = list(
-            Student.objects.exclude(status='毕业').filter(grade_level=grade, cohort__isnull=False)
+            students
             .exclude(cohort="")
             .values_list("cohort", flat=True)
             .distinct()
@@ -372,9 +394,47 @@ class ScoreAgentService:
 
         return self._error(request_id, "请先说明要查询的年级、班级或业务分组。", "parse_error", parsed.get("analysis_type"))
 
+    def _secure_scope(self, scope):
+        context = self._security_context
+        if context is None or context.is_unrestricted:
+            return scope
+
+        permitted = set(context.allowed_class_ids or [])
+        scope_type = scope.get("type")
+        if scope_type == "grade":
+            secure = dict(scope)
+            secure["type"] = "business_group"
+            secure["class_ids"] = sorted(permitted)
+            return secure
+        if scope_type == "class":
+            class_ids = list(
+                Student.objects.filter(
+                    cohort=scope.get("cohort"),
+                    current_class__class_name=scope.get("class_name"),
+                    current_class_id__in=permitted,
+                ).values_list("current_class_id", flat=True).distinct()
+            )
+            if not class_ids:
+                raise AgentPermissionError(PERMISSION_DENIED_MESSAGE)
+            secure = dict(scope)
+            secure["type"] = "business_group"
+            secure["class_ids"] = class_ids
+            return secure
+        if scope_type == "business_group":
+            class_ids = sorted(set(scope.get("class_ids") or []) & permitted)
+            if not class_ids:
+                raise AgentPermissionError(PERMISSION_DENIED_MESSAGE)
+            secure = dict(scope)
+            secure["class_ids"] = class_ids
+            return secure
+        raise AgentPermissionError(PERMISSION_DENIED_MESSAGE)
+
     def _resolve_exams(self, parsed, request_id, required_count=1):
         if parsed.get("exam_ids") and len(parsed["exam_ids"]) >= required_count:
-            exams = list(Exam.objects.filter(id__in=parsed["exam_ids"]).order_by("date", "id"))
+            query = Exam.objects.filter(id__in=parsed["exam_ids"])
+            if self._security_context is not None and not self._security_context.is_unrestricted:
+                query = query.filter(id__in=allowed_exam_ids(self._security_context))
+            exams = list(query.order_by("date", "id"))
             if len(exams) >= required_count:
                 return exams[:required_count], None
 
@@ -383,6 +443,8 @@ class ScoreAgentService:
         exams = []
         for term in terms[:required_count]:
             query = Exam.objects.all()
+            if self._security_context is not None and not self._security_context.is_unrestricted:
+                query = query.filter(id__in=allowed_exam_ids(self._security_context))
             if cohort:
                 query = query.filter(grade_level=cohort)
             if term == "latest":
@@ -426,6 +488,8 @@ class ScoreAgentService:
             return exams[:required_count], None
 
         query = Exam.objects.all()
+        if self._security_context is not None and not self._security_context.is_unrestricted:
+            query = query.filter(id__in=allowed_exam_ids(self._security_context))
         if cohort:
             query = query.filter(grade_level=cohort)
         candidates = list(query.order_by("-date", "-id")[:5])
@@ -584,7 +648,11 @@ class ScoreAgentService:
         student_name = parsed.get("student_name")
         if not student_name:
             return self._error(request_id, "请说明要查看哪位学生的趋势。", "parse_error", "trend")
-        student, candidates = find_student(student_name)
+        student_query = Student.objects.select_related("current_class").exclude(status='毕业').filter(name__icontains=student_name).order_by("id")
+        if self._security_context is not None:
+            student_query = scope_students(self._security_context, student_query)
+        matches = list(student_query[:8])
+        student = matches[0] if len(matches) == 1 else None
         if not student:
             return self._clarification(
                 request_id,
@@ -633,6 +701,10 @@ class ScoreAgentService:
             if scope_response.get("type") == "error":
                 return scope_response
             scope = scope_response["scope"]
+            try:
+                scope = self._secure_scope(scope)
+            except AgentPermissionError:
+                return self._permission_denied(request_id)
 
         exams = self._resolve_trend_exams(student, limit=5)
         result = calculate_student_trend(student, exams, subject=parsed.get("subject"), rank_scope=parsed.get("rank_scope"), group_scope=scope)
@@ -663,7 +735,10 @@ class ScoreAgentService:
 
     def _resolve_trend_exams(self, student, limit=5):
         """Pick recent comparable exams, excluding outlier subject structures."""
-        candidates = list(Exam.objects.filter(grade_level=student.cohort).order_by("-date", "-id"))
+        query = Exam.objects.filter(grade_level=student.cohort)
+        if self._security_context is not None and not self._security_context.is_unrestricted:
+            query = query.filter(id__in=allowed_exam_ids(self._security_context))
+        candidates = list(query.order_by("-date", "-id"))
         if not candidates:
             return []
 
@@ -813,4 +888,14 @@ class ScoreAgentService:
             "message": message,
             "actions": actions,
             "fallback": fallback,
+        }
+
+    def _permission_denied(self, request_id):
+        return {
+            "request_id": request_id,
+            "type": "error",
+            "status": "permission_denied",
+            "message": PERMISSION_DENIED_MESSAGE,
+            "actions": [{"type": "retry_agent", "label": "重新生成"}],
+            "fallback": {"available": False, "reason": "permission_denied"},
         }

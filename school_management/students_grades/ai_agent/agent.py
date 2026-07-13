@@ -13,9 +13,16 @@ import logging
 import re
 import uuid
 
+from django.conf import settings
+
 from .llm.llm_router import LLMIntentRouter
+from .security.audit import AgentAuditContext
+from .security.context import build_agent_security_context
+from .security.fallback_policy import fallback_unavailable_response, is_simple_v1_fallback_allowed
+from .security.numeric_guard import has_structured_tables, validate_llm_text_numbers
+from .security.secure_executor import SecureToolExecutor
 from .service import ScoreAgentService
-from .tools.registry import as_openai_schema, execute as execute_tool
+from .tools.registry import TOOL_REGISTRY, as_openai_schema
 
 logger = logging.getLogger(__name__)
 
@@ -137,14 +144,14 @@ def _clarify(message, options, context=None):
     }
 
 
-def _error(message, context=None, actions=None):
+def _error(message, context=None, actions=None, fallback_available=True, fallback_reason="basic_query_can_retry"):
     return {
         "type": "error",
         "status": "tool_error",
         "message": message,
         "actions": actions or [{"type": "retry_agent", "label": "重试"}],
         "context": context or {},
-        "fallback": {"available": True, "reason": "basic_query_can_retry"},
+        "fallback": {"available": fallback_available, "reason": fallback_reason},
     }
 
 
@@ -264,6 +271,63 @@ def _parse_markdown_table(text):
     return tables
 
 
+def _tables_from_tool_results(tool_results):
+    label_map = {
+        "rank": "排名",
+        "student_name": "学生姓名",
+        "student_internal_id": "学生内部ID",
+        "student_id": "学号",
+        "class_name": "班级",
+        "score": "分数",
+        "total": "总人数",
+        "total_valid": "有效人数",
+        "valid_count": "有效人数",
+        "exam_name": "考试名称",
+        "exam_date": "考试日期",
+        "metric": "科目 / 指标",
+        "score_change": "分数变化",
+        "rank_change": "排名变化",
+        "weighted_score": "加权分",
+        "exam_a_score": "第一场原始分",
+        "exam_b_score": "第二场原始分",
+        "exam_a_weight": "第一场权重",
+        "exam_b_weight": "第二场权重",
+        "object_name": "对比对象",
+        "reference_name": "参照对象",
+        "object_avg": "对象均值",
+        "reference_avg": "参照均值",
+        "diff": "差值",
+        "ratio": "占比",
+        "rank_in_reference": "群体内排名",
+        "note": "备注",
+    }
+    tables = []
+    for result in tool_results:
+        if not isinstance(result, dict):
+            continue
+        rows = result.get("rows") or result.get("students")
+        if not rows or not isinstance(rows, list):
+            continue
+        visible_rows = []
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            visible_rows.append({key: value for key, value in row.items() if key != "student_id"})
+        if not visible_rows:
+            continue
+        keys = list(visible_rows[0].keys())
+        columns = [
+            {
+                "key": key,
+                "label": label_map.get(key, key),
+                "align": "right" if isinstance(visible_rows[0].get(key), (int, float)) else "left",
+            }
+            for key in keys
+        ]
+        tables.append({"title": "成绩分析结果", "columns": columns, "rows": visible_rows})
+    return tables
+
+
 def _build_messages(context, user_message, clarification_reply, history_messages):
     """Build the initial messages array for the LLM call.
 
@@ -315,24 +379,56 @@ def run_agent(user_message, context=None, clarification_reply=None, user=None):
     Returns dict matching ScoreAgentResponse format.
     """
     context = context or {}
+    security_context = build_agent_security_context(user)
+    request_id = str(uuid.uuid4())
+    audit_context = AgentAuditContext(request_id, security_context, user_message)
+
+    if not security_context.allowed:
+        audit_context.finish("permission_denied")
+        return {
+            "request_id": request_id,
+            "type": "error",
+            "status": "permission_denied",
+            "message": "未找到符合条件且你有权限查看的数据，请检查查询范围或联系管理员。",
+            "actions": [{"type": "retry_agent", "label": "重新生成"}],
+            "fallback": {"available": False, "reason": "permission_denied"},
+        }
 
     # --- Cancel / reset ---
     if user_message.strip() == "取消" or (clarification_reply or {}).get("value") == "取消":
-        return _unknown("已清空当前 AI 分析上下文，请重新提问。")
+        result = _unknown("已清空当前 AI 分析上下文，请重新提问。")
+        audit_context.finish("cancelled")
+        return result
 
     # --- Empty message ---
     if not user_message.strip():
-        return _unknown("请说明要分析的对象、考试和指标，例如「初二格致班期末前三」。")
+        result = _unknown("请说明要分析的对象、考试和指标，例如「初二格致班期末前三」。")
+        audit_context.finish("needs_clarification")
+        return result
 
     history_messages = context.get("messages", [])
     tools = as_openai_schema()
     messages = _build_messages(context, user_message, clarification_reply, history_messages)
+    executor = SecureToolExecutor(TOOL_REGISTRY)
+    raw_tool_results = []
+    numeric_facts = []
+    tool_executed = False
 
     try:
         llm = LLMIntentRouter()
     except Exception:
         logger.exception("Failed to init LLM router")
-        return _error("AI 分析服务暂时不可用，请稍后重试。")
+        result = _controlled_fallback(
+            user_message,
+            context,
+            clarification_reply,
+            user,
+            security_context,
+            tool_executed=False,
+            reason="llm_init_failed",
+        )
+        audit_context.finish(result.get("status", "error"), result.get("fallback", {}).get("reason"))
+        return result
 
     # --- ReAct loop ---
     seen_calls = {}  # {(tool_name, args_hash): count}
@@ -341,8 +437,17 @@ def run_agent(user_message, context=None, clarification_reply=None, user=None):
             response = llm.chat_with_tools(messages, tools)
         except Exception as exc:
             logger.exception("LLM call failed at turn %d", turn)
-            # Fallback to V1
-            return _fallback_to_v1(user_message, context, clarification_reply, user)
+            result = _controlled_fallback(
+                user_message,
+                context,
+                clarification_reply,
+                user,
+                security_context,
+                tool_executed=tool_executed,
+                reason="llm_call_failed",
+            )
+            audit_context.finish(result.get("status", "error"), result.get("fallback", {}).get("reason"))
+            return result
 
         # --- LLM wants to call a tool ---
         if response.is_tool_call():
@@ -363,7 +468,23 @@ def run_agent(user_message, context=None, clarification_reply=None, user=None):
                         context,
                     )
 
-                result = execute_tool(tool_name, tool_args)
+                wrapped_result = executor.execute(tool_name, tool_args, security_context, audit_context)
+                tool_executed = True
+                if wrapped_result.get("status") == "permission_denied":
+                    audit_context.finish("permission_denied")
+                    return {
+                        "type": "error",
+                        "status": "permission_denied",
+                        "message": "未找到符合条件且你有权限查看的数据，请检查查询范围或联系管理员。",
+                        "actions": [{"type": "retry_agent", "label": "重新生成"}],
+                        "fallback": {"available": False, "reason": "permission_denied"},
+                    }
+                if "raw_result" in wrapped_result:
+                    raw_tool_results.append(wrapped_result["raw_result"])
+                    numeric_facts.extend(wrapped_result.get("numeric_facts") or [])
+                    result = wrapped_result["llm_observation"]
+                else:
+                    result = wrapped_result
 
                 # Append assistant's tool_call + tool result to messages
                 messages.append({
@@ -388,8 +509,20 @@ def run_agent(user_message, context=None, clarification_reply=None, user=None):
             if not text:
                 logger.warning("LLM returned empty content at turn %d", turn)
                 if turn > 1:
-                    return _error("分析未完成，请换一种更明确的问法。")
-                return _fallback_to_v1(user_message, context, clarification_reply, user)
+                    result = _error("分析未完成，请换一种更明确的问法。", fallback_available=False, fallback_reason="llm_empty_after_tool")
+                    audit_context.finish(result["status"], result["fallback"]["reason"])
+                    return result
+                result = _controlled_fallback(
+                    user_message,
+                    context,
+                    clarification_reply,
+                    user,
+                    security_context,
+                    tool_executed=tool_executed,
+                    reason="llm_empty",
+                )
+                audit_context.finish(result.get("status", "error"), result.get("fallback", {}).get("reason"))
+                return result
 
             # Check for clarification
             clarify_msg, clarify_options = _parse_clarify(text)
@@ -398,15 +531,32 @@ def run_agent(user_message, context=None, clarification_reply=None, user=None):
                     "messages": messages[1:],  # exclude system prompt for storage
                     "raw_message": context.get("raw_message") or user_message,
                 }
-                return _clarify(clarify_msg, clarify_options, new_context)
+                result = _clarify(clarify_msg, clarify_options, new_context)
+                audit_context.finish("needs_clarification")
+                return result
 
             # Check for unsupported response (LLM refuses to answer)
             refusal_indicators = ["不支持", "无法回答", "不在我的能力范围", "请尝试问我排名"]
             if any(ind in text for ind in refusal_indicators):
-                return _unsupported(text, "llm_refused")
+                result = _unsupported(text, "llm_refused")
+                audit_context.finish("unsupported")
+                return result
 
-            # Parse markdown tables
-            tables = _parse_markdown_table(text)
+            if not validate_llm_text_numbers(text, numeric_facts):
+                result = _error(
+                    "数据已经完成计算，但结果说明未能通过一致性校验。本次未展示结果，请重新生成。",
+                    fallback_available=False,
+                    fallback_reason="numeric_validation_failed",
+                )
+                audit_context.finish("numeric_validation_failed", "numeric_validation_failed")
+                return result
+
+            # LLM Markdown tables are not authoritative in V3 P0. Prefer
+            # deterministic Tool rows and only parse Markdown when no Tool
+            # produced structured result rows.
+            tables = _tables_from_tool_results(raw_tool_results)
+            if not tables and not has_structured_tables(raw_tool_results):
+                tables = _parse_markdown_table(text)
 
             # Build evidence from the conversation
             evidence_items = []
@@ -431,20 +581,42 @@ def run_agent(user_message, context=None, clarification_reply=None, user=None):
             summary = re.sub(r"\[CLARIFY:.*?\]\n(- label:.*(\n|$))*", "", text)
             summary = re.sub(r"\|.*\|[\s\S]*?\n\n", "", summary).strip()
 
-            return _answer(summary, tables, next_context, evidence)
+            result = _answer(summary, tables, next_context, evidence, fallback_reason="v3_success")
+            result["numeric_facts"] = numeric_facts
+            audit_context.finish("success")
+            return result
 
         # --- LLM returned neither tool_call nor stop — unexpected ---
         logger.warning("LLM returned unexpected state: finish_reason=%s, text=%s",
                        response.finish_reason, (response.text or "")[:100])
-        return _error("分析遇到了意外情况，请重试或换一种问法。")
+        result = _error("分析遇到了意外情况，请重试或换一种问法。", fallback_available=False, fallback_reason="unexpected_llm_state")
+        audit_context.finish(result["status"], result["fallback"]["reason"])
+        return result
 
     # --- Exceeded max turns ---
     logger.warning("ReAct loop exceeded MAX_TURNS=%d", MAX_TURNS)
-    return _error("分析步骤过多，请换一种更简洁的方式提问，例如「初二14班黄晨田期末排名」。", context)
+    result = _error("分析步骤过多，请换一种更简洁的方式提问，例如「初二14班黄晨田期末排名」。", context, fallback_available=False, fallback_reason="max_turns_exceeded")
+    audit_context.finish(result["status"], result["fallback"]["reason"])
+    return result
+
+
+def _controlled_fallback(user_message, context, clarification_reply, user, security_context, tool_executed=False, reason=None):
+    if not getattr(settings, "AI_AGENT_V3_FALLBACK_ENABLED", True):
+        return fallback_unavailable_response()
+    if not is_simple_v1_fallback_allowed(
+        user_message,
+        context=context,
+        clarification_reply=clarification_reply,
+        security_context=security_context,
+        tool_executed=tool_executed,
+        reason=reason,
+    ):
+        return fallback_unavailable_response()
+    return _fallback_to_v1(user_message, context, clarification_reply, user)
 
 
 def _fallback_to_v1(user_message, context, clarification_reply, user):
-    """Fallback to V1 rule engine when LLM is unavailable."""
+    """Controlled fallback to V1 rule engine when the whitelist allows it."""
     logger.info("V3 agent falling back to V1 rule engine")
     service = ScoreAgentService()
     try:
@@ -456,4 +628,4 @@ def _fallback_to_v1(user_message, context, clarification_reply, user):
         )
     except Exception:
         logger.exception("V1 fallback also failed")
-        return _error("成绩分析服务当前不可用，请稍后重试。")
+        return _error("成绩分析服务当前不可用，请稍后重试。", fallback_available=False, fallback_reason="fallback_failed")

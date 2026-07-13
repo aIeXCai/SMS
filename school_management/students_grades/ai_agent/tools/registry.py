@@ -17,21 +17,89 @@ from django.db.models import Q
 from ...models.exam import Exam
 from ...models.score import Score
 from ...models.student import Student
+from ..security.permissions import (
+    AgentPermissionError,
+    PERMISSION_DENIED_MESSAGE,
+    allowed_exam_ids,
+    scope_students,
+)
 from . import comparison_tool, group_tool, ranking_tool, score_tool, trend_tool, weighted_tool
 
 logger = logging.getLogger(__name__)
+
+
+def _permission_error():
+    return {"error": PERMISSION_DENIED_MESSAGE, "status": "permission_denied"}
+
+
+def _visible_students(qs, security_context):
+    if security_context is None:
+        return qs
+    return scope_students(security_context, qs)
+
+
+def _get_visible_exam(exam_id, security_context):
+    try:
+        exam = Exam.objects.get(id=exam_id)
+    except Exam.DoesNotExist:
+        return None
+    if security_context is None or security_context.is_unrestricted:
+        return exam
+    if exam.id not in allowed_exam_ids(security_context):
+        raise AgentPermissionError(PERMISSION_DENIED_MESSAGE)
+    return exam
+
+
+def _secure_scope(scope, security_context):
+    if security_context is None or security_context.is_unrestricted:
+        return scope
+
+    permitted = set(security_context.allowed_class_ids or [])
+    scope_type = scope.get("type")
+    if scope_type == "grade":
+        return {
+            "type": "business_group",
+            "cohort": scope.get("cohort"),
+            "class_ids": sorted(permitted),
+        }
+
+    if scope_type == "class":
+        class_ids = list(
+            Student.objects.filter(
+                cohort=scope.get("cohort"),
+                current_class__class_name=scope.get("class_name"),
+                current_class_id__in=permitted,
+            ).values_list("current_class_id", flat=True).distinct()
+        )
+        if not class_ids:
+            raise AgentPermissionError(PERMISSION_DENIED_MESSAGE)
+        return {
+            "type": "business_group",
+            "cohort": scope.get("cohort"),
+            "class_ids": class_ids,
+        }
+
+    if scope_type == "business_group":
+        class_ids = sorted(set(scope.get("class_ids") or []) & permitted)
+        if not class_ids:
+            raise AgentPermissionError(PERMISSION_DENIED_MESSAGE)
+        secure = dict(scope)
+        secure["class_ids"] = class_ids
+        return secure
+
+    raise AgentPermissionError(PERMISSION_DENIED_MESSAGE)
 
 # ---------------------------------------------------------------------------
 # Tool implementations — thin wrappers over existing functions
 # ---------------------------------------------------------------------------
 
 
-def search_student(keyword=None, grade_level=None, class_name=None):
+def search_student(keyword=None, grade_level=None, class_name=None, security_context=None):
     """Search students by name or ID."""
     if not keyword:
         return {"error": "keyword 参数不能为空", "suggestion": "请提供学生姓名或其片段"}
 
-    students_qs = Student.objects.select_related("current_class").exclude(status='毕业').filter(
+    students_qs = _visible_students(Student.objects.select_related("current_class").exclude(status='毕业'), security_context).filter(
         Q(name__icontains=keyword) | Q(student_id__icontains=keyword)
     )
     if grade_level:
@@ -47,7 +115,6 @@ def search_student(keyword=None, grade_level=None, class_name=None):
             {
                 "id": s.id,
                 "name": s.name,
-                "student_id": s.student_id or "",
                 "grade_level": s.grade_level or "",
                 "cohort": s.cohort or "",
                 "class_name": s.current_class.class_name if s.current_class else "",
@@ -58,12 +125,14 @@ def search_student(keyword=None, grade_level=None, class_name=None):
     }
 
 
-def search_exam(keyword=None, grade_level=None, semester=None, limit=10):
+def search_exam(keyword=None, grade_level=None, semester=None, limit=10, security_context=None):
     """Search exams by name + grade."""
     if not keyword:
         return {"error": "keyword 参数不能为空", "suggestion": "请提供考试名称关键字如「期末模拟」"}
 
     exams_qs = Exam.objects.filter(name__icontains=keyword)
+    if security_context is not None and not security_context.is_unrestricted:
+        exams_qs = exams_qs.filter(id__in=allowed_exam_ids(security_context))
     if grade_level:
         # Map grade display name (e.g. "初二") to cohort values (e.g. "初中2024级")
         # by querying the database instead of hardcoding.
@@ -111,7 +180,7 @@ def search_exam(keyword=None, grade_level=None, semester=None, limit=10):
     }
 
 
-def get_scores(exam_id=None, student_ids=None, subjects=None):
+def get_scores(exam_id=None, student_ids=None, subjects=None, security_context=None):
     """Get scores for students in an exam."""
     if not exam_id:
         return {"error": "exam_id 参数不能为空", "suggestion": "请先调用 search_exam 获取考试 ID"}
@@ -119,13 +188,16 @@ def get_scores(exam_id=None, student_ids=None, subjects=None):
         return {"error": "student_ids 参数不能为空", "suggestion": "请先调用 search_student 获取学生 ID"}
 
     try:
-        exam = Exam.objects.get(id=exam_id)
-    except Exam.DoesNotExist:
+        exam = _get_visible_exam(exam_id, security_context)
+    except AgentPermissionError:
+        return _permission_error()
+    if not exam:
         return {"error": f"未找到 ID 为 {exam_id} 的考试", "suggestion": "请重新调用 search_exam 获取有效考试 ID"}
 
-    students = list(Student.objects.filter(id__in=student_ids).select_related("current_class"))
+    students_qs = _visible_students(Student.objects.filter(id__in=student_ids).select_related("current_class"), security_context)
+    students = list(students_qs)
     if not students:
-        return {"error": "未找到指定学生", "suggestion": "请重新调用 search_student 获取有效学生 ID"}
+        return _permission_error()
 
     grouped = score_tool.scores_by_student(exam, students, subjects)
     max_score = 0
@@ -138,8 +210,8 @@ def get_scores(exam_id=None, student_ids=None, subjects=None):
         subject_scores = grouped.get(s.id, {})
         total = sum(subject_scores.values()) if subject_scores else 0
         result_students.append({
-            "student_id": s.id,
             "student_name": s.name,
+            "student_internal_id": s.id,
             "total_score": score_tool.format_number(total) if subject_scores else None,
             "subjects": {k: score_tool.format_number(v) for k, v in subject_scores.items()},
         })
@@ -153,7 +225,7 @@ def get_scores(exam_id=None, student_ids=None, subjects=None):
     }
 
 
-def get_student_rank(exam_id=None, student_name=None, scope_type="grade", subject=None, group_name=None):
+def get_student_rank(exam_id=None, student_name=None, scope_type="grade", subject=None, group_name=None, security_context=None):
     """Query a single student's rank in a specific exam.
 
     Use this when the user asks about a specific named student's ranking.
@@ -165,14 +237,16 @@ def get_student_rank(exam_id=None, student_name=None, scope_type="grade", subjec
         return {"error": "student_name 参数不能为空", "suggestion": "请先调用 search_student 获取学生姓名"}
 
     try:
-        exam = Exam.objects.get(id=exam_id)
-    except Exam.DoesNotExist:
+        exam = _get_visible_exam(exam_id, security_context)
+    except AgentPermissionError:
+        return _permission_error()
+    if not exam:
         return {"error": f"未找到 ID 为 {exam_id} 的考试", "suggestion": "请重新调用 search_exam"}
 
     # Resolve student (exclude graduates)
-    student = Student.objects.exclude(status='毕业').filter(name=student_name).first()
+    student = _visible_students(Student.objects.exclude(status='毕业'), security_context).filter(name=student_name).first()
     if not student:
-        return {"error": f'未找到名为「{student_name}」的学生', "suggestion": "请先调用 search_student 确认学生姓名"}
+        return _permission_error()
 
     cohort = student.cohort or exam.grade_level
     if not cohort:
@@ -194,15 +268,19 @@ def get_student_rank(exam_id=None, student_name=None, scope_type="grade", subjec
     else:
         scope = {"type": "grade", "cohort": cohort}
 
-    result = ranking_tool.calculate_ranking(
-        exam=exam, scope=scope, subject=subject, top_n=1, student_name=student_name,
-    )
+    try:
+        scope = _secure_scope(scope, security_context)
+        result = ranking_tool.calculate_ranking(
+            exam=exam, scope=scope, subject=subject, top_n=1, student_name=student_name,
+        )
+    except AgentPermissionError:
+        return _permission_error()
     if "valid_count" in result and "total_valid" not in result:
         result["total_valid"] = result["valid_count"]
     return result
 
 
-def get_top_n(exam_id=None, scope_type="grade", subject=None, top_n=3, group_name=None, cohort=None, class_name=None):
+def get_top_n(exam_id=None, scope_type="grade", subject=None, top_n=3, group_name=None, cohort=None, class_name=None, security_context=None):
     """Query the top N students in a specified scope.
 
     Use this when the user asks for "前X名" or "排名前三" without naming a
@@ -214,8 +292,10 @@ def get_top_n(exam_id=None, scope_type="grade", subject=None, top_n=3, group_nam
         return {"error": "scope_type 参数不能为空", "suggestion": "请指定排名范围：class/grade/business_group"}
 
     try:
-        exam = Exam.objects.get(id=exam_id)
-    except Exam.DoesNotExist:
+        exam = _get_visible_exam(exam_id, security_context)
+    except AgentPermissionError:
+        return _permission_error()
+    if not exam:
         return {"error": f"未找到 ID 为 {exam_id} 的考试", "suggestion": "请重新调用 search_exam"}
 
     if not cohort:
@@ -238,26 +318,34 @@ def get_top_n(exam_id=None, scope_type="grade", subject=None, top_n=3, group_nam
     else:
         scope = {"type": "grade", "cohort": cohort}
 
-    result = ranking_tool.calculate_ranking(
-        exam=exam, scope=scope, subject=subject, top_n=top_n,
-    )
+    try:
+        scope = _secure_scope(scope, security_context)
+        result = ranking_tool.calculate_ranking(
+            exam=exam, scope=scope, subject=subject, top_n=top_n,
+        )
+    except AgentPermissionError:
+        return _permission_error()
     if "valid_count" in result and "total_valid" not in result:
         result["total_valid"] = result["valid_count"]
     return result
 
 
-def compute_trend(student_name=None, exam_ids=None, subject=None, rank_scope=None):
+def compute_trend(student_name=None, exam_ids=None, subject=None, rank_scope=None, security_context=None):
     """Compute score/rank trend across exams."""
     if not student_name:
         return {"error": "student_name 参数不能为空", "suggestion": "请提供要分析的学生姓名"}
     if not exam_ids:
         return {"error": "exam_ids 参数不能为空", "suggestion": "请先调用 search_exam 获取考试 ID 列表"}
 
-    student = Student.objects.exclude(status='毕业').filter(name=student_name).first()
+    student = _visible_students(Student.objects.exclude(status='毕业'), security_context).filter(name=student_name).first()
     if not student:
-        return {"error": f'未找到名为「{student_name}」的学生', "suggestion": "请先调用 search_student"}
+        return _permission_error()
 
-    exams = list(Exam.objects.filter(id__in=exam_ids).order_by("date"))
+    try:
+        visible_exam_ids = [exam.id for exam in (_get_visible_exam(exam_id, security_context) for exam_id in exam_ids) if exam]
+    except AgentPermissionError:
+        return _permission_error()
+    exams = list(Exam.objects.filter(id__in=visible_exam_ids).order_by("date"))
     if not exams:
         return {"error": "未找到指定的考试", "suggestion": "请重新调用 search_exam"}
 
@@ -268,6 +356,7 @@ def compute_trend(student_name=None, exam_ids=None, subject=None, rank_scope=Non
         rank_scope=rank_scope,
     )
     result["student_name"] = student_name
+    result["student_internal_id"] = student.id
 
     # Generate summary for Brief AC-4
     rows = result.get("rows", [])
@@ -295,7 +384,7 @@ def compute_trend(student_name=None, exam_ids=None, subject=None, rank_scope=Non
 def compute_weighted(
     exam_a_id=None, exam_b_id=None, weight_a=None, weight_b=None,
     scope_type="grade", cohort=None, class_name=None, group_name=None,
-    subjects=None, top_n=3,
+    subjects=None, top_n=3, security_context=None,
 ):
     """Weighted ranking across two exams."""
     if not exam_a_id or not exam_b_id:
@@ -304,9 +393,11 @@ def compute_weighted(
         return {"error": "需要两个权重值", "suggestion": "例如 weight_a=60, weight_b=40 表示 6:4 加权"}
 
     try:
-        exam_a = Exam.objects.get(id=exam_a_id)
-        exam_b = Exam.objects.get(id=exam_b_id)
-    except Exam.DoesNotExist:
+        exam_a = _get_visible_exam(exam_a_id, security_context)
+        exam_b = _get_visible_exam(exam_b_id, security_context)
+    except AgentPermissionError:
+        return _permission_error()
+    if not exam_a or not exam_b:
         return {"error": "考试 ID 无效", "suggestion": "请重新调用 search_exam"}
 
     if not cohort:
@@ -329,20 +420,24 @@ def compute_weighted(
     else:
         scope = {"type": "grade", "cohort": cohort}
 
-    result = weighted_tool.calculate_weighted(
-        exam_a=exam_a, exam_b=exam_b,
-        weights=[weight_a, weight_b],
-        scope=scope,
-        subjects=subjects,
-        top_n=top_n,
-    )
+    try:
+        scope = _secure_scope(scope, security_context)
+        result = weighted_tool.calculate_weighted(
+            exam_a=exam_a, exam_b=exam_b,
+            weights=[weight_a, weight_b],
+            scope=scope,
+            subjects=subjects,
+            top_n=top_n,
+        )
+    except AgentPermissionError:
+        return _permission_error()
     return result
 
 
 def compute_comparison(
     exam_id=None, object_scope_type=None, reference_scope_type=None,
     cohort=None, object_class_name=None, object_group_name=None,
-    reference_class_name=None, reference_group_name=None, subject=None,
+    reference_class_name=None, reference_group_name=None, subject=None, security_context=None,
 ):
     """Cross-group comparison."""
     if not exam_id:
@@ -353,8 +448,10 @@ def compute_comparison(
         return {"error": "cohort 参数不能为空", "suggestion": "请确认年级"}
 
     try:
-        exam = Exam.objects.get(id=exam_id)
-    except Exam.DoesNotExist:
+        exam = _get_visible_exam(exam_id, security_context)
+    except AgentPermissionError:
+        return _permission_error()
+    if not exam:
         return {"error": f"未找到 ID 为 {exam_id} 的考试", "suggestion": "请重新调用 search_exam"}
 
     def _build_scope(st, cn, gn):
@@ -372,9 +469,14 @@ def compute_comparison(
     if obj_scope is None or ref_scope is None:
         return {"error": "分组解析失败", "suggestion": "请检查分组名称"}
 
-    return comparison_tool.calculate_group_comparison(
-        exam=exam, object_scope=obj_scope, reference_scope=ref_scope, subject=subject,
-    )
+    try:
+        obj_scope = _secure_scope(obj_scope, security_context)
+        ref_scope = _secure_scope(ref_scope, security_context)
+        return comparison_tool.calculate_group_comparison(
+            exam=exam, object_scope=obj_scope, reference_scope=ref_scope, subject=subject,
+        )
+    except AgentPermissionError:
+        return _permission_error()
 
 
 # ---------------------------------------------------------------------------
@@ -646,7 +748,7 @@ def as_openai_schema():
     ]
 
 
-def execute(tool_name, tool_args):
+def execute(tool_name, tool_args, security_context=None):
     """Execute a tool and return its result dict.
 
     Returns {"error": "...", "suggestion": "..."} on failure so LLM can retry.
@@ -656,7 +758,10 @@ def execute(tool_name, tool_args):
         return {"error": f"未知工具: {tool_name}", "suggestion": f"可用工具: {list(TOOL_REGISTRY.keys())}"}
 
     try:
-        result = info["func"](**tool_args)
+        kwargs = dict(tool_args or {})
+        if security_context is not None:
+            kwargs["security_context"] = security_context
+        result = info["func"](**kwargs)
         if not isinstance(result, dict):
             result = {"result": result}
         return result

@@ -2,6 +2,13 @@
 
 from django.test import TestCase
 
+from school_management.users.models import CustomUser
+from school_management.students_grades.ai_agent.service import ScoreAgentService
+from school_management.students_grades.ai_agent.security.context import build_agent_security_context
+from school_management.students_grades.ai_agent.security.fallback_policy import is_simple_v1_fallback_allowed
+from school_management.students_grades.ai_agent.security.minimizer import minimize_tool_result
+from school_management.students_grades.ai_agent.security.numeric_guard import extract_numeric_facts, validate_llm_text_numbers
+from school_management.students_grades.ai_agent.security.secure_executor import SecureToolExecutor
 from school_management.students_grades.models.exam import Exam, ExamSubject
 from school_management.students_grades.models.score import Score
 from school_management.students_grades.models.student import Class, Student
@@ -18,6 +25,168 @@ from school_management.students_grades.ai_agent.tools.registry import (
     search_exam,
     search_student,
 )
+
+
+class TestV3P0Security(TestCase):
+    """V3 P0 安全整改覆盖：权限、脱敏、数字校验、受控降级。"""
+
+    @classmethod
+    def setUpTestData(cls):
+        from datetime import date
+
+        cls.cohort = "初中2024级"
+        cls.c_allowed = Class.objects.create(grade_level="初二", cohort=cls.cohort, class_name="14班")
+        cls.c_forbidden = Class.objects.create(grade_level="初二", cohort=cls.cohort, class_name="1班")
+        cls.teacher = CustomUser.objects.create_user(
+            username="v3_subject_teacher",
+            password="pass",
+            role="subject_teacher",
+        )
+        cls.teacher.teaching_classes.add(cls.c_allowed)
+        cls.admin = CustomUser.objects.create_user(
+            username="v3_admin",
+            password="pass",
+            role="admin",
+        )
+        cls.s_allowed = Student.objects.create(
+            student_id="S001",
+            name="黄晨田",
+            grade_level="初二",
+            cohort=cls.cohort,
+            current_class=cls.c_allowed,
+            status="在读",
+        )
+        cls.s_forbidden = Student.objects.create(
+            student_id="S002",
+            name="刘畅",
+            grade_level="初二",
+            cohort=cls.cohort,
+            current_class=cls.c_forbidden,
+            status="在读",
+        )
+        cls.exam = Exam.objects.create(name="期末考", grade_level=cls.cohort, date=date(2025, 6, 15))
+        ExamSubject.objects.create(exam=cls.exam, subject_code="数学", subject_name="数学", max_score=120)
+        Score.objects.create(student=cls.s_allowed, exam=cls.exam, subject="数学", score_value=92)
+        Score.objects.create(student=cls.s_forbidden, exam=cls.exam, subject="数学", score_value=100)
+
+    def test_subject_teacher_search_student_scoped_to_teaching_classes(self):
+        context = build_agent_security_context(self.teacher)
+        result = search_student(keyword="刘畅", security_context=context)
+        self.assertFalse(result["found"])
+
+        allowed = search_student(keyword="黄晨田", security_context=context)
+        self.assertTrue(allowed["found"])
+        self.assertEqual(allowed["students"][0]["class_name"], "14班")
+        self.assertNotIn("student_id", allowed["students"][0])
+
+    def test_secure_executor_minimizes_observation_and_removes_student_number(self):
+        context = build_agent_security_context(self.admin)
+        executor = SecureToolExecutor(TOOL_REGISTRY)
+
+        wrapped = executor.execute(
+            "search_student",
+            {"keyword": "黄晨田"},
+            context,
+        )
+
+        self.assertIn("raw_result", wrapped)
+        observation = wrapped["llm_observation"]
+        self.assertEqual(observation["students"][0]["name"], "黄*田")
+        self.assertNotIn("student_id", observation["students"][0])
+
+    def test_subject_teacher_cannot_query_forbidden_class_top_n(self):
+        context = build_agent_security_context(self.teacher)
+        result = get_top_n(
+            exam_id=self.exam.id,
+            scope_type="class",
+            class_name="1班",
+            cohort=self.cohort,
+            security_context=context,
+        )
+
+        self.assertEqual(result["status"], "permission_denied")
+        self.assertIn("有权限查看", result["error"])
+
+    def test_v1_fallback_path_also_applies_subject_teacher_scope(self):
+        service = ScoreAgentService()
+        response = service.handle(
+            message="初二1班期末前三",
+            context={"cohort": self.cohort, "exam_ids": [self.exam.id]},
+            user=self.teacher,
+        )
+
+        self.assertEqual(response["status"], "permission_denied")
+        self.assertFalse(response["fallback"]["available"])
+
+    def test_minimizer_masks_names_and_drops_sensitive_fields(self):
+        minimized = minimize_tool_result(
+            "get_scores",
+            {
+                "students": [
+                    {"student_id": "S001", "student_name": "黄晨田", "score": 92, "phone": "13800000000"}
+                ]
+            },
+        )
+
+        self.assertEqual(minimized["students"][0]["student_name"], "黄*田")
+        self.assertNotIn("student_id", minimized["students"][0])
+        self.assertNotIn("phone", minimized["students"][0])
+
+    def test_minimizer_drops_request_body_secrets_tokens_and_auth_headers(self):
+        minimized = minimize_tool_result(
+            "get_scores",
+            {
+                "raw_request_body": {"message": "原始请求"},
+                "requestBody": {"message": "驼峰原始请求"},
+                "secret_key": "sk-test",
+                "Authorization": "Bearer token",
+                "token": "plain-token",
+                "apiKey": "api-key",
+                "nested": {
+                    "RefreshToken": "refresh-token",
+                    "safe_value": "保留",
+                },
+            },
+        )
+
+        serialized = str(minimized)
+        self.assertNotIn("raw_request_body", minimized)
+        self.assertNotIn("requestBody", minimized)
+        self.assertNotIn("secret_key", minimized)
+        self.assertNotIn("Authorization", minimized)
+        self.assertNotIn("token", minimized)
+        self.assertNotIn("apiKey", minimized)
+        self.assertNotIn("RefreshToken", minimized["nested"])
+        self.assertIn("safe_value", minimized["nested"])
+        self.assertNotIn("sk-test", serialized)
+        self.assertNotIn("Bearer token", serialized)
+
+    def test_numeric_guard_rejects_untraced_key_numbers(self):
+        facts = [{"path": "rows[0].score", "value": 92}]
+        self.assertTrue(validate_llm_text_numbers("该生本次得分 92。", facts))
+        self.assertFalse(validate_llm_text_numbers("该生本次得分 93。", facts))
+
+    def test_numeric_guard_extracts_percentage_string_facts(self):
+        facts = extract_numeric_facts({"rows": [{"ratio": "103.9%", "score": "92"}]})
+
+        self.assertIn({"path": "rows[0].ratio", "value": 103.9, "raw_value": "103.9%"}, facts)
+        self.assertIn({"path": "rows[0].score", "value": 92, "raw_value": "92"}, facts)
+        self.assertTrue(validate_llm_text_numbers("占比为 103.9%，得分 92。", facts))
+
+    def test_fallback_policy_denies_complex_queries(self):
+        context = build_agent_security_context(self.admin)
+        self.assertFalse(
+            is_simple_v1_fallback_allowed(
+                "黄晨田最近5次考试排名变化如何？",
+                security_context=context,
+            )
+        )
+        self.assertFalse(
+            is_simple_v1_fallback_allowed(
+                "初二格致班期中期末 6:4 加权前三",
+                security_context=context,
+            )
+        )
 
 
 class TestToolRegistry(TestCase):
